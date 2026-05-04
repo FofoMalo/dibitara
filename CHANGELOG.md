@@ -5,7 +5,20 @@ Versioning : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [Unreleased]
+## [Unreleased] — Sprint 1 : Auth & Navigation
+
+### Ajouté
+- `BiometricAuthManager` : authentification biométrique via `BiometricPrompt` (empreinte, face, PIN)
+- `LockScreen` : écran de verrouillage affiché au lancement, déverrouillage automatique
+- `AuthViewModel` + `AuthUiState` : gestion de l'état d'authentification
+- `BottomNavBar` : barre de navigation inférieure (Dashboard, Budget, Dépenses, Investissements)
+- Navigation complète avec gestion de la pile (`popUpTo`, `launchSingleTop`)
+- `DashboardScreen` : affichage du budget du mois avec `BudgetCard` et barre de progression
+- Écrans placeholder : `BudgetScreen`, `ExpensesScreen`, `InvestmentsScreen`
+- `SecurityModule` Hilt pour `BiometricAuthManager`
+- Tests unitaires `AuthViewModelTest` (4 cas : idle, succès, annulation, erreur)
+
+## [Init]
 
 ### Ajouté
 - Initialisation du projet Android (Clean Architecture, MVVM, Hilt, Room, Compose)

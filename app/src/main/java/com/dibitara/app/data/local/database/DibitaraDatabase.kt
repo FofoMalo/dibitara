@@ -2,7 +2,9 @@ package com.dibitara.app.data.local.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.dibitara.app.data.local.dao.BudgetDao
 import com.dibitara.app.data.local.dao.TransactionDao
+import com.dibitara.app.data.local.entity.BudgetEntity
 import com.dibitara.app.data.local.entity.TransactionEntity
 
 /**
@@ -14,10 +16,11 @@ import com.dibitara.app.data.local.entity.TransactionEntity
  * Voir : https://developer.android.com/training/data-storage/room/migrating-db-versions
  */
 @Database(
-    entities = [TransactionEntity::class],
+    entities = [TransactionEntity::class, BudgetEntity::class],
     version = 1,
-    exportSchema = true  // Génère un JSON de schéma — committer ce fichier pour tracer les migrations
+    exportSchema = false
 )
 abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
+    abstract fun budgetDao(): BudgetDao
 }

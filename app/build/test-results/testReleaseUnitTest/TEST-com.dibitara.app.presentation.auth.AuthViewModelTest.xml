@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.dibitara.app.presentation.auth.AuthViewModelTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-05-04T21:38:13.818Z" hostname="gohali" time="2.125">
+  <properties/>
+  <testcase name="état initial est Idle()" classname="com.dibitara.app.presentation.auth.AuthViewModelTest" time="0.097"/>
+  <testcase name="authentification annulée → retour à Idle()" classname="com.dibitara.app.presentation.auth.AuthViewModelTest" time="1.99"/>
+  <testcase name="erreur biométrique → état Error avec message()" classname="com.dibitara.app.presentation.auth.AuthViewModelTest" time="0.019"/>
+  <testcase name="authentification réussie → état Authenticated()" classname="com.dibitara.app.presentation.auth.AuthViewModelTest" time="0.014"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
