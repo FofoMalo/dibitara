@@ -463,15 +463,15 @@ public final class DaggerDibitaraApp_HiltComponents_SingletonC {
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String com_dibitara_app_presentation_auth_AuthViewModel = "com.dibitara.app.presentation.auth.AuthViewModel";
-
       static String com_dibitara_app_presentation_dashboard_DashboardViewModel = "com.dibitara.app.presentation.dashboard.DashboardViewModel";
 
-      @KeepFieldType
-      AuthViewModel com_dibitara_app_presentation_auth_AuthViewModel2;
+      static String com_dibitara_app_presentation_auth_AuthViewModel = "com.dibitara.app.presentation.auth.AuthViewModel";
 
       @KeepFieldType
       DashboardViewModel com_dibitara_app_presentation_dashboard_DashboardViewModel2;
+
+      @KeepFieldType
+      AuthViewModel com_dibitara_app_presentation_auth_AuthViewModel2;
     }
 
     private static final class SwitchingProvider<T> implements Provider<T> {
