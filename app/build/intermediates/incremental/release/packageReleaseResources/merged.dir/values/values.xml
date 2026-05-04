@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">Dibitara</string>
-    <string name="budget">Budget</string>
-    <string name="dashboard">Tableau de bord</string>
-    <string name="expenses">Dépenses</string>
-    <string name="investments">Investissements</string>
-    <style name="Theme.Dibitara" parent="Theme.AppCompat.Light.NoActionBar"/>
-</resources>

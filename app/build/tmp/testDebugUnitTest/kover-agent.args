@@ -1,4 +1,0 @@
-report.file=/home/florent/Documents/Claude_directory_2026/app/build/kover/bin-reports/testDebugUnitTest.ic
-exclude=android.*
-exclude=com.android.*
-exclude=jdk.internal.*
