@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dibitara</string>
+    <string name="dashboard">Tableau de bord</string>
+    <string name="budget">Budget</string>
+    <string name="expenses">Dépenses</string>
+    <string name="investments">Investissements</string>
+</resources>

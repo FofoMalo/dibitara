@@ -1,0 +1,128 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.kover)
+}
+
+android {
+    namespace = "com.dibitara.app"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.dibitara.app"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            isDebuggable = true
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        compose = true
+    }
+
+    // Rapports de couverture Kover
+    kover {
+        reports {
+            filters {
+                excludes {
+                    // Exclure les classes générées automatiquement
+                    classes("*_Factory*", "*_HiltModules*", "*_Impl*", "Hilt_*")
+                }
+            }
+            verify {
+                // Le CI échoue si la couverture sur domain/ tombe sous 80%
+                rule { minBound(80) }
+            }
+        }
+    }
+
+    // Répertoires de tests
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+}
+
+dependencies {
+    // Core Android
+    implementation(libs.core.ktx)
+    implementation(libs.lifecycle.runtime.ktx)
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.activity.compose)
+
+    // Compose
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+
+    // Navigation
+    implementation(libs.navigation.compose)
+
+    // Hilt — injection de dépendances
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
+
+    // Room — base de données locale chiffrée
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+
+    // DataStore — préférences persistantes
+    implementation(libs.datastore.preferences)
+
+    // Coroutines
+    implementation(libs.coroutines.android)
+
+    // Sécurité
+    implementation(libs.biometric)
+    implementation(libs.security.crypto)
+
+    // Graphiques
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
+
+    // Tests unitaires
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testImplementation(libs.mockk)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.room.testing)
+
+    // Tests instrumentés (UI)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.espresso.core)
+    debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
+}
