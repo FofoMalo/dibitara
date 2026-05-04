@@ -5,7 +5,17 @@ Versioning : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [Unreleased] — Sprint 1 : Auth & Navigation
+## [Unreleased] — Sprint 2 : Budget & Dépenses
+
+### Ajouté
+- `SetBudgetUseCase` : création/mise à jour du budget mensuel avec validation
+- `BudgetViewModel` + `BudgetUiState` : gestion du budget mensuel
+- `BudgetScreen` : affichage du budget, barre de progression, répartition par catégorie, dialogue de saisie
+- `ExpensesViewModel` + `ExpensesUiState` + `ExpensesEvent` : gestion des dépenses
+- `ExpensesScreen` : liste des dépenses du mois, bottom sheet d'ajout rapide, feedback snackbar
+- Tests unitaires : `BudgetViewModelTest` (3 cas), `ExpensesViewModelTest` (4 cas), `SetBudgetUseCaseTest` (2 cas)
+
+## [Sprint 1] — Auth & Navigation
 
 ### Ajouté
 - `BiometricAuthManager` : authentification biométrique via `BiometricPrompt` (empreinte, face, PIN)

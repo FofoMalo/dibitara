@@ -1,0 +1,74 @@
+package com.dibitara.app.presentation.expenses
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.dibitara.app.domain.model.Category
+import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.usecase.AddTransactionUseCase
+import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import javax.inject.Inject
+
+@HiltViewModel
+class ExpensesViewModel @Inject constructor(
+    private val getMonthlyTransactions: GetMonthlyTransactionsUseCase,
+    private val addTransaction: AddTransactionUseCase
+) : ViewModel() {
+
+    private val now = LocalDate.now()
+
+    val uiState: StateFlow<ExpensesUiState> = getMonthlyTransactions(now.monthValue, now.year)
+        .map { transactions ->
+            ExpensesUiState.Success(
+                // On n'affiche que les dépenses (pas les investissements ni revenus)
+                expenses = transactions.filter { it.type == TransactionType.EXPENSE }
+                    .sortedByDescending { it.date }
+            ) as ExpensesUiState
+        }
+        .catch { emit(ExpensesUiState.Error(it.message ?: "Erreur inconnue")) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ExpensesUiState.Loading
+        )
+
+    // Événement one-shot pour notifier la UI d'un succès ou d'une erreur d'ajout
+    private val _event = MutableSharedFlow<ExpensesEvent>()
+    val event: SharedFlow<ExpensesEvent> = _event.asSharedFlow()
+
+    fun addExpense(amountStr: String, category: Category, currency: Currency, note: String) {
+        val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+            viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
+            return
+        }
+        viewModelScope.launch {
+            addTransaction(
+                Transaction(
+                    amountCents = cents,
+                    currency = currency,
+                    category = category,
+                    type = TransactionType.EXPENSE,
+                    date = now,
+                    note = note
+                )
+            ).onSuccess { _event.emit(ExpensesEvent.Added) }
+             .onFailure { _event.emit(ExpensesEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+}
+
+sealed class ExpensesUiState {
+    data object Loading : ExpensesUiState()
+    data class Success(val expenses: List<Transaction>) : ExpensesUiState()
+    data class Error(val message: String) : ExpensesUiState()
+}
+
+sealed class ExpensesEvent {
+    data object Added : ExpensesEvent()
+    data class Error(val message: String) : ExpensesEvent()
+}
