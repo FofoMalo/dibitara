@@ -30,7 +30,7 @@ class DashboardViewModel @Inject constructor(
         getMonthlyBudget(now.monthValue, now.year),
         getMonthlyTransactions(now.monthValue, now.year)
     ) { budget, transactions ->
-        DashboardUiState.Success(budget = budget, transactions = transactions)
+        DashboardUiState.Success(budget = budget, transactions = transactions) as DashboardUiState
     }
         .catch { emit(DashboardUiState.Error(it.message ?: "Erreur inconnue")) }
         .stateIn(

@@ -3,8 +3,11 @@ package com.dibitara.app.di
 import android.content.Context
 import androidx.room.Room
 import com.dibitara.app.data.local.database.DibitaraDatabase
+import com.dibitara.app.data.local.dao.BudgetDao
 import com.dibitara.app.data.local.dao.TransactionDao
+import com.dibitara.app.data.repository.BudgetRepositoryImpl
 import com.dibitara.app.data.repository.TransactionRepositoryImpl
+import com.dibitara.app.domain.repository.BudgetRepository
 import com.dibitara.app.domain.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
@@ -29,11 +32,14 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): DibitaraDatabase =
         Room.databaseBuilder(context, DibitaraDatabase::class.java, "dibitara.db")
-            .fallbackToDestructiveMigrationOnDowngrade(false)
+            .fallbackToDestructiveMigrationOnDowngrade()
             .build()
 
     @Provides
     fun provideTransactionDao(db: DibitaraDatabase): TransactionDao = db.transactionDao()
+
+    @Provides
+    fun provideBudgetDao(db: DibitaraDatabase): BudgetDao = db.budgetDao()
 }
 
 @Module
@@ -44,4 +50,9 @@ abstract class RepositoryModule {
     abstract fun bindTransactionRepository(
         impl: TransactionRepositoryImpl
     ): TransactionRepository
+
+    @Binds
+    abstract fun bindBudgetRepository(
+        impl: BudgetRepositoryImpl
+    ): BudgetRepository
 }

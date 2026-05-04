@@ -4,7 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,7 +23,7 @@ fun BottomNavBar(navController: NavController) {
         NavItem(Screen.Dashboard,   "Accueil",         Icons.Filled.Home),
         NavItem(Screen.Budget,      "Budget",          Icons.Filled.AccountBalance),
         NavItem(Screen.Expenses,    "Dépenses",        Icons.Filled.Receipt),
-        NavItem(Screen.Investments, "Investissements", Icons.Filled.TrendingUp),
+        NavItem(Screen.Investments, "Investissements", Icons.AutoMirrored.Filled.TrendingUp),
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
