@@ -21,11 +21,11 @@ data class SavingsAccountEntity(
 ) {
     fun toDomain() = SavingsAccount(
         id = id,
-        type = SavingsType.valueOf(type),
+        type = safeValueOf(type, SavingsType.LIVRET_A),
         label = label,
         currentBalanceCents = currentBalanceCents,
         monthlyContributionCents = monthlyContributionCents,
-        currency = Currency.valueOf(currency),
+        currency = safeValueOf(currency, Currency.EUR),
         childId = childId,
         updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay)
     )

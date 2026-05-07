@@ -19,7 +19,7 @@ data class RealEstateAssetEntity(
         id = id,
         label = label,
         currentValueCents = currentValueCents,
-        currency = Currency.valueOf(currency),
+        currency = safeValueOf(currency, Currency.EUR),
         updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay)
     )
 

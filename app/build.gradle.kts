@@ -65,6 +65,11 @@ android {
         }
     }
 
+    // Emplacement des schémas Room exportés — nécessaire pour les migrations vérifiables
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+
     // Répertoires de tests
     testOptions {
         unitTests.isReturnDefaultValues = true

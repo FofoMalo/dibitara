@@ -23,7 +23,7 @@ data class ScpiInvestmentEntity(
         sharesCount = sharesCount,
         shareValueCents = shareValueCents,
         monthlyContributionCents = monthlyContributionCents,
-        currency = Currency.valueOf(currency),
+        currency = safeValueOf(currency, Currency.EUR),
         updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay)
     )
 

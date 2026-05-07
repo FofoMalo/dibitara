@@ -19,6 +19,7 @@ import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
+import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -591,5 +592,3 @@ private fun AddAirbnbSheet(
     }
 }
 
-private fun Long.toCurrencyDisplay(currency: Currency): String =
-    "%.2f %s".format(this / 100.0, currency.symbol)

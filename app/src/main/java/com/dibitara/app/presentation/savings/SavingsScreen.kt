@@ -19,6 +19,7 @@ import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
+import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @Composable
 fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
@@ -399,5 +400,3 @@ private fun AddChildDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     )
 }
 
-private fun Long.toCurrencyDisplay(currency: Currency): String =
-    "%.2f %s".format(this / 100.0, currency.symbol)

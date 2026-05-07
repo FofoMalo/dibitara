@@ -28,9 +28,9 @@ data class TransactionEntity(
     fun toDomain() = Transaction(
         id = id,
         amountCents = amountCents,
-        currency = Currency.valueOf(currency),
-        category = Category.valueOf(category),
-        type = TransactionType.valueOf(type),
+        currency = safeValueOf(currency, Currency.EUR),
+        category = safeValueOf(category, Category.AUTRE),
+        type = safeValueOf(type, TransactionType.EXPENSE),
         date = LocalDate.ofEpochDay(dateEpochDay),
         note = note,
         childId = childId

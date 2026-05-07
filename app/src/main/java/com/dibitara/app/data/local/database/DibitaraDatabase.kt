@@ -26,7 +26,7 @@ import com.dibitara.app.data.local.entity.*
         AirbnbRentalEntity::class
     ],
     version = 2,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao

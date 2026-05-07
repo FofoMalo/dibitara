@@ -16,3 +16,6 @@ keystore.properties
 
 # Fichiers de logs
 *.log
+
+# Schémas Room — doit être versionné pour valider les migrations
+!app/schemas/

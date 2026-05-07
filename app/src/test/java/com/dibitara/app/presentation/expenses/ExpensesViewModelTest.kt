@@ -5,7 +5,9 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.AddTransactionUseCase
+import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
+import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -27,13 +29,15 @@ class ExpensesViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val getMonthlyTransactions: GetMonthlyTransactionsUseCase = mockk()
     private val addTransaction: AddTransactionUseCase = mockk()
+    private val updateTransaction: UpdateTransactionUseCase = mockk()
+    private val deleteTransaction: DeleteTransactionUseCase = mockk()
     private lateinit var viewModel: ExpensesViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         every { getMonthlyTransactions(any(), any()) } returns flowOf(emptyList())
-        viewModel = ExpensesViewModel(getMonthlyTransactions, addTransaction)
+        viewModel = ExpensesViewModel(getMonthlyTransactions, addTransaction, updateTransaction, deleteTransaction)
     }
 
     @AfterEach
@@ -55,7 +59,7 @@ class ExpensesViewModelTest {
             buildTransaction(type = TransactionType.INVESTMENT)
         )
         every { getMonthlyTransactions(any(), any()) } returns flowOf(transactions)
-        viewModel = ExpensesViewModel(getMonthlyTransactions, addTransaction)
+        viewModel = ExpensesViewModel(getMonthlyTransactions, addTransaction, updateTransaction, deleteTransaction)
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is ExpensesUiState.Success } as ExpensesUiState.Success
@@ -65,7 +69,7 @@ class ExpensesViewModelTest {
     }
 
     @Test
-    fun `addExpense avec montant valide émet événement Added`() = runTest {
+    fun `addExpense avec montant valide émet événement Saved`() = runTest {
         coEvery { addTransaction(any()) } returns Result.success(1L)
         val events = mutableListOf<ExpensesEvent>()
         val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
@@ -73,7 +77,7 @@ class ExpensesViewModelTest {
         viewModel.addExpense("25.50", Category.ALIMENTATION, Currency.EUR, "Courses")
         testScheduler.advanceUntilIdle()
 
-        assertTrue(events.any { it is ExpensesEvent.Added })
+        assertTrue(events.any { it is ExpensesEvent.Saved })
         job.cancel()
     }
 

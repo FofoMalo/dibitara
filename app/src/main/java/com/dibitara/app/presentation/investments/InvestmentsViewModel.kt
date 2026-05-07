@@ -22,12 +22,10 @@ class InvestmentsViewModel @Inject constructor(
     private val deleteInvestment: DeleteInvestmentUseCase
 ) : ViewModel() {
 
-    private val currentYear = LocalDate.now().year
-
     val uiState: StateFlow<InvestmentsUiState> = combine(
         getInvestments.realEstate(),
         getInvestments.scpi(),
-        getInvestments.airbnbByYear(currentYear)
+        getInvestments.airbnbByYear(LocalDate.now().year)
     ) { realEstate, scpi, airbnb ->
         InvestmentsUiState.Success(
             realEstate = realEstate,

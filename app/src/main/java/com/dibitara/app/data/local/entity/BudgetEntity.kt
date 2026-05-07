@@ -21,7 +21,7 @@ data class BudgetEntity(
         year = year,
         allocatedCents = allocatedCents,
         spentCents = spentCents,
-        currency = Currency.valueOf(currency)
+        currency = safeValueOf(currency, Currency.EUR)
     )
 
     companion object {

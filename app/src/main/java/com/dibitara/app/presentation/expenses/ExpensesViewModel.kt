@@ -9,6 +9,7 @@ import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.AddTransactionUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
+import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -19,6 +20,7 @@ import javax.inject.Inject
 class ExpensesViewModel @Inject constructor(
     private val getMonthlyTransactions: GetMonthlyTransactionsUseCase,
     private val addTransaction: AddTransactionUseCase,
+    private val updateTransaction: UpdateTransactionUseCase,
     private val deleteTransaction: DeleteTransactionUseCase
 ) : ViewModel() {
 
@@ -84,9 +86,7 @@ class ExpensesViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            // Supprimer l'ancienne, insérer la nouvelle avec le même id
-            deleteTransaction(original)
-            addTransaction(
+            updateTransaction(
                 original.copy(
                     amountCents = cents,
                     currency = currency,

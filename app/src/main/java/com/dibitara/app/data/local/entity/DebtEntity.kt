@@ -23,8 +23,8 @@ data class DebtEntity(
         label = label,
         totalCents = totalCents,
         monthlyPaymentCents = monthlyPaymentCents,
-        currency = Currency.valueOf(currency),
-        type = DebtType.valueOf(type),
+        currency = safeValueOf(currency, Currency.EUR),
+        type = safeValueOf(type, DebtType.CREDIT_IMMO),
         updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay)
     )
 

@@ -20,7 +20,7 @@ data class AirbnbRentalEntity(
         propertyLabel = propertyLabel,
         amountCents = amountCents,
         date = LocalDate.ofEpochDay(dateEpochDay),
-        currency = Currency.valueOf(currency)
+        currency = safeValueOf(currency, Currency.EUR)
     )
 
     companion object {

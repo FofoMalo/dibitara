@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.PatrimonyOverview
+import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @Composable
 fun DashboardScreen(
@@ -77,7 +78,7 @@ private fun DashboardContent(overview: PatrimonyOverview, onNavigateToDebts: () 
             )
             MetricCard(
                 modifier = Modifier.weight(1f),
-                title = "Location (année)",
+                title = "Revenus Airbnb (année)",
                 valueCents = overview.airbnbAnnualRevenueCents,
                 currency = overview.currency,
                 color = MaterialTheme.colorScheme.tertiary
@@ -175,5 +176,3 @@ private fun DebtsCard(totalCents: Long, currency: Currency, onClick: () -> Unit)
     }
 }
 
-private fun Long.toCurrencyDisplay(currency: Currency): String =
-    "%.2f %s".format(this / 100.0, currency.symbol)

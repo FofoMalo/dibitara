@@ -19,6 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
+import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -320,5 +321,3 @@ private fun AddDebtSheet(
     }
 }
 
-private fun Long.toCurrencyDisplay(currency: Currency): String =
-    "%.2f %s".format(this / 100.0, currency.symbol)
