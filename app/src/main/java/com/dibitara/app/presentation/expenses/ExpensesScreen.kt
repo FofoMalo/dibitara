@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,18 +23,17 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
-    var showBottomSheet by remember { mutableStateOf(false) }
+    var showAddSheet by remember { mutableStateOf(false) }
+    var editingExpense by remember { mutableStateOf<Transaction?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Observe les événements one-shot (ajout réussi ou erreur)
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
             when (event) {
-                is ExpensesEvent.Added -> {
-                    showBottomSheet = false
-                    snackbarHostState.showSnackbar("Dépense ajoutée")
-                }
-                is ExpensesEvent.Error -> snackbarHostState.showSnackbar(event.message)
+                is ExpensesEvent.Saved   -> { showAddSheet = false; editingExpense = null
+                    snackbarHostState.showSnackbar("Dépense enregistrée") }
+                is ExpensesEvent.Deleted -> snackbarHostState.showSnackbar("Dépense supprimée")
+                is ExpensesEvent.Error   -> snackbarHostState.showSnackbar(event.message)
             }
         }
     }
@@ -40,39 +41,62 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showBottomSheet = true }) {
+            FloatingActionButton(onClick = { showAddSheet = true }) {
                 Icon(Icons.Filled.Add, contentDescription = "Ajouter une dépense")
             }
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val state = uiState) {
-                is ExpensesUiState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                is ExpensesUiState.Error   -> Text(state.message, color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.align(Alignment.Center))
+                is ExpensesUiState.Loading ->
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                is ExpensesUiState.Error ->
+                    Text(state.message, color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.Center))
                 is ExpensesUiState.Success -> {
                     if (state.expenses.isEmpty()) {
                         EmptyExpenses(modifier = Modifier.align(Alignment.Center))
                     } else {
-                        ExpensesList(expenses = state.expenses)
+                        ExpensesList(
+                            expenses = state.expenses,
+                            onEdit = { editingExpense = it },
+                            onDelete = viewModel::deleteExpense
+                        )
                     }
                 }
             }
         }
     }
 
-    if (showBottomSheet) {
-        AddExpenseSheet(
-            onAdd = { amount, category, currency, note ->
+    // Feuille d'ajout
+    if (showAddSheet) {
+        ExpenseSheet(
+            expense = null,
+            onSave = { amount, category, currency, note ->
                 viewModel.addExpense(amount, category, currency, note)
             },
-            onDismiss = { showBottomSheet = false }
+            onDismiss = { showAddSheet = false }
+        )
+    }
+
+    // Feuille d'édition
+    editingExpense?.let { expense ->
+        ExpenseSheet(
+            expense = expense,
+            onSave = { amount, category, currency, note ->
+                viewModel.updateExpense(expense, amount, category, currency, note)
+            },
+            onDismiss = { editingExpense = null }
         )
     }
 }
 
 @Composable
-private fun ExpensesList(expenses: List<Transaction>) {
+private fun ExpensesList(
+    expenses: List<Transaction>,
+    onEdit: (Transaction) -> Unit,
+    onDelete: (Transaction) -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -83,22 +107,25 @@ private fun ExpensesList(expenses: List<Transaction>) {
                 modifier = Modifier.padding(bottom = 8.dp))
         }
         items(expenses, key = { it.id }) { expense ->
-            ExpenseItem(expense = expense)
+            ExpenseItem(expense = expense, onEdit = { onEdit(expense) }, onDelete = { onDelete(expense) })
         }
     }
 }
 
 @Composable
-private fun ExpenseItem(expense: Transaction) {
+private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -> Unit) {
     val formatter = DateTimeFormatter.ofPattern("dd/MM")
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     Card(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(),
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-            Column {
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(expense.category.label(), style = MaterialTheme.typography.bodyLarge)
-                Text(expense.date.format(formatter),
-                    style = MaterialTheme.typography.bodySmall,
+                Text(expense.date.format(formatter), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (expense.note.isNotBlank()) {
                     Text(expense.note, style = MaterialTheme.typography.bodySmall,
@@ -106,11 +133,30 @@ private fun ExpenseItem(expense: Transaction) {
                 }
             }
             Text(
-                text = "- ${"%.2f".format(expense.amountCents / 100.0)} ${expense.currency.symbol}",
+                "- ${"%.2f".format(expense.amountCents / 100.0)} ${expense.currency.symbol}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.error
             )
+            Spacer(Modifier.width(8.dp))
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Filled.Edit, contentDescription = "Modifier", tint = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = { showDeleteConfirm = true }) {
+                Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+            }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Supprimer la dépense ?") },
+            text = { Text("Cette action est irréversible.") },
+            confirmButton = {
+                TextButton(onClick = { onDelete(); showDeleteConfirm = false }) { Text("Supprimer") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Annuler") } }
+        )
     }
 }
 
@@ -126,14 +172,15 @@ private fun EmptyExpenses(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddExpenseSheet(
-    onAdd: (String, Category, Currency, String) -> Unit,
+private fun ExpenseSheet(
+    expense: Transaction?,
+    onSave: (String, Category, Currency, String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var amount by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf(Category.ALIMENTATION) }
-    var selectedCurrency by remember { mutableStateOf(Currency.EUR) }
+    var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0) } ?: "") }
+    var note by remember { mutableStateOf(expense?.note ?: "") }
+    var selectedCategory by remember { mutableStateOf(expense?.category ?: Category.ALIMENTATION) }
+    var selectedCurrency by remember { mutableStateOf(expense?.currency ?: Currency.EUR) }
     var categoryExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
 
@@ -142,24 +189,22 @@ private fun AddExpenseSheet(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Nouvelle dépense", style = MaterialTheme.typography.titleLarge)
-
-            OutlinedTextField(
-                value = amount,
-                onValueChange = { amount = it },
-                label = { Text("Montant") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            Text(
+                if (expense == null) "Nouvelle dépense" else "Modifier la dépense",
+                style = MaterialTheme.typography.titleLarge
             )
 
-            // Sélecteur de catégorie
+            OutlinedTextField(
+                value = amount, onValueChange = { amount = it },
+                label = { Text("Montant") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+
             ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = it }) {
                 OutlinedTextField(
-                    value = selectedCategory.label(),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Catégorie") },
+                    value = selectedCategory.label(), onValueChange = {},
+                    readOnly = true, label = { Text("Catégorie") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(categoryExpanded) },
                     modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                 )
@@ -173,39 +218,34 @@ private fun AddExpenseSheet(
                 }
             }
 
-            // Sélecteur de devise
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
                 OutlinedTextField(
-                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Devise") },
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
+                    readOnly = true, label = { Text("Devise") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
                     modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                 )
                 ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
-                    Currency.entries.forEach { currency ->
+                    Currency.entries.forEach { c ->
                         DropdownMenuItem(
-                            text = { Text("${currency.name} (${currency.symbol})") },
-                            onClick = { selectedCurrency = currency; currencyExpanded = false }
+                            text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false }
                         )
                     }
                 }
             }
 
             OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
+                value = note, onValueChange = { note = it },
                 label = { Text("Note (optionnel)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
             Button(
-                onClick = { onAdd(amount, selectedCategory, selectedCurrency, note) },
-                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0,
+                onClick = { onSave(amount, selectedCategory, selectedCurrency, note) },
+                enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("Ajouter la dépense") }
+            ) { Text(if (expense == null) "Ajouter la dépense" else "Enregistrer les modifications") }
         }
     }
 }
@@ -218,5 +258,6 @@ private fun Category.label(): String = when (this) {
     Category.LOISIRS        -> "Loisirs"
     Category.INVESTISSEMENT -> "Investissement"
     Category.EPARGNE        -> "Épargne"
+    Category.ENFANT         -> "Enfant"
     Category.AUTRE          -> "Autre"
 }

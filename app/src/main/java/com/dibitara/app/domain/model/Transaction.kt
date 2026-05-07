@@ -16,7 +16,8 @@ data class Transaction(
     val category: Category,
     val type: TransactionType,
     val date: LocalDate,
-    val note: String = ""
+    val note: String = "",
+    val childId: Long? = null  // Identifiant de l'enfant associé (null si pas d'enfant)
 )
 
 enum class TransactionType { EXPENSE, INCOME, INVESTMENT }
@@ -30,5 +31,5 @@ enum class Currency(val symbol: String, val isoCode: String) {
 
 enum class Category {
     ALIMENTATION, LOGEMENT, TRANSPORT, SANTE,
-    LOISIRS, INVESTISSEMENT, EPARGNE, AUTRE
+    LOISIRS, INVESTISSEMENT, EPARGNE, ENFANT, AUTRE
 }

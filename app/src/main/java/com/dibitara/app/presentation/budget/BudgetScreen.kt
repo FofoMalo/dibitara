@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,9 +37,18 @@ fun BudgetScreen(viewModel: BudgetViewModel = hiltViewModel()) {
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val state = uiState) {
-                is BudgetUiState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                is BudgetUiState.Error   -> Text(state.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.Center))
-                is BudgetUiState.Success -> BudgetContent(state = state, onEditBudget = { showDialog = true })
+                is BudgetUiState.Loading ->
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                is BudgetUiState.Error ->
+                    Text(state.message, color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.Center))
+                is BudgetUiState.Success ->
+                    BudgetContent(
+                        state = state,
+                        onPreviousMonth = viewModel::previousMonth,
+                        onNextMonth = viewModel::nextMonth,
+                        onEditBudget = { showDialog = true }
+                    )
             }
         }
     }
@@ -55,7 +66,12 @@ fun BudgetScreen(viewModel: BudgetViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun BudgetContent(state: BudgetUiState.Success, onEditBudget: () -> Unit) {
+private fun BudgetContent(
+    state: BudgetUiState.Success,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onEditBudget: () -> Unit
+) {
     val monthName = Month.of(state.month).getDisplayName(TextStyle.FULL, Locale.FRENCH)
         .replaceFirstChar { it.uppercase() }
 
@@ -65,7 +81,20 @@ private fun BudgetContent(state: BudgetUiState.Success, onEditBudget: () -> Unit
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item {
-            Text("$monthName ${state.year}", style = MaterialTheme.typography.headlineMedium)
+            // Navigateur de mois
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onPreviousMonth) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Mois précédent")
+                }
+                Text("$monthName ${state.year}", style = MaterialTheme.typography.headlineSmall)
+                IconButton(onClick = onNextMonth) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Mois suivant")
+                }
+            }
         }
 
         item {
@@ -82,8 +111,11 @@ private fun BudgetContent(state: BudgetUiState.Success, onEditBudget: () -> Unit
                     modifier = Modifier.padding(top = 8.dp))
             }
             items(categoryBreakdown(state.transactions)) { (category, cents) ->
-                CategoryRow(category = category, amountCents = cents,
-                    currency = state.budget?.currency ?: Currency.EUR)
+                CategoryRow(
+                    category = category,
+                    amountCents = cents,
+                    currency = state.budget?.currency ?: Currency.EUR
+                )
             }
         }
     }
@@ -123,9 +155,11 @@ private fun BudgetSummaryCard(budget: Budget) {
                 }
             }
             if (isOver) {
-                Text("⚠ Budget dépassé de ${(-budget.remainingCents).toCurrencyDisplay(budget.currency)}",
+                Text(
+                    "⚠ Budget dépassé de ${(-budget.remainingCents).toCurrencyDisplay(budget.currency)}",
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall)
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
@@ -134,8 +168,11 @@ private fun BudgetSummaryCard(budget: Budget) {
 @Composable
 private fun NoBudgetCard(onSetBudget: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(20.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Text("Aucun budget défini pour ce mois", style = MaterialTheme.typography.bodyLarge)
             Button(onClick = onSetBudget) { Text("Définir un budget") }
         }
@@ -158,13 +195,15 @@ private fun SetBudgetDialog(
     onConfirm: (String, Currency) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var amount by remember { mutableStateOf(currentBudget?.let { it.allocatedCents / 100.0 }?.toString() ?: "") }
+    var amount by remember {
+        mutableStateOf(currentBudget?.let { "%.2f".format(it.allocatedCents / 100.0) } ?: "")
+    }
     var selectedCurrency by remember { mutableStateOf(currentBudget?.currency ?: Currency.EUR) }
     var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Définir le budget mensuel") },
+        title = { Text(if (currentBudget != null) "Modifier le budget" else "Définir le budget mensuel") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -177,7 +216,7 @@ private fun SetBudgetDialog(
                 )
                 ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                     OutlinedTextField(
-                        value = selectedCurrency.name,
+                        value = "${selectedCurrency.name} (${selectedCurrency.symbol})",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Devise") },
@@ -196,16 +235,15 @@ private fun SetBudgetDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(amount, selectedCurrency) },
-                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0) {
-                Text("Valider")
-            }
+            TextButton(
+                onClick = { onConfirm(amount, selectedCurrency) },
+                enabled = amount.toDoubleOrNull()?.let { it > 0 } == true
+            ) { Text("Valider") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
     )
 }
 
-// Calcule le total dépensé par catégorie pour l'affichage
 private fun categoryBreakdown(transactions: List<Transaction>): List<Pair<Category, Long>> =
     transactions
         .groupBy { it.category }
@@ -216,12 +254,13 @@ private fun Long.toCurrencyDisplay(currency: Currency): String =
     "%.2f %s".format(this / 100.0, currency.symbol)
 
 private fun Category.label(): String = when (this) {
-    Category.ALIMENTATION  -> "Alimentation"
-    Category.LOGEMENT      -> "Logement"
-    Category.TRANSPORT     -> "Transport"
-    Category.SANTE         -> "Santé"
-    Category.LOISIRS       -> "Loisirs"
+    Category.ALIMENTATION   -> "Alimentation"
+    Category.LOGEMENT       -> "Logement"
+    Category.TRANSPORT      -> "Transport"
+    Category.SANTE          -> "Santé"
+    Category.LOISIRS        -> "Loisirs"
     Category.INVESTISSEMENT -> "Investissement"
-    Category.EPARGNE       -> "Épargne"
-    Category.AUTRE         -> "Autre"
+    Category.EPARGNE        -> "Épargne"
+    Category.ENFANT         -> "Enfant"
+    Category.AUTRE          -> "Autre"
 }

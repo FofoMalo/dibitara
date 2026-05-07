@@ -23,17 +23,30 @@ class BudgetViewModel @Inject constructor(
 
     private val now = LocalDate.now()
 
+    // Mois sélectionné — l'utilisateur peut naviguer dans le temps
+    private val _selectedMonth = MutableStateFlow(now.monthValue)
+    private val _selectedYear  = MutableStateFlow(now.year)
+
+    val selectedMonth: StateFlow<Int> = _selectedMonth.asStateFlow()
+    val selectedYear:  StateFlow<Int> = _selectedYear.asStateFlow()
+
     val uiState: StateFlow<BudgetUiState> = combine(
-        getMonthlyBudget(now.monthValue, now.year),
-        getMonthlyTransactions(now.monthValue, now.year)
-    ) { budget, transactions ->
-        BudgetUiState.Success(
-            budget = budget,
-            transactions = transactions,
-            month = now.monthValue,
-            year = now.year
-        ) as BudgetUiState
-    }
+        _selectedMonth,
+        _selectedYear
+    ) { month, year -> Pair(month, year) }
+        .flatMapLatest { (month, year) ->
+            combine(
+                getMonthlyBudget(month, year),
+                getMonthlyTransactions(month, year)
+            ) { budget, transactions ->
+                BudgetUiState.Success(
+                    budget = budget,
+                    transactions = transactions,
+                    month = month,
+                    year = year
+                ) as BudgetUiState
+            }
+        }
         .catch { emit(BudgetUiState.Error(it.message ?: "Erreur inconnue")) }
         .stateIn(
             scope = viewModelScope,
@@ -41,24 +54,34 @@ class BudgetViewModel @Inject constructor(
             initialValue = BudgetUiState.Loading
         )
 
-    // Appelé quand l'utilisateur valide le formulaire de définition du budget
+    fun previousMonth() {
+        val current = LocalDate.of(_selectedYear.value, _selectedMonth.value, 1).minusMonths(1)
+        _selectedMonth.value = current.monthValue
+        _selectedYear.value  = current.year
+    }
+
+    fun nextMonth() {
+        val current = LocalDate.of(_selectedYear.value, _selectedMonth.value, 1).plusMonths(1)
+        _selectedMonth.value = current.monthValue
+        _selectedYear.value  = current.year
+    }
+
     fun saveBudget(amountEuros: String, currency: Currency) {
         val cents = amountEuros.toDoubleOrNull()?.let { (it * 100).toLong() } ?: return
+        val month = _selectedMonth.value
+        val year  = _selectedYear.value
         viewModelScope.launch {
             setBudget(
                 Budget(
-                    month = now.monthValue,
-                    year = now.year,
+                    month = month,
+                    year  = year,
                     allocatedCents = cents,
-                    spentCents = currentSpentCents(),
+                    spentCents = (uiState.value as? BudgetUiState.Success)?.budget?.spentCents ?: 0L,
                     currency = currency
                 )
             )
         }
     }
-
-    private fun currentSpentCents(): Long =
-        (uiState.value as? BudgetUiState.Success)?.budget?.spentCents ?: 0L
 }
 
 sealed class BudgetUiState {
