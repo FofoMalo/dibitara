@@ -14,6 +14,7 @@ import com.dibitara.app.presentation.budget.BudgetScreen
 import com.dibitara.app.presentation.common.BottomNavBar
 import com.dibitara.app.presentation.dashboard.DashboardScreen
 import com.dibitara.app.presentation.expenses.ExpensesScreen
+import com.dibitara.app.presentation.debts.DebtsScreen
 import com.dibitara.app.presentation.investments.InvestmentsScreen
 import com.dibitara.app.presentation.savings.SavingsScreen
 
@@ -24,6 +25,7 @@ sealed class Screen(val route: String) {
     data object Expenses    : Screen("expenses")
     data object Savings     : Screen("savings")
     data object Investments : Screen("investments")
+    data object Debts       : Screen("debts")
 }
 
 // Écrans qui affichent la barre de navigation inférieure
@@ -63,11 +65,16 @@ fun DibitaraNavGraph(
                     }
                 )
             }
-            composable(Screen.Dashboard.route)   { DashboardScreen() }
+            composable(Screen.Dashboard.route) {
+                DashboardScreen(onNavigateToDebts = { navController.navigate(Screen.Debts.route) })
+            }
             composable(Screen.Budget.route)      { BudgetScreen() }
             composable(Screen.Expenses.route)    { ExpensesScreen() }
             composable(Screen.Savings.route)     { SavingsScreen() }
             composable(Screen.Investments.route) { InvestmentsScreen() }
+            composable(Screen.Debts.route) {
+                DebtsScreen(onNavigateBack = { navController.navigateUp() })
+            }
         }
     }
 }
