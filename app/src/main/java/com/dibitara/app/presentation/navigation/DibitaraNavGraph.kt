@@ -15,12 +15,14 @@ import com.dibitara.app.presentation.common.BottomNavBar
 import com.dibitara.app.presentation.dashboard.DashboardScreen
 import com.dibitara.app.presentation.expenses.ExpensesScreen
 import com.dibitara.app.presentation.investments.InvestmentsScreen
+import com.dibitara.app.presentation.savings.SavingsScreen
 
 sealed class Screen(val route: String) {
     data object Lock        : Screen("lock")
     data object Dashboard   : Screen("dashboard")
     data object Budget      : Screen("budget")
     data object Expenses    : Screen("expenses")
+    data object Savings     : Screen("savings")
     data object Investments : Screen("investments")
 }
 
@@ -29,6 +31,7 @@ private val bottomNavScreens = setOf(
     Screen.Dashboard.route,
     Screen.Budget.route,
     Screen.Expenses.route,
+    Screen.Savings.route,
     Screen.Investments.route
 )
 
@@ -63,6 +66,7 @@ fun DibitaraNavGraph(
             composable(Screen.Dashboard.route)   { DashboardScreen() }
             composable(Screen.Budget.route)      { BudgetScreen() }
             composable(Screen.Expenses.route)    { ExpensesScreen() }
+            composable(Screen.Savings.route)     { SavingsScreen() }
             composable(Screen.Investments.route) { InvestmentsScreen() }
         }
     }
