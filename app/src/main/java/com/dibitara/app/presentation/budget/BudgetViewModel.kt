@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.GetMonthlyBudgetUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
 import com.dibitara.app.domain.usecase.SetBudgetUseCase
@@ -39,8 +40,13 @@ class BudgetViewModel @Inject constructor(
                 getMonthlyBudget(month, year),
                 getMonthlyTransactions(month, year)
             ) { budget, transactions ->
+                // On calcule le montant dépensé à partir des transactions réelles
+                // plutôt que d'utiliser la valeur stockée en base (jamais mise à jour)
+                val depensesTotales = transactions
+                    .filter { it.type == TransactionType.EXPENSE }
+                    .sumOf { it.amountCents }
                 BudgetUiState.Success(
-                    budget = budget,
+                    budget = budget?.copy(spentCents = depensesTotales),
                     transactions = transactions,
                     month = month,
                     year = year

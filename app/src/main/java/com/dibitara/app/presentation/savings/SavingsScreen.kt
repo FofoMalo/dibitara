@@ -130,7 +130,7 @@ private fun SavingsContent(
         // Comptes par type
         if (state.accounts.isNotEmpty()) {
             item { Text("Comptes", style = MaterialTheme.typography.titleMedium) }
-            items(state.accounts, key = { it.id }) { account ->
+            items(state.accounts, key = { "compte_${it.id}" }) { account ->
                 SavingsAccountCard(
                     account = account,
                     childName = state.children.find { it.id == account.childId }?.name,
@@ -161,7 +161,7 @@ private fun SavingsContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            items(state.children, key = { it.id }) { child ->
+            items(state.children, key = { "enfant_${it.id}" }) { child ->
                 ChildCard(
                     child = child,
                     savingsAccounts = state.accounts.filter { it.childId == child.id },

@@ -1,7 +1,10 @@
 package com.dibitara.app.presentation.budget
 
 import com.dibitara.app.domain.model.Budget
+import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.GetMonthlyBudgetUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
 import com.dibitara.app.domain.usecase.SetBudgetUseCase
@@ -60,16 +63,32 @@ class BudgetViewModelTest {
 
     @Test
     fun `état reflète le budget quand le repository en retourne un`() = runTest {
+        // spentCents en base est ignoré — c'est la somme des transactions EXPENSE qui compte
         val budget = Budget(
             month = now.monthValue, year = now.year,
-            allocatedCents = 150000L, spentCents = 50000L, currency = Currency.EUR
+            allocatedCents = 150000L, spentCents = 0L, currency = Currency.EUR
+        )
+        val depenses = listOf(
+            Transaction(amountCents = 30000L, currency = Currency.EUR,
+                category = Category.ALIMENTATION, type = TransactionType.EXPENSE,
+                date = LocalDate.now()),
+            Transaction(amountCents = 20000L, currency = Currency.EUR,
+                category = Category.TRANSPORT, type = TransactionType.EXPENSE,
+                date = LocalDate.now()),
+            // Un revenu qui ne doit PAS être compté dans le dépensé
+            Transaction(amountCents = 10000L, currency = Currency.EUR,
+                category = Category.AUTRE, type = TransactionType.INCOME,
+                date = LocalDate.now())
         )
         every { getMonthlyBudget(any(), any()) } returns flowOf(budget)
+        every { getMonthlyTransactions(any(), any()) } returns flowOf(depenses)
         viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget)
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success
         assertEquals(150000L, state.budget?.allocatedCents)
+        // spentCents = 30000 + 20000 = 50000 (le revenu de 10000 est exclu)
+        assertEquals(50000L, state.budget?.spentCents)
         assertEquals(100000L, state.budget?.remainingCents)
         job.cancel()
     }

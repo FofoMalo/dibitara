@@ -126,7 +126,7 @@ private fun InvestmentsContent(
                 EmptySectionText("Aucun bien immobilier enregistré.")
             }
         } else {
-            items(state.realEstate, key = { it.id }) { asset ->
+            items(state.realEstate, key = { "immo_${it.id}" }) { asset ->
                 RealEstateCard(asset = asset, onDelete = { onDeleteRealEstate(asset) })
             }
         }
@@ -140,7 +140,7 @@ private fun InvestmentsContent(
                 EmptySectionText("Aucune SCPI enregistrée.")
             }
         } else {
-            items(state.scpi, key = { it.id }) { scpi ->
+            items(state.scpi, key = { "scpi_${it.id}" }) { scpi ->
                 ScpiCard(scpi = scpi, onDelete = { onDeleteScpi(scpi) })
             }
         }
@@ -154,7 +154,7 @@ private fun InvestmentsContent(
                 EmptySectionText("Aucun revenu Airbnb enregistré.")
             }
         } else {
-            items(state.airbnbRentals, key = { it.id }) { rental ->
+            items(state.airbnbRentals, key = { "airbnb_${it.id}" }) { rental ->
                 AirbnbRentalCard(rental = rental, onDelete = { onDeleteAirbnb(rental) })
             }
         }
