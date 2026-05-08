@@ -53,6 +53,10 @@ android {
     kover {
         reports {
             filters {
+                includes {
+                    // Mesurer uniquement la couche domain (UseCases + modèles métier)
+                    classes("com.dibitara.app.domain.*")
+                }
                 excludes {
                     // Exclure les classes générées automatiquement
                     classes("*_Factory*", "*_HiltModules*", "*_Impl*", "Hilt_*")
@@ -65,14 +69,21 @@ android {
         }
     }
 
+    // Emplacement des schémas Room exportés — nécessaire pour les migrations vérifiables
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+
     // Répertoires de tests
     testOptions {
         unitTests.isReturnDefaultValues = true
+        unitTests.all { it.useJUnitPlatform() }
     }
 }
 
 dependencies {
     // Core Android
+    implementation(libs.appcompat)
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
@@ -84,6 +95,7 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
 
     // Navigation
     implementation(libs.navigation.compose)
@@ -115,6 +127,7 @@ dependencies {
     // Tests unitaires
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.mockk)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.room.testing)

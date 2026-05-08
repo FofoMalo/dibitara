@@ -22,16 +22,18 @@ data class TransactionEntity(
     val category: String,
     val type: String,
     val dateEpochDay: Long,     // LocalDate.toEpochDay() — évite les conversions complexes
-    val note: String
+    val note: String,
+    val childId: Long? = null   // Nullable : null si la dépense n'est pas liée à un enfant
 ) {
     fun toDomain() = Transaction(
         id = id,
         amountCents = amountCents,
-        currency = Currency.valueOf(currency),
-        category = Category.valueOf(category),
-        type = TransactionType.valueOf(type),
+        currency = safeValueOf(currency, Currency.EUR),
+        category = safeValueOf(category, Category.AUTRE),
+        type = safeValueOf(type, TransactionType.EXPENSE),
         date = LocalDate.ofEpochDay(dateEpochDay),
-        note = note
+        note = note,
+        childId = childId
     )
 
     companion object {
@@ -42,7 +44,8 @@ data class TransactionEntity(
             category = t.category.name,
             type = t.type.name,
             dateEpochDay = t.date.toEpochDay(),
-            note = t.note
+            note = t.note,
+            childId = t.childId
         )
     }
 }

@@ -1,41 +1,80 @@
 package com.dibitara.app.presentation.navigation
 
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.dibitara.app.presentation.auth.LockScreen
+import com.dibitara.app.presentation.budget.BudgetScreen
+import com.dibitara.app.presentation.common.BottomNavBar
+import com.dibitara.app.presentation.dashboard.DashboardScreen
+import com.dibitara.app.presentation.expenses.ExpensesScreen
+import com.dibitara.app.presentation.debts.DebtsScreen
+import com.dibitara.app.presentation.investments.InvestmentsScreen
+import com.dibitara.app.presentation.savings.SavingsScreen
 
-/**
- * Toutes les destinations de l'application sont définies ici.
- * Ajouter un nouvel écran = ajouter une entrée dans Screen + un composable dans le NavHost.
- */
 sealed class Screen(val route: String) {
+    data object Lock        : Screen("lock")
     data object Dashboard   : Screen("dashboard")
     data object Budget      : Screen("budget")
     data object Expenses    : Screen("expenses")
+    data object Savings     : Screen("savings")
     data object Investments : Screen("investments")
+    data object Debts       : Screen("debts")
 }
+
+// Écrans qui affichent la barre de navigation inférieure
+private val bottomNavScreens = setOf(
+    Screen.Dashboard.route,
+    Screen.Budget.route,
+    Screen.Expenses.route,
+    Screen.Savings.route,
+    Screen.Investments.route
+)
 
 @Composable
 fun DibitaraNavGraph(
     navController: NavHostController = rememberNavController()
 ) {
-    NavHost(
-        navController = navController,
-        startDestination = Screen.Dashboard.route
-    ) {
-        composable(Screen.Dashboard.route) {
-            // TODO Sprint 1 : DashboardScreen()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showBottomBar = currentRoute in bottomNavScreens
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) BottomNavBar(navController)
         }
-        composable(Screen.Budget.route) {
-            // TODO Sprint 2 : BudgetScreen()
-        }
-        composable(Screen.Expenses.route) {
-            // TODO Sprint 2 : ExpensesScreen()
-        }
-        composable(Screen.Investments.route) {
-            // TODO Sprint 3 : InvestmentsScreen()
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Lock.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(Screen.Lock.route) {
+                LockScreen(
+                    onAuthenticated = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            // Supprimer LockScreen de la pile — l'utilisateur ne peut pas revenir en arrière
+                            popUpTo(Screen.Lock.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable(Screen.Dashboard.route) {
+                DashboardScreen(onNavigateToDebts = { navController.navigate(Screen.Debts.route) })
+            }
+            composable(Screen.Budget.route)      { BudgetScreen() }
+            composable(Screen.Expenses.route)    { ExpensesScreen() }
+            composable(Screen.Savings.route)     { SavingsScreen() }
+            composable(Screen.Investments.route) { InvestmentsScreen() }
+            composable(Screen.Debts.route) {
+                DebtsScreen(onNavigateBack = { navController.navigateUp() })
+            }
         }
     }
 }

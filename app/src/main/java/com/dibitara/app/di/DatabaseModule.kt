@@ -3,9 +3,9 @@ package com.dibitara.app.di
 import android.content.Context
 import androidx.room.Room
 import com.dibitara.app.data.local.database.DibitaraDatabase
-import com.dibitara.app.data.local.dao.TransactionDao
-import com.dibitara.app.data.repository.TransactionRepositoryImpl
-import com.dibitara.app.domain.repository.TransactionRepository
+import com.dibitara.app.data.local.dao.*
+import com.dibitara.app.data.repository.*
+import com.dibitara.app.domain.repository.*
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -14,13 +14,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/**
- * Module Hilt : indique à l'injecteur comment construire chaque dépendance.
- * @Provides = Hilt appelle cette fonction pour créer l'objet.
- * @Singleton = une seule instance partagée dans toute l'app.
- *
- * TODO Sprint 1 : remplacer Room.databaseBuilder par une version chiffrée (SQLCipher).
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -29,19 +22,28 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): DibitaraDatabase =
         Room.databaseBuilder(context, DibitaraDatabase::class.java, "dibitara.db")
-            .fallbackToDestructiveMigrationOnDowngrade(false)
+            .addMigrations(DibitaraDatabase.MIGRATION_1_2)
+            .fallbackToDestructiveMigrationOnDowngrade()
             .build()
 
-    @Provides
-    fun provideTransactionDao(db: DibitaraDatabase): TransactionDao = db.transactionDao()
+    @Provides fun provideTransactionDao(db: DibitaraDatabase): TransactionDao = db.transactionDao()
+    @Provides fun provideBudgetDao(db: DibitaraDatabase): BudgetDao = db.budgetDao()
+    @Provides fun provideChildDao(db: DibitaraDatabase): ChildDao = db.childDao()
+    @Provides fun provideDebtDao(db: DibitaraDatabase): DebtDao = db.debtDao()
+    @Provides fun provideSavingsAccountDao(db: DibitaraDatabase): SavingsAccountDao = db.savingsAccountDao()
+    @Provides fun provideRealEstateAssetDao(db: DibitaraDatabase): RealEstateAssetDao = db.realEstateAssetDao()
+    @Provides fun provideScpiInvestmentDao(db: DibitaraDatabase): ScpiInvestmentDao = db.scpiInvestmentDao()
+    @Provides fun provideAirbnbRentalDao(db: DibitaraDatabase): AirbnbRentalDao = db.airbnbRentalDao()
 }
 
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
 
-    @Binds
-    abstract fun bindTransactionRepository(
-        impl: TransactionRepositoryImpl
-    ): TransactionRepository
+    @Binds abstract fun bindTransactionRepository(impl: TransactionRepositoryImpl): TransactionRepository
+    @Binds abstract fun bindBudgetRepository(impl: BudgetRepositoryImpl): BudgetRepository
+    @Binds abstract fun bindChildRepository(impl: ChildRepositoryImpl): ChildRepository
+    @Binds abstract fun bindDebtRepository(impl: DebtRepositoryImpl): DebtRepository
+    @Binds abstract fun bindSavingsRepository(impl: SavingsRepositoryImpl): SavingsRepository
+    @Binds abstract fun bindInvestmentRepository(impl: InvestmentRepositoryImpl): InvestmentRepository
 }
