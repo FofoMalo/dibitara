@@ -53,6 +53,10 @@ android {
     kover {
         reports {
             filters {
+                includes {
+                    // Mesurer uniquement la couche domain (UseCases + modèles métier)
+                    classes("com.dibitara.app.domain.*")
+                }
                 excludes {
                     // Exclure les classes générées automatiquement
                     classes("*_Factory*", "*_HiltModules*", "*_Impl*", "Hilt_*")
