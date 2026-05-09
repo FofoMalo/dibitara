@@ -37,6 +37,14 @@ class AppViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Appelé par MainActivity après que l'utilisateur accorde POST_NOTIFICATIONS.
+     * Permet d'envoyer les notifications sans attendre le prochain démarrage.
+     */
+    fun relancerNotifications() {
+        viewModelScope.launch { verifierNotifications() }
+    }
+
     private suspend fun verifierNotifications() {
         // Snapshot unique des préférences — le seuil peut avoir été changé par l'utilisateur
         val prefs = getPreferences().first()

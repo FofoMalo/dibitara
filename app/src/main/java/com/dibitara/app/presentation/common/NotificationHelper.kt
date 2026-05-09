@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.dibitara.app.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -62,7 +63,7 @@ class NotificationHelper @Inject constructor(
      */
     fun envoyerAlerteBudget(depenseCents: Long, alloueCents: Long) {
         val notification = NotificationCompat.Builder(context, CANAL_BUDGET)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Budget dépassé")
             .setContentText(
                 "Vous avez dépensé ${depenseCents / 100}€ " +
@@ -82,7 +83,7 @@ class NotificationHelper @Inject constructor(
      */
     fun envoyerRappelDette(idDette: Long, labelDette: String, montantCents: Long) {
         val notification = NotificationCompat.Builder(context, CANAL_DETTES)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Échéance dette aujourd'hui")
             .setContentText("Paiement de ${montantCents / 100}€ prévu : $labelDette")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -98,7 +99,7 @@ class NotificationHelper @Inject constructor(
      */
     fun envoyerAvertissementFonds(soldeCents: Long, seuilCents: Long) {
         val notification = NotificationCompat.Builder(context, CANAL_FONDS)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Liquidités insuffisantes")
             .setContentText(
                 "Solde estimé : ${soldeCents / 100}€ " +
