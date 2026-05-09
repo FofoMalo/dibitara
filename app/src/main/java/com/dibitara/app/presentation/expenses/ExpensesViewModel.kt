@@ -8,7 +8,7 @@ import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.AddTransactionUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
-import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
+import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -18,32 +18,32 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ExpensesViewModel @Inject constructor(
-    private val getMonthlyTransactions: GetMonthlyTransactionsUseCase,
-    private val addTransaction: AddTransactionUseCase,
-    private val updateTransaction: UpdateTransactionUseCase,
-    private val deleteTransaction: DeleteTransactionUseCase
+    private val ucGetAll: GetAllTransactionsUseCase,
+    private val ucAdd: AddTransactionUseCase,
+    private val ucUpdate: UpdateTransactionUseCase,
+    private val ucDelete: DeleteTransactionUseCase
 ) : ViewModel() {
 
-    private val now = LocalDate.now()
+    private val _filter = MutableStateFlow(ExpensesFilter())
+    val filter: StateFlow<ExpensesFilter> = _filter.asStateFlow()
 
-    val uiState: StateFlow<ExpensesUiState> =
-        getMonthlyTransactions(now.monthValue, now.year)
-            .map { transactions ->
-                ExpensesUiState.Success(
-                    expenses = transactions
-                        .filter { it.type == TransactionType.EXPENSE }
-                        .sortedByDescending { it.date }
-                ) as ExpensesUiState
-            }
-            .catch { emit(ExpensesUiState.Error(it.message ?: "Erreur inconnue")) }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = ExpensesUiState.Loading
-            )
+    val uiState: StateFlow<ExpensesUiState> = combine(
+        ucGetAll(),
+        _filter
+    ) { transactions, filter ->
+        ExpensesUiState.Success(expenses = filter.apply(transactions)) as ExpensesUiState
+    }
+        .catch { emit(ExpensesUiState.Error(it.message ?: "Erreur inconnue")) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ExpensesUiState.Loading
+        )
 
     private val _event = MutableSharedFlow<ExpensesEvent>()
     val event: SharedFlow<ExpensesEvent> = _event.asSharedFlow()
+
+    fun updateFilter(filter: ExpensesFilter) { _filter.value = filter }
 
     fun addExpense(
         amountStr: String,
@@ -59,13 +59,13 @@ class ExpensesViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            addTransaction(
+            ucAdd(
                 Transaction(
                     amountCents = cents,
                     currency = currency,
                     category = category,
                     type = TransactionType.EXPENSE,
-                    date = now,
+                    date = LocalDate.now(),
                     note = note,
                     childId = childId,
                     isRecurring = isRecurring,
@@ -92,7 +92,7 @@ class ExpensesViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            updateTransaction(
+            ucUpdate(
                 original.copy(
                     amountCents = cents,
                     currency = currency,
@@ -110,12 +110,61 @@ class ExpensesViewModel @Inject constructor(
 
     fun deleteExpense(transaction: Transaction) {
         viewModelScope.launch {
-            deleteTransaction(transaction)
+            ucDelete(transaction)
                 .onSuccess { _event.emit(ExpensesEvent.Deleted) }
                 .onFailure { _event.emit(ExpensesEvent.Error(it.message ?: "Erreur")) }
         }
     }
 }
+
+// ─── Modèle de filtre ────────────────────────────────────────────────────────
+
+/**
+ * Regroupe tous les critères de filtrage et de tri de la liste des transactions.
+ * La méthode [apply] est pure (pas d'effet de bord) — facile à tester unitairement.
+ */
+data class ExpensesFilter(
+    val query: String = "",
+    val category: Category? = null,                         // null = toutes les catégories
+    val period: FilterPeriod = FilterPeriod.CURRENT_MONTH,
+    val transactionType: TransactionType? = TransactionType.EXPENSE, // null = tous les types
+    val sort: SortOrder = SortOrder.DATE_DESC
+) {
+    // today est un paramètre pour faciliter les tests sans mocker LocalDate.now()
+    fun apply(transactions: List<Transaction>, today: LocalDate = LocalDate.now()): List<Transaction> {
+        val from = when (period) {
+            FilterPeriod.CURRENT_MONTH -> today.withDayOfMonth(1)
+            FilterPeriod.THREE_MONTHS  -> today.withDayOfMonth(1).minusMonths(2)
+            FilterPeriod.SIX_MONTHS   -> today.withDayOfMonth(1).minusMonths(5)
+            FilterPeriod.ALL           -> LocalDate.MIN
+        }
+        return transactions
+            .filter { it.date >= from }
+            .filter { transactionType == null || it.type == transactionType }
+            .filter { category == null || it.category == category }
+            .filter { query.isBlank() || it.note.contains(query, ignoreCase = true) }
+            .let { list ->
+                when (sort) {
+                    SortOrder.DATE_DESC   -> list.sortedByDescending { it.date }
+                    SortOrder.AMOUNT_DESC -> list.sortedByDescending { it.amountCents }
+                }
+            }
+    }
+}
+
+enum class FilterPeriod(val label: String) {
+    CURRENT_MONTH("Ce mois"),
+    THREE_MONTHS("3 mois"),
+    SIX_MONTHS("6 mois"),
+    ALL("Tout")
+}
+
+enum class SortOrder(val label: String) {
+    DATE_DESC("Date ↓"),
+    AMOUNT_DESC("Montant ↓")
+}
+
+// ─── États UI ────────────────────────────────────────────────────────────────
 
 sealed class ExpensesUiState {
     data object Loading : ExpensesUiState()

@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.expenses
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,11 +21,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TransactionType
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val filter by viewModel.filter.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -47,22 +51,100 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            when (val state = uiState) {
-                is ExpensesUiState.Loading ->
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                is ExpensesUiState.Error ->
-                    Text(state.message, color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center))
-                is ExpensesUiState.Success -> {
-                    if (state.expenses.isEmpty()) {
-                        EmptyExpenses(modifier = Modifier.align(Alignment.Center))
-                    } else {
-                        ExpensesList(
-                            expenses = state.expenses,
-                            onEdit = { editingExpense = it },
-                            onDelete = viewModel::deleteExpense
-                        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // Barre de recherche
+            OutlinedTextField(
+                value = filter.query,
+                onValueChange = { viewModel.updateFilter(filter.copy(query = it)) },
+                placeholder = { Text("Rechercher dans les notes…") },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            // Chips : période + type + tri
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Filtre période
+                items(FilterPeriod.entries) { period ->
+                    FilterChip(
+                        selected = filter.period == period,
+                        onClick = { viewModel.updateFilter(filter.copy(period = period)) },
+                        label = { Text(period.label) }
+                    )
+                }
+                // Filtre type
+                item {
+                    FilterChip(
+                        selected = filter.transactionType == null,
+                        onClick = { viewModel.updateFilter(filter.copy(transactionType = null)) },
+                        label = { Text("Tous") }
+                    )
+                }
+                items(TransactionType.entries) { type ->
+                    FilterChip(
+                        selected = filter.transactionType == type,
+                        onClick = { viewModel.updateFilter(filter.copy(transactionType = type)) },
+                        label = { Text(type.label()) }
+                    )
+                }
+                // Tri
+                items(SortOrder.entries) { order ->
+                    FilterChip(
+                        selected = filter.sort == order,
+                        onClick = { viewModel.updateFilter(filter.copy(sort = order)) },
+                        label = { Text(order.label) }
+                    )
+                }
+            }
+
+            // Chips catégories (ligne dédiée)
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    FilterChip(
+                        selected = filter.category == null,
+                        onClick = { viewModel.updateFilter(filter.copy(category = null)) },
+                        label = { Text("Toutes") }
+                    )
+                }
+                items(Category.entries) { cat ->
+                    FilterChip(
+                        selected = filter.category == cat,
+                        onClick = { viewModel.updateFilter(filter.copy(category = cat)) },
+                        label = { Text(cat.label()) }
+                    )
+                }
+            }
+
+            // Liste des transactions
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (val state = uiState) {
+                    is ExpensesUiState.Loading ->
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    is ExpensesUiState.Error ->
+                        Text(state.message, color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.align(Alignment.Center))
+                    is ExpensesUiState.Success -> {
+                        if (state.expenses.isEmpty()) {
+                            EmptyExpenses(modifier = Modifier.align(Alignment.Center))
+                        } else {
+                            ExpensesList(
+                                expenses = state.expenses,
+                                onEdit = { editingExpense = it },
+                                onDelete = viewModel::deleteExpense
+                            )
+                        }
                     }
                 }
             }
@@ -105,10 +187,6 @@ private fun ExpensesList(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item {
-            Text("Dépenses du mois", style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 8.dp))
-        }
         items(expenses, key = { it.id }) { expense ->
             ExpenseItem(expense = expense, onEdit = { onEdit(expense) }, onDelete = { onDelete(expense) })
         }
@@ -130,7 +208,7 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(expense.category.label(), style = MaterialTheme.typography.bodyLarge)
-                    // Badge "↺" affiché uniquement sur les modèles récurrents
+                    // Badge récurrence sur les modèles uniquement
                     if (expense.isRecurring) {
                         Icon(
                             imageVector = Icons.Filled.Refresh,
@@ -148,9 +226,12 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
                 }
             }
             Text(
-                "- ${"%.2f".format(expense.amountCents / 100.0)} ${expense.currency.symbol}",
+                "${if (expense.type == TransactionType.EXPENSE) "-" else "+"} ${"%.2f".format(expense.amountCents / 100.0)} ${expense.currency.symbol}",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.error
+                color = if (expense.type == TransactionType.EXPENSE)
+                    MaterialTheme.colorScheme.error
+                else
+                    MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.width(8.dp))
             IconButton(onClick = onEdit) {
@@ -165,7 +246,7 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Supprimer la dépense ?") },
+            title = { Text("Supprimer la transaction ?") },
             text = { Text("Cette action est irréversible.") },
             confirmButton = {
                 TextButton(onClick = { onDelete(); showDeleteConfirm = false }) { Text("Supprimer") }
@@ -179,8 +260,8 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
 private fun EmptyExpenses(modifier: Modifier = Modifier) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Aucune dépense ce mois-ci", style = MaterialTheme.typography.bodyLarge)
-        Text("Appuyez sur + pour en ajouter une", style = MaterialTheme.typography.bodyMedium,
+        Text("Aucune transaction trouvée", style = MaterialTheme.typography.bodyLarge)
+        Text("Modifiez les filtres ou appuyez sur + pour ajouter", style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -271,12 +352,10 @@ private fun ExpenseSheet(
                 })
             }
 
-            // Champ jour affiché uniquement si récurrente
             if (isRecurring) {
                 OutlinedTextField(
                     value = recurrenceDayStr,
                     onValueChange = { v ->
-                        // N'accepte que les chiffres et limite à 28
                         val n = v.filter { it.isDigit() }.take(2)
                         recurrenceDayStr = if (n.toIntOrNull()?.let { it > 28 } == true) "28" else n
                     },
@@ -295,10 +374,12 @@ private fun ExpenseSheet(
                 onClick = { onSave(amount, selectedCategory, selectedCurrency, note, isRecurring, recurrenceDay) },
                 enabled = saveEnabled,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text(if (expense == null) "Ajouter la dépense" else "Enregistrer les modifications") }
+            ) { Text(if (expense == null) "Ajouter" else "Enregistrer les modifications") }
         }
     }
 }
+
+// ─── Extensions d'affichage ──────────────────────────────────────────────────
 
 private fun Category.label(): String = when (this) {
     Category.ALIMENTATION   -> "Alimentation"
@@ -310,4 +391,10 @@ private fun Category.label(): String = when (this) {
     Category.EPARGNE        -> "Épargne"
     Category.ENFANT         -> "Enfant"
     Category.AUTRE          -> "Autre"
+}
+
+private fun TransactionType.label(): String = when (this) {
+    TransactionType.EXPENSE    -> "Dépenses"
+    TransactionType.INCOME     -> "Revenus"
+    TransactionType.INVESTMENT -> "Investissements"
 }

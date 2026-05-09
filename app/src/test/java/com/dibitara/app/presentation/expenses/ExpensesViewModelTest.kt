@@ -6,7 +6,7 @@ import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.AddTransactionUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
-import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
+import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import io.mockk.coEvery
 import io.mockk.every
@@ -27,17 +27,17 @@ import java.time.LocalDate
 class ExpensesViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
-    private val getMonthlyTransactions: GetMonthlyTransactionsUseCase = mockk()
-    private val addTransaction: AddTransactionUseCase = mockk()
-    private val updateTransaction: UpdateTransactionUseCase = mockk()
-    private val deleteTransaction: DeleteTransactionUseCase = mockk()
+    private val ucGetAll: GetAllTransactionsUseCase = mockk()
+    private val ucAdd: AddTransactionUseCase = mockk()
+    private val ucUpdate: UpdateTransactionUseCase = mockk()
+    private val ucDelete: DeleteTransactionUseCase = mockk()
     private lateinit var viewModel: ExpensesViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        every { getMonthlyTransactions(any(), any()) } returns flowOf(emptyList())
-        viewModel = ExpensesViewModel(getMonthlyTransactions, addTransaction, updateTransaction, deleteTransaction)
+        every { ucGetAll() } returns flowOf(emptyList())
+        viewModel = ExpensesViewModel(ucGetAll, ucAdd, ucUpdate, ucDelete)
     }
 
     @AfterEach
@@ -52,14 +52,14 @@ class ExpensesViewModelTest {
     }
 
     @Test
-    fun `n'affiche que les dépenses et pas les autres types`() = runTest {
+    fun `n affiche que les dépenses par défaut`() = runTest {
         val transactions = listOf(
             buildTransaction(type = TransactionType.EXPENSE),
             buildTransaction(type = TransactionType.INCOME),
             buildTransaction(type = TransactionType.INVESTMENT)
         )
-        every { getMonthlyTransactions(any(), any()) } returns flowOf(transactions)
-        viewModel = ExpensesViewModel(getMonthlyTransactions, addTransaction, updateTransaction, deleteTransaction)
+        every { ucGetAll() } returns flowOf(transactions)
+        viewModel = ExpensesViewModel(ucGetAll, ucAdd, ucUpdate, ucDelete)
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is ExpensesUiState.Success } as ExpensesUiState.Success
@@ -70,7 +70,7 @@ class ExpensesViewModelTest {
 
     @Test
     fun `addExpense avec montant valide émet événement Saved`() = runTest {
-        coEvery { addTransaction(any()) } returns Result.success(1L)
+        coEvery { ucAdd(any()) } returns Result.success(1L)
         val events = mutableListOf<ExpensesEvent>()
         val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
 
