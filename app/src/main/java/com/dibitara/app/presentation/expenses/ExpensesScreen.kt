@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -72,8 +73,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     if (showAddSheet) {
         ExpenseSheet(
             expense = null,
-            onSave = { amount, category, currency, note ->
-                viewModel.addExpense(amount, category, currency, note)
+            onSave = { amount, category, currency, note, isRecurring, recurrenceDay ->
+                viewModel.addExpense(amount, category, currency, note,
+                    isRecurring = isRecurring, recurrenceDay = recurrenceDay)
             },
             onDismiss = { showAddSheet = false }
         )
@@ -83,8 +85,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     editingExpense?.let { expense ->
         ExpenseSheet(
             expense = expense,
-            onSave = { amount, category, currency, note ->
-                viewModel.updateExpense(expense, amount, category, currency, note)
+            onSave = { amount, category, currency, note, isRecurring, recurrenceDay ->
+                viewModel.updateExpense(expense, amount, category, currency, note,
+                    isRecurring = isRecurring, recurrenceDay = recurrenceDay)
             },
             onDismiss = { editingExpense = null }
         )
@@ -124,7 +127,19 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(expense.category.label(), style = MaterialTheme.typography.bodyLarge)
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(expense.category.label(), style = MaterialTheme.typography.bodyLarge)
+                    // Badge "↺" affiché uniquement sur les modèles récurrents
+                    if (expense.isRecurring) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Récurrente",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
                 Text(expense.date.format(formatter), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (expense.note.isNotBlank()) {
@@ -174,7 +189,7 @@ private fun EmptyExpenses(modifier: Modifier = Modifier) {
 @Composable
 private fun ExpenseSheet(
     expense: Transaction?,
-    onSave: (String, Category, Currency, String) -> Unit,
+    onSave: (String, Category, Currency, String, Boolean, Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0) } ?: "") }
@@ -183,6 +198,8 @@ private fun ExpenseSheet(
     var selectedCurrency by remember { mutableStateOf(expense?.currency ?: Currency.EUR) }
     var categoryExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var isRecurring by remember { mutableStateOf(expense?.isRecurring ?: false) }
+    var recurrenceDayStr by remember { mutableStateOf(expense?.recurrenceDay?.toString() ?: "") }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -241,9 +258,42 @@ private fun ExpenseSheet(
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
+            // Toggle récurrence
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Dépense récurrente", style = MaterialTheme.typography.bodyLarge)
+                Switch(checked = isRecurring, onCheckedChange = {
+                    isRecurring = it
+                    if (!it) recurrenceDayStr = ""
+                })
+            }
+
+            // Champ jour affiché uniquement si récurrente
+            if (isRecurring) {
+                OutlinedTextField(
+                    value = recurrenceDayStr,
+                    onValueChange = { v ->
+                        // N'accepte que les chiffres et limite à 28
+                        val n = v.filter { it.isDigit() }.take(2)
+                        recurrenceDayStr = if (n.toIntOrNull()?.let { it > 28 } == true) "28" else n
+                    },
+                    label = { Text("Jour du mois (1-28)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            val recurrenceDay = recurrenceDayStr.toIntOrNull()
+            val saveEnabled = amount.toDoubleOrNull()?.let { it > 0 } == true
+                    && (!isRecurring || recurrenceDay != null)
+
             Button(
-                onClick = { onSave(amount, selectedCategory, selectedCurrency, note) },
-                enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
+                onClick = { onSave(amount, selectedCategory, selectedCurrency, note, isRecurring, recurrenceDay) },
+                enabled = saveEnabled,
                 modifier = Modifier.fillMaxWidth()
             ) { Text(if (expense == null) "Ajouter la dépense" else "Enregistrer les modifications") }
         }

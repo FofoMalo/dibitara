@@ -18,12 +18,15 @@ data class TransactionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val amountCents: Long,
-    val currency: String,       // Ex. "EUR" — stocké en String pour la compatibilité Room
+    val currency: String,           // Ex. "EUR" — stocké en String pour la compatibilité Room
     val category: String,
     val type: String,
-    val dateEpochDay: Long,     // LocalDate.toEpochDay() — évite les conversions complexes
+    val dateEpochDay: Long,         // LocalDate.toEpochDay() — évite les conversions complexes
     val note: String,
-    val childId: Long? = null   // Nullable : null si la dépense n'est pas liée à un enfant
+    val childId: Long? = null,      // Nullable : null si la dépense n'est pas liée à un enfant
+    val isRecurring: Boolean = false,       // Ajouté en v3 : true = modèle récurrent mensuel
+    val recurrenceDay: Int? = null,         // Ajouté en v3 : jour du mois (1-28)
+    val sourceRecurringId: Long? = null     // Ajouté en v3 : ID du modèle qui a généré cette occurrence
 ) {
     fun toDomain() = Transaction(
         id = id,
@@ -33,7 +36,10 @@ data class TransactionEntity(
         type = safeValueOf(type, TransactionType.EXPENSE),
         date = LocalDate.ofEpochDay(dateEpochDay),
         note = note,
-        childId = childId
+        childId = childId,
+        isRecurring = isRecurring,
+        recurrenceDay = recurrenceDay,
+        sourceRecurringId = sourceRecurringId
     )
 
     companion object {
@@ -45,7 +51,10 @@ data class TransactionEntity(
             type = t.type.name,
             dateEpochDay = t.date.toEpochDay(),
             note = t.note,
-            childId = t.childId
+            childId = t.childId,
+            isRecurring = t.isRecurring,
+            recurrenceDay = t.recurrenceDay,
+            sourceRecurringId = t.sourceRecurringId
         )
     }
 }

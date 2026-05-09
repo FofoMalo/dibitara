@@ -35,6 +35,15 @@ class TransactionRepositoryImpl @Inject constructor(
         dao.getByDateRange(from.toEpochDay(), to.toEpochDay())
             .map { list -> list.map { it.toDomain() } }
 
+    override fun getRecurring(): Flow<List<Transaction>> =
+        dao.getRecurring().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun hasRecurringOccurrenceThisMonth(recurringId: Long, month: Int, year: Int): Boolean {
+        val from = LocalDate.of(year, month, 1).toEpochDay()
+        val to   = LocalDate.of(year, month, 1).plusMonths(1).minusDays(1).toEpochDay()
+        return dao.countBySourceAndMonth(recurringId, from, to) > 0
+    }
+
     override suspend fun insert(transaction: Transaction): Long =
         dao.insert(TransactionEntity.fromDomain(transaction))
 

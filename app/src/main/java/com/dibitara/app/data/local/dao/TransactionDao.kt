@@ -20,6 +20,14 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE type = :type ORDER BY dateEpochDay DESC")
     fun getByType(type: String): Flow<List<TransactionEntity>>
 
+    // Retourne tous les modèles récurrents (templates créés par l'utilisateur)
+    @Query("SELECT * FROM transactions WHERE isRecurring = 1 ORDER BY dateEpochDay DESC")
+    fun getRecurring(): Flow<List<TransactionEntity>>
+
+    // Compte les occurrences déjà générées ce mois-ci pour un modèle donné
+    @Query("SELECT COUNT(*) FROM transactions WHERE sourceRecurringId = :recurringId AND dateEpochDay >= :fromEpoch AND dateEpochDay <= :toEpoch")
+    suspend fun countBySourceAndMonth(recurringId: Long, fromEpoch: Long, toEpoch: Long): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transaction: TransactionEntity): Long
 

@@ -17,7 +17,10 @@ data class Transaction(
     val type: TransactionType,
     val date: LocalDate,
     val note: String = "",
-    val childId: Long? = null  // Identifiant de l'enfant associé (null si pas d'enfant)
+    val childId: Long? = null,          // Identifiant de l'enfant associé (null si pas d'enfant)
+    val isRecurring: Boolean = false,   // true = cette transaction est un modèle récurrent mensuel
+    val recurrenceDay: Int? = null,     // Jour du mois (1-28) auquel l'occurrence est générée
+    val sourceRecurringId: Long? = null // ID du modèle qui a généré cette occurrence (null si saisie manuelle)
 )
 
 enum class TransactionType { EXPENSE, INCOME, INVESTMENT }

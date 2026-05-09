@@ -25,7 +25,7 @@ import com.dibitara.app.data.local.entity.*
         ScpiInvestmentEntity::class,
         AirbnbRentalEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -39,6 +39,16 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun airbnbRentalDao(): AirbnbRentalDao
 
     companion object {
+        // Migration v2 → v3 : ajout des champs pour les transactions récurrentes
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // isRecurring stocké comme INTEGER (0/1) car Room ne supporte pas BOOLEAN en SQL
+                db.execSQL("ALTER TABLE transactions ADD COLUMN isRecurring INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN recurrenceDay INTEGER")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN sourceRecurringId INTEGER")
+            }
+        }
+
         // Migration v1 → v2 : ajout du champ childId sur transactions + nouvelles tables
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {

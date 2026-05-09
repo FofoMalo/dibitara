@@ -22,7 +22,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): DibitaraDatabase =
         Room.databaseBuilder(context, DibitaraDatabase::class.java, "dibitara.db")
-            .addMigrations(DibitaraDatabase.MIGRATION_1_2)
+            .addMigrations(DibitaraDatabase.MIGRATION_1_2, DibitaraDatabase.MIGRATION_2_3)
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
 

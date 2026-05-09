@@ -50,7 +50,9 @@ class ExpensesViewModel @Inject constructor(
         category: Category,
         currency: Currency,
         note: String,
-        childId: Long? = null
+        childId: Long? = null,
+        isRecurring: Boolean = false,
+        recurrenceDay: Int? = null
     ) {
         val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -65,7 +67,9 @@ class ExpensesViewModel @Inject constructor(
                     type = TransactionType.EXPENSE,
                     date = now,
                     note = note,
-                    childId = childId
+                    childId = childId,
+                    isRecurring = isRecurring,
+                    recurrenceDay = recurrenceDay
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }
@@ -79,7 +83,9 @@ class ExpensesViewModel @Inject constructor(
         category: Category,
         currency: Currency,
         note: String,
-        childId: Long? = null
+        childId: Long? = null,
+        isRecurring: Boolean = false,
+        recurrenceDay: Int? = null
     ) {
         val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -92,7 +98,9 @@ class ExpensesViewModel @Inject constructor(
                     currency = currency,
                     category = category,
                     note = note,
-                    childId = childId
+                    childId = childId,
+                    isRecurring = isRecurring,
+                    recurrenceDay = recurrenceDay
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }
