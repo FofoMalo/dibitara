@@ -28,6 +28,7 @@ import com.patrykandpatrick.vico.core.entry.entryOf
 @Composable
 fun DashboardScreen(
     onNavigateToDebts: () -> Unit = {},
+    onNavigateToReport: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -44,9 +45,10 @@ fun DashboardScreen(
                 }
             is DashboardUiState.Success ->
                 DashboardContent(
-                    overview = state.overview,
-                    spendingHistory = state.spendingHistory,
-                    onNavigateToDebts = onNavigateToDebts
+                    overview          = state.overview,
+                    spendingHistory   = state.spendingHistory,
+                    onNavigateToDebts = onNavigateToDebts,
+                    onNavigateToReport = onNavigateToReport
                 )
         }
     }
@@ -56,7 +58,8 @@ fun DashboardScreen(
 private fun DashboardContent(
     overview: PatrimonyOverview,
     spendingHistory: List<MonthlyExpense>,
-    onNavigateToDebts: () -> Unit
+    onNavigateToDebts: () -> Unit,
+    onNavigateToReport: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -65,7 +68,16 @@ private fun DashboardContent(
             .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium)
+            OutlinedButton(onClick = onNavigateToReport) {
+                Text("Rapport mensuel")
+            }
+        }
 
         PatrimonyNetCard(overview = overview)
 
