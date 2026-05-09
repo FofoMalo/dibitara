@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -29,6 +30,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val filter by viewModel.filter.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
+    var showFilterSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -36,8 +38,8 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
         viewModel.event.collect { event ->
             when (event) {
                 is ExpensesEvent.Saved   -> { showAddSheet = false; editingExpense = null
-                    snackbarHostState.showSnackbar("Dépense enregistrée") }
-                is ExpensesEvent.Deleted -> snackbarHostState.showSnackbar("Dépense supprimée")
+                    snackbarHostState.showSnackbar("Transaction enregistrée") }
+                is ExpensesEvent.Deleted -> snackbarHostState.showSnackbar("Transaction supprimée")
                 is ExpensesEvent.Error   -> snackbarHostState.showSnackbar(event.message)
             }
         }
@@ -51,79 +53,42 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             }
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Barre de recherche
-            OutlinedTextField(
-                value = filter.query,
-                onValueChange = { viewModel.updateFilter(filter.copy(query = it)) },
-                placeholder = { Text("Rechercher dans les notes…") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
-            // Chips : période + type + tri
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Barre de recherche + bouton filtre
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Filtre période
-                items(FilterPeriod.entries) { period ->
-                    FilterChip(
-                        selected = filter.period == period,
-                        onClick = { viewModel.updateFilter(filter.copy(period = period)) },
-                        label = { Text(period.label) }
-                    )
-                }
-                // Filtre type
-                item {
-                    FilterChip(
-                        selected = filter.transactionType == null,
-                        onClick = { viewModel.updateFilter(filter.copy(transactionType = null)) },
-                        label = { Text("Tous") }
-                    )
-                }
-                items(TransactionType.entries) { type ->
-                    FilterChip(
-                        selected = filter.transactionType == type,
-                        onClick = { viewModel.updateFilter(filter.copy(transactionType = type)) },
-                        label = { Text(type.label()) }
-                    )
-                }
-                // Tri
-                items(SortOrder.entries) { order ->
-                    FilterChip(
-                        selected = filter.sort == order,
-                        onClick = { viewModel.updateFilter(filter.copy(sort = order)) },
-                        label = { Text(order.label) }
-                    )
-                }
-            }
+                OutlinedTextField(
+                    value = filter.query,
+                    onValueChange = { viewModel.updateFilter(filter.copy(query = it)) },
+                    placeholder = { Text("Rechercher…") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
 
-            // Chips catégories (ligne dédiée)
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item {
-                    FilterChip(
-                        selected = filter.category == null,
-                        onClick = { viewModel.updateFilter(filter.copy(category = null)) },
-                        label = { Text("Toutes") }
-                    )
-                }
-                items(Category.entries) { cat ->
-                    FilterChip(
-                        selected = filter.category == cat,
-                        onClick = { viewModel.updateFilter(filter.copy(category = cat)) },
-                        label = { Text(cat.label()) }
-                    )
+                // Badge sur l'icône quand des filtres non-défaut sont actifs
+                val activeFilterCount = filter.activeFilterCount()
+                BadgedBox(
+                    badge = {
+                        if (activeFilterCount > 0) {
+                            Badge { Text(activeFilterCount.toString()) }
+                        }
+                    }
+                ) {
+                    IconButton(onClick = { showFilterSheet = true }) {
+                        Icon(
+                            Icons.Filled.FilterList,
+                            contentDescription = "Filtres",
+                            tint = if (activeFilterCount > 0)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -151,6 +116,15 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
         }
     }
 
+    // Bottom sheet des filtres
+    if (showFilterSheet) {
+        FilterSheet(
+            filter = filter,
+            onFilterChange = { viewModel.updateFilter(it) },
+            onDismiss = { showFilterSheet = false }
+        )
+    }
+
     // Feuille d'ajout
     if (showAddSheet) {
         ExpenseSheet(
@@ -175,6 +149,104 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
         )
     }
 }
+
+// ─── Bottom sheet des filtres ─────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterSheet(
+    filter: ExpensesFilter,
+    onFilterChange: (ExpensesFilter) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Text("Filtres", style = MaterialTheme.typography.titleLarge)
+
+            // Période
+            Text("Période", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(FilterPeriod.entries) { period ->
+                    FilterChip(
+                        selected = filter.period == period,
+                        onClick = { onFilterChange(filter.copy(period = period)) },
+                        label = { Text(period.label) }
+                    )
+                }
+            }
+
+            // Type
+            Text("Type", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(
+                        selected = filter.transactionType == null,
+                        onClick = { onFilterChange(filter.copy(transactionType = null)) },
+                        label = { Text("Tous") }
+                    )
+                }
+                items(TransactionType.entries) { type ->
+                    FilterChip(
+                        selected = filter.transactionType == type,
+                        onClick = { onFilterChange(filter.copy(transactionType = type)) },
+                        label = { Text(type.label()) }
+                    )
+                }
+            }
+
+            // Catégorie
+            Text("Catégorie", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(
+                        selected = filter.category == null,
+                        onClick = { onFilterChange(filter.copy(category = null)) },
+                        label = { Text("Toutes") }
+                    )
+                }
+                items(Category.entries) { cat ->
+                    FilterChip(
+                        selected = filter.category == cat,
+                        onClick = { onFilterChange(filter.copy(category = cat)) },
+                        label = { Text(cat.label()) }
+                    )
+                }
+            }
+
+            // Tri
+            Text("Trier par", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SortOrder.entries.forEach { order ->
+                    FilterChip(
+                        selected = filter.sort == order,
+                        onClick = { onFilterChange(filter.copy(sort = order)) },
+                        label = { Text(order.label) }
+                    )
+                }
+            }
+
+            // Réinitialiser
+            if (filter.activeFilterCount() > 0) {
+                TextButton(
+                    onClick = { onFilterChange(ExpensesFilter()) },
+                    modifier = Modifier.align(Alignment.End)
+                ) { Text("Réinitialiser les filtres") }
+            }
+        }
+    }
+}
+
+// ─── Liste ────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun ExpensesList(
@@ -208,7 +280,6 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(expense.category.label(), style = MaterialTheme.typography.bodyLarge)
-                    // Badge récurrence sur les modèles uniquement
                     if (expense.isRecurring) {
                         Icon(
                             imageVector = Icons.Filled.Refresh,
@@ -235,10 +306,12 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
             )
             Spacer(Modifier.width(8.dp))
             IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = "Modifier", tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Filled.Edit, contentDescription = "Modifier",
+                    tint = MaterialTheme.colorScheme.primary)
             }
             IconButton(onClick = { showDeleteConfirm = true }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Filled.Delete, contentDescription = "Supprimer",
+                    tint = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -251,7 +324,9 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
             confirmButton = {
                 TextButton(onClick = { onDelete(); showDeleteConfirm = false }) { Text("Supprimer") }
             },
-            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Annuler") } }
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Annuler") }
+            }
         )
     }
 }
@@ -261,10 +336,12 @@ private fun EmptyExpenses(modifier: Modifier = Modifier) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Aucune transaction trouvée", style = MaterialTheme.typography.bodyLarge)
-        Text("Modifiez les filtres ou appuyez sur + pour ajouter", style = MaterialTheme.typography.bodyMedium,
+        Text("Modifiez les filtres ou appuyez sur +", style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
+
+// ─── Feuille de saisie ────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -339,7 +416,6 @@ private fun ExpenseSheet(
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
-            // Toggle récurrence
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -379,7 +455,7 @@ private fun ExpenseSheet(
     }
 }
 
-// ─── Extensions d'affichage ──────────────────────────────────────────────────
+// ─── Extensions d'affichage ───────────────────────────────────────────────────
 
 private fun Category.label(): String = when (this) {
     Category.ALIMENTATION   -> "Alimentation"
@@ -397,4 +473,14 @@ private fun TransactionType.label(): String = when (this) {
     TransactionType.EXPENSE    -> "Dépenses"
     TransactionType.INCOME     -> "Revenus"
     TransactionType.INVESTMENT -> "Investissements"
+}
+
+// Compte le nombre de filtres actifs non-défaut pour le badge
+private fun ExpensesFilter.activeFilterCount(): Int {
+    var count = 0
+    if (period != FilterPeriod.CURRENT_MONTH) count++
+    if (transactionType != TransactionType.EXPENSE) count++
+    if (category != null) count++
+    if (sort != SortOrder.DATE_DESC) count++
+    return count
 }
