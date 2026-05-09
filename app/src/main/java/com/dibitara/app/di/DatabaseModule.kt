@@ -23,7 +23,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): DibitaraDatabase =
         Room.databaseBuilder(context, DibitaraDatabase::class.java, "dibitara.db")
             .addMigrations(DibitaraDatabase.MIGRATION_1_2)
-            .fallbackToDestructiveMigrationOnDowngrade()
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
 
     @Provides fun provideTransactionDao(db: DibitaraDatabase): TransactionDao = db.transactionDao()
