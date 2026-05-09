@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
+import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +19,8 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val ucGetPreferences: GetUserPreferencesUseCase,
     private val ucUpdateSeuil: UpdateSeuilFondsUseCase,
-    private val ucUpdateDevise: UpdateDeviseParDefautUseCase
+    private val ucUpdateDevise: UpdateDeviseParDefautUseCase,
+    private val ucUpdateAfficherRapport: UpdateAfficherRapportUseCase
 ) : ViewModel() {
 
     /** Préférences actuelles, mises à jour en temps réel depuis DataStore. */
@@ -41,5 +43,9 @@ class SettingsViewModel @Inject constructor(
 
     fun mettreAJourDevise(currency: Currency) {
         viewModelScope.launch { ucUpdateDevise(currency) }
+    }
+
+    fun mettreAJourAfficherRapport(afficher: Boolean) {
+        viewModelScope.launch { ucUpdateAfficherRapport(afficher) }
     }
 }

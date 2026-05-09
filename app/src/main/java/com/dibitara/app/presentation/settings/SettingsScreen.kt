@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -60,6 +61,31 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 ) {
                     Text("Appliquer")
                 }
+            }
+        }
+
+        // ─── Section tableau de bord ──────────────────────────────────────────
+        SectionCard(titre = "Tableau de bord") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Rapport mensuel",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = "Remplace le graphique des 6 derniers mois.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = prefs.afficherRapportMensuel,
+                    onCheckedChange = { viewModel.mettreAJourAfficherRapport(it) }
+                )
             }
         }
 

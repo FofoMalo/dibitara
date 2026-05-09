@@ -9,4 +9,5 @@ interface UserPreferencesRepository {
     fun get(): Flow<UserPreferences>
     suspend fun updateSeuil(seuilCents: Long)
     suspend fun updateDevise(currency: Currency)
+    suspend fun updateAfficherRapport(afficher: Boolean)
 }

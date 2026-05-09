@@ -2,6 +2,7 @@ package com.dibitara.app.data.repository
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -21,9 +22,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 ) : UserPreferencesRepository {
 
     companion object {
-        // Clés utilisées pour lire/écrire dans DataStore
-        val KEY_SEUIL_CENTS = longPreferencesKey("seuil_fonds_cents")
-        val KEY_DEVISE      = stringPreferencesKey("devise_par_defaut")
+        val KEY_SEUIL_CENTS      = longPreferencesKey("seuil_fonds_cents")
+        val KEY_DEVISE           = stringPreferencesKey("devise_par_defaut")
+        val KEY_RAPPORT_MENSUEL  = booleanPreferencesKey("afficher_rapport_mensuel")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -31,7 +32,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             seuilFondsCents = prefs[KEY_SEUIL_CENTS] ?: UserPreferences().seuilFondsCents,
             deviseParDefaut = prefs[KEY_DEVISE]
                 ?.let { runCatching { Currency.valueOf(it) }.getOrNull() }
-                ?: UserPreferences().deviseParDefaut
+                ?: UserPreferences().deviseParDefaut,
+            afficherRapportMensuel = prefs[KEY_RAPPORT_MENSUEL] ?: false
         )
     }
 
@@ -41,5 +43,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateDevise(currency: Currency) {
         dataStore.edit { it[KEY_DEVISE] = currency.name }
+    }
+
+    override suspend fun updateAfficherRapport(afficher: Boolean) {
+        dataStore.edit { it[KEY_RAPPORT_MENSUEL] = afficher }
     }
 }

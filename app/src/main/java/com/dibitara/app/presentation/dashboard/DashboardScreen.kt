@@ -12,8 +12,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.MonthlyExpense
+import com.dibitara.app.domain.model.MonthlyReport
 import com.dibitara.app.domain.model.PatrimonyOverview
 import com.dibitara.app.presentation.common.toCurrencyDisplay
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
@@ -45,10 +50,11 @@ fun DashboardScreen(
                 }
             is DashboardUiState.Success ->
                 DashboardContent(
-                    overview          = state.overview,
-                    spendingHistory   = state.spendingHistory,
-                    onNavigateToDebts = onNavigateToDebts,
-                    onNavigateToReport = onNavigateToReport
+                    overview           = state.overview,
+                    spendingHistory    = state.spendingHistory,
+                    onNavigateToDebts  = onNavigateToDebts,
+                    onNavigateToReport = onNavigateToReport,
+                    rapportMensuel     = state.rapportMensuel
                 )
         }
     }
@@ -59,7 +65,8 @@ private fun DashboardContent(
     overview: PatrimonyOverview,
     spendingHistory: List<MonthlyExpense>,
     onNavigateToDebts: () -> Unit,
-    onNavigateToReport: () -> Unit
+    onNavigateToReport: () -> Unit,
+    rapportMensuel: MonthlyReport? = null
 ) {
     Column(
         modifier = Modifier
@@ -68,16 +75,7 @@ private fun DashboardContent(
             .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium)
-            OutlinedButton(onClick = onNavigateToReport) {
-                Text("Rapport mensuel")
-            }
-        }
+        Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium)
 
         PatrimonyNetCard(overview = overview)
 
@@ -120,8 +118,10 @@ private fun DashboardContent(
             onClick = onNavigateToDebts
         )
 
-        // Graphique dépenses — affiché seulement s'il y a au moins un mois non vide
-        if (spendingHistory.any { it.totalCents > 0 }) {
+        // Rapport synthèse OU graphique 6 mois selon le réglage utilisateur
+        if (rapportMensuel != null) {
+            RapportSyntheseCard(rapport = rapportMensuel, onVoirDetail = onNavigateToReport)
+        } else if (spendingHistory.any { it.totalCents > 0 }) {
             SpendingHistoryCard(history = spendingHistory, currency = overview.currency)
         }
     }
@@ -245,6 +245,99 @@ private fun DebtsCard(totalCents: Long, currency: Currency, onClick: () -> Unit)
             )
         }
     }
+}
+
+// ─── Carte rapport synthèse compacte ─────────────────────────────────────────
+
+@Composable
+private fun RapportSyntheseCard(rapport: MonthlyReport, onVoirDetail: () -> Unit) {
+    val hausse = rapport.variationDepensesCents > 0
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+            // En-tête : titre + lien "Voir le détail"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Rapport — ${moisComplet(rapport.month)} ${rapport.year}",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                TextButton(
+                    onClick = onVoirDetail,
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Text("Voir le détail", style = MaterialTheme.typography.labelMedium)
+                    Spacer(Modifier.width(2.dp))
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+
+            // Bilan sur une ligne : Revenus / Dépenses / Solde
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                BilanMini("Revenus",  rapport.revenusCents,  rapport.currency, MaterialTheme.colorScheme.primary)
+                BilanMini("Dépenses", rapport.depensesCents, rapport.currency, MaterialTheme.colorScheme.error)
+                BilanMini(
+                    label      = "Solde",
+                    valueCents = rapport.soldeCents,
+                    currency   = rapport.currency,
+                    color      = if (rapport.soldeCents >= 0) MaterialTheme.colorScheme.primary
+                                 else MaterialTheme.colorScheme.error
+                )
+            }
+
+            // Variation vs mois précédent
+            if (rapport.variationDepensesCents != 0L) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(
+                        imageVector = if (hausse) Icons.AutoMirrored.Filled.TrendingUp
+                                      else Icons.AutoMirrored.Filled.TrendingDown,
+                        contentDescription = null,
+                        tint = if (hausse) MaterialTheme.colorScheme.error
+                               else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    val delta = if (hausse) rapport.variationDepensesCents
+                                else -rapport.variationDepensesCents
+                    Text(
+                        text = "${if (hausse) "+" else "-"}${delta.toCurrencyDisplay(rapport.currency)} vs mois précédent",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (hausse) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BilanMini(label: String, valueCents: Long, currency: Currency,
+                      color: androidx.compose.ui.graphics.Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(valueCents.toCurrencyDisplay(currency),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold, color = color)
+    }
+}
+
+private fun moisComplet(month: Int): String = when (month) {
+    1 -> "Janvier"; 2 -> "Février"; 3 -> "Mars"; 4 -> "Avril"
+    5 -> "Mai"; 6 -> "Juin"; 7 -> "Juillet"; 8 -> "Août"
+    9 -> "Septembre"; 10 -> "Octobre"; 11 -> "Novembre"; else -> "Décembre"
 }
 
 /** Convertit un numéro de mois (1–12) en abréviation française à 3 lettres. */
