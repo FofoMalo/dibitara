@@ -4,11 +4,16 @@ import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
-import com.dibitara.app.domain.usecase.DeleteInvestmentUseCase
-import com.dibitara.app.domain.usecase.GetInvestmentsUseCase
-import com.dibitara.app.domain.usecase.SaveInvestmentUseCase
+import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
+import com.dibitara.app.domain.usecase.DeleteScpiUseCase
+import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
+import com.dibitara.app.domain.usecase.GetRealEstateUseCase
+import com.dibitara.app.domain.usecase.GetScpiUseCase
+import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
+import com.dibitara.app.domain.usecase.SaveScpiUseCase
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -27,18 +32,30 @@ import java.time.LocalDate
 class InvestmentsViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
-    private val getInvestments: GetInvestmentsUseCase = mockk()
-    private val saveInvestment: SaveInvestmentUseCase = mockk()
-    private val deleteInvestment: DeleteInvestmentUseCase = mockk()
+
+    private val ucGetRealEstate: GetRealEstateUseCase = mockk()
+    private val ucGetScpi: GetScpiUseCase = mockk()
+    private val ucGetAirbnbByYear: GetAirbnbRentalsByYearUseCase = mockk()
+    private val ucSaveRealEstate: SaveRealEstateUseCase = mockk()
+    private val ucSaveScpi: SaveScpiUseCase = mockk()
+    private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase = mockk()
+    private val ucDeleteRealEstate: DeleteRealEstateUseCase = mockk()
+    private val ucDeleteScpi: DeleteScpiUseCase = mockk()
+    private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase = mockk()
+
     private lateinit var viewModel: InvestmentsViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        every { getInvestments.realEstate() } returns flowOf(emptyList())
-        every { getInvestments.scpi() } returns flowOf(emptyList())
-        every { getInvestments.airbnbByYear(any()) } returns flowOf(emptyList())
-        viewModel = InvestmentsViewModel(getInvestments, saveInvestment, deleteInvestment)
+        every { ucGetRealEstate() } returns flowOf(emptyList())
+        every { ucGetScpi() } returns flowOf(emptyList())
+        every { ucGetAirbnbByYear(any()) } returns flowOf(emptyList())
+        viewModel = InvestmentsViewModel(
+            ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear,
+            ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental,
+            ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental
+        )
     }
 
     @AfterEach
@@ -56,7 +73,7 @@ class InvestmentsViewModelTest {
 
     @Test
     fun `addRealEstate avec valeur valide émet Saved`() = runTest {
-        coEvery { saveInvestment.realEstate(any()) } returns Result.success(1L)
+        coEvery { ucSaveRealEstate(any()) } returns Result.success(1L)
         val events = mutableListOf<InvestmentsEvent>()
         val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
 
@@ -69,7 +86,7 @@ class InvestmentsViewModelTest {
 
     @Test
     fun `addScpi avec parts valides émet Saved`() = runTest {
-        coEvery { saveInvestment.scpi(any()) } returns Result.success(1L)
+        coEvery { ucSaveScpi(any()) } returns Result.success(1L)
         val events = mutableListOf<InvestmentsEvent>()
         val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
 
@@ -82,7 +99,7 @@ class InvestmentsViewModelTest {
 
     @Test
     fun `addAirbnbRental avec montant valide émet Saved`() = runTest {
-        coEvery { saveInvestment.airbnb(any()) } returns Result.success(1L)
+        coEvery { ucSaveAirbnbRental(any()) } returns Result.success(1L)
         val events = mutableListOf<InvestmentsEvent>()
         val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
 

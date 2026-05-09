@@ -26,98 +26,112 @@ class InvestmentUseCasesTest {
     private fun buildAirbnb(label: String = "Studio Bordeaux", amount: Long = 90000L) =
         AirbnbRental(propertyLabel = label, amountCents = amount, date = LocalDate.now(), currency = Currency.EUR)
 
-    // ─── GetInvestmentsUseCase ───────────────────────────────────────────────
+    // ─── GetRealEstateUseCase ────────────────────────────────────────────────
 
     @Test
-    fun `GetInvestments realEstate délègue au repository`() {
+    fun `GetRealEstate délègue au repository`() {
         every { repository.getAllRealEstate() } returns flowOf(emptyList())
-        assertNotNull(GetInvestmentsUseCase(repository).realEstate())
+        assertNotNull(GetRealEstateUseCase(repository)())
     }
 
+    // ─── GetScpiUseCase ──────────────────────────────────────────────────────
+
     @Test
-    fun `GetInvestments scpi délègue au repository`() {
+    fun `GetScpi délègue au repository`() {
         every { repository.getAllScpi() } returns flowOf(emptyList())
-        assertNotNull(GetInvestmentsUseCase(repository).scpi())
+        assertNotNull(GetScpiUseCase(repository)())
     }
 
+    // ─── GetAirbnbRentalsUseCase ─────────────────────────────────────────────
+
     @Test
-    fun `GetInvestments airbnb délègue au repository`() {
+    fun `GetAirbnbRentals délègue au repository`() {
         every { repository.getAllAirbnbRentals() } returns flowOf(emptyList())
-        assertNotNull(GetInvestmentsUseCase(repository).airbnb())
+        assertNotNull(GetAirbnbRentalsUseCase(repository)())
     }
 
+    // ─── GetAirbnbRentalsByYearUseCase ───────────────────────────────────────
+
     @Test
-    fun `GetInvestments airbnbByYear filtre par année`() {
+    fun `GetAirbnbRentalsByYear filtre par année`() {
         every { repository.getAirbnbRentalsByYear(2026) } returns flowOf(emptyList())
-        assertNotNull(GetInvestmentsUseCase(repository).airbnbByYear(2026))
+        assertNotNull(GetAirbnbRentalsByYearUseCase(repository)(2026))
     }
 
-    // ─── SaveInvestmentUseCase ───────────────────────────────────────────────
+    // ─── SaveRealEstateUseCase ───────────────────────────────────────────────
 
     @Test
-    fun `SaveInvestment realEstate retourne succès`() = runTest {
+    fun `SaveRealEstate retourne succès`() = runTest {
         val asset = buildRealEstate()
         coEvery { repository.saveRealEstate(asset) } returns Result.success(1L)
-        assertTrue(SaveInvestmentUseCase(repository).realEstate(asset).isSuccess)
+        assertTrue(SaveRealEstateUseCase(repository)(asset).isSuccess)
     }
 
     @Test
-    fun `SaveInvestment realEstate retourne échec si libellé vide`() = runTest {
-        assertTrue(SaveInvestmentUseCase(repository).realEstate(buildRealEstate(label = "")).isFailure)
+    fun `SaveRealEstate retourne échec si libellé vide`() = runTest {
+        assertTrue(SaveRealEstateUseCase(repository)(buildRealEstate(label = "")).isFailure)
     }
 
     @Test
-    fun `SaveInvestment realEstate retourne échec si valeur nulle`() = runTest {
-        assertTrue(SaveInvestmentUseCase(repository).realEstate(buildRealEstate(value = 0L)).isFailure)
+    fun `SaveRealEstate retourne échec si valeur nulle`() = runTest {
+        assertTrue(SaveRealEstateUseCase(repository)(buildRealEstate(value = 0L)).isFailure)
     }
 
+    // ─── SaveScpiUseCase ─────────────────────────────────────────────────────
+
     @Test
-    fun `SaveInvestment scpi retourne succès`() = runTest {
+    fun `SaveScpi retourne succès`() = runTest {
         val scpi = buildScpi()
         coEvery { repository.saveScpi(scpi) } returns Result.success(1L)
-        assertTrue(SaveInvestmentUseCase(repository).scpi(scpi).isSuccess)
+        assertTrue(SaveScpiUseCase(repository)(scpi).isSuccess)
     }
 
     @Test
-    fun `SaveInvestment scpi retourne échec si parts nulles`() = runTest {
-        assertTrue(SaveInvestmentUseCase(repository).scpi(buildScpi(shares = 0)).isFailure)
+    fun `SaveScpi retourne échec si parts nulles`() = runTest {
+        assertTrue(SaveScpiUseCase(repository)(buildScpi(shares = 0)).isFailure)
     }
 
+    // ─── SaveAirbnbRentalUseCase ─────────────────────────────────────────────
+
     @Test
-    fun `SaveInvestment airbnb retourne succès`() = runTest {
+    fun `SaveAirbnbRental retourne succès`() = runTest {
         val rental = buildAirbnb()
         coEvery { repository.saveAirbnbRental(rental) } returns Result.success(1L)
-        assertTrue(SaveInvestmentUseCase(repository).airbnb(rental).isSuccess)
+        assertTrue(SaveAirbnbRentalUseCase(repository)(rental).isSuccess)
     }
 
     @Test
-    fun `SaveInvestment airbnb retourne échec si montant nul`() = runTest {
-        assertTrue(SaveInvestmentUseCase(repository).airbnb(buildAirbnb(amount = 0L)).isFailure)
+    fun `SaveAirbnbRental retourne échec si montant nul`() = runTest {
+        assertTrue(SaveAirbnbRentalUseCase(repository)(buildAirbnb(amount = 0L)).isFailure)
     }
 
-    // ─── DeleteInvestmentUseCase ─────────────────────────────────────────────
+    // ─── DeleteRealEstateUseCase ─────────────────────────────────────────────
 
     @Test
-    fun `DeleteInvestment realEstate délègue au repository`() = runTest {
+    fun `DeleteRealEstate délègue au repository`() = runTest {
         val asset = buildRealEstate()
         coJustRun { repository.deleteRealEstate(asset) }
-        DeleteInvestmentUseCase(repository).realEstate(asset)
+        DeleteRealEstateUseCase(repository)(asset)
         coVerify { repository.deleteRealEstate(asset) }
     }
 
+    // ─── DeleteScpiUseCase ───────────────────────────────────────────────────
+
     @Test
-    fun `DeleteInvestment scpi délègue au repository`() = runTest {
+    fun `DeleteScpi délègue au repository`() = runTest {
         val scpi = buildScpi()
         coJustRun { repository.deleteScpi(scpi) }
-        DeleteInvestmentUseCase(repository).scpi(scpi)
+        DeleteScpiUseCase(repository)(scpi)
         coVerify { repository.deleteScpi(scpi) }
     }
 
+    // ─── DeleteAirbnbRentalUseCase ───────────────────────────────────────────
+
     @Test
-    fun `DeleteInvestment airbnb délègue au repository`() = runTest {
+    fun `DeleteAirbnbRental délègue au repository`() = runTest {
         val rental = buildAirbnb()
         coJustRun { repository.deleteAirbnbRental(rental) }
-        DeleteInvestmentUseCase(repository).airbnb(rental)
+        DeleteAirbnbRentalUseCase(repository)(rental)
         coVerify { repository.deleteAirbnbRental(rental) }
     }
 }

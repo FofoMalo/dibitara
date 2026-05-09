@@ -6,26 +6,39 @@ import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
-import com.dibitara.app.domain.usecase.DeleteInvestmentUseCase
-import com.dibitara.app.domain.usecase.GetInvestmentsUseCase
-import com.dibitara.app.domain.usecase.SaveInvestmentUseCase
+import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
+import com.dibitara.app.domain.usecase.DeleteScpiUseCase
+import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
+import com.dibitara.app.domain.usecase.GetRealEstateUseCase
+import com.dibitara.app.domain.usecase.GetScpiUseCase
+import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
+import com.dibitara.app.domain.usecase.SaveScpiUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
+// Chaque UseCase est préfixé "uc" pour éviter toute ambiguïté avec les méthodes publiques du même nom.
 @HiltViewModel
 class InvestmentsViewModel @Inject constructor(
-    private val getInvestments: GetInvestmentsUseCase,
-    private val saveInvestment: SaveInvestmentUseCase,
-    private val deleteInvestment: DeleteInvestmentUseCase
+    private val ucGetRealEstate: GetRealEstateUseCase,
+    private val ucGetScpi: GetScpiUseCase,
+    private val ucGetAirbnbByYear: GetAirbnbRentalsByYearUseCase,
+    private val ucSaveRealEstate: SaveRealEstateUseCase,
+    private val ucSaveScpi: SaveScpiUseCase,
+    private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase,
+    private val ucDeleteRealEstate: DeleteRealEstateUseCase,
+    private val ucDeleteScpi: DeleteScpiUseCase,
+    private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase
 ) : ViewModel() {
 
     val uiState: StateFlow<InvestmentsUiState> = combine(
-        getInvestments.realEstate(),
-        getInvestments.scpi(),
-        getInvestments.airbnbByYear(LocalDate.now().year)
+        ucGetRealEstate(),
+        ucGetScpi(),
+        ucGetAirbnbByYear(LocalDate.now().year)
     ) { realEstate, scpi, airbnb ->
         InvestmentsUiState.Success(
             realEstate = realEstate,
@@ -50,7 +63,7 @@ class InvestmentsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            saveInvestment.realEstate(
+            ucSaveRealEstate(
                 RealEstateAsset(label = label, currentValueCents = cents, currency = currency, updatedAt = LocalDate.now())
             )
                 .onSuccess { _event.emit(InvestmentsEvent.Saved) }
@@ -66,7 +79,7 @@ class InvestmentsViewModel @Inject constructor(
         val shareValue = shareValueStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         val contribution = contributionStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         viewModelScope.launch {
-            saveInvestment.scpi(
+            ucSaveScpi(
                 ScpiInvestment(
                     label = label,
                     sharesCount = shares,
@@ -87,7 +100,7 @@ class InvestmentsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            saveInvestment.airbnb(
+            ucSaveAirbnbRental(
                 AirbnbRental(propertyLabel = label, amountCents = cents, date = date, currency = currency)
             )
                 .onSuccess { _event.emit(InvestmentsEvent.Saved) }
@@ -96,15 +109,15 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun deleteRealEstate(asset: RealEstateAsset) {
-        viewModelScope.launch { deleteInvestment.realEstate(asset) }
+        viewModelScope.launch { ucDeleteRealEstate(asset) }
     }
 
     fun deleteScpi(scpi: ScpiInvestment) {
-        viewModelScope.launch { deleteInvestment.scpi(scpi) }
+        viewModelScope.launch { ucDeleteScpi(scpi) }
     }
 
     fun deleteAirbnb(rental: AirbnbRental) {
-        viewModelScope.launch { deleteInvestment.airbnb(rental) }
+        viewModelScope.launch { ucDeleteAirbnbRental(rental) }
     }
 }
 
