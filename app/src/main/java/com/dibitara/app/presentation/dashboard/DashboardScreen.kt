@@ -11,8 +11,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.MonthlyExpense
 import com.dibitara.app.domain.model.PatrimonyOverview
 import com.dibitara.app.presentation.common.toCurrencyDisplay
+import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
+import com.patrykandpatrick.vico.compose.chart.Chart
+import com.patrykandpatrick.vico.compose.chart.column.columnChart
+import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
+import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
+import com.patrykandpatrick.vico.core.axis.AxisPosition
+import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
+import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
+import com.patrykandpatrick.vico.core.entry.entryOf
 
 @Composable
 fun DashboardScreen(
@@ -32,13 +43,21 @@ fun DashboardScreen(
                     Text(state.message, color = MaterialTheme.colorScheme.error)
                 }
             is DashboardUiState.Success ->
-                DashboardContent(overview = state.overview, onNavigateToDebts = onNavigateToDebts)
+                DashboardContent(
+                    overview = state.overview,
+                    spendingHistory = state.spendingHistory,
+                    onNavigateToDebts = onNavigateToDebts
+                )
         }
     }
 }
 
 @Composable
-private fun DashboardContent(overview: PatrimonyOverview, onNavigateToDebts: () -> Unit) {
+private fun DashboardContent(
+    overview: PatrimonyOverview,
+    spendingHistory: List<MonthlyExpense>,
+    onNavigateToDebts: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -48,10 +67,8 @@ private fun DashboardContent(overview: PatrimonyOverview, onNavigateToDebts: () 
     ) {
         Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium)
 
-        // Carte patrimoine net — valeur phare
         PatrimonyNetCard(overview = overview)
 
-        // 4 métriques en 2 colonnes
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetricCard(
                 modifier = Modifier.weight(1f),
@@ -85,12 +102,54 @@ private fun DashboardContent(overview: PatrimonyOverview, onNavigateToDebts: () 
             )
         }
 
-        // Carte dettes
         DebtsCard(
             totalCents = overview.dettesTotalCents,
             currency = overview.currency,
             onClick = onNavigateToDebts
         )
+
+        // Graphique dépenses — affiché seulement s'il y a au moins un mois non vide
+        if (spendingHistory.any { it.totalCents > 0 }) {
+            SpendingHistoryCard(history = spendingHistory, currency = overview.currency)
+        }
+    }
+}
+
+@Composable
+private fun SpendingHistoryCard(history: List<MonthlyExpense>, currency: Currency) {
+    // ChartEntryModelProducer gère les mises à jour asynchrones des données du graphique
+    val producer = remember { ChartEntryModelProducer() }
+    val labels = remember(history) { history.map { moisAbrege(it.month) } }
+
+    LaunchedEffect(history) {
+        // Conversion centimes → euros, x = index du mois dans la liste
+        producer.setEntries(
+            history.mapIndexed { i, expense ->
+                entryOf(i.toFloat(), expense.totalCents.toFloat() / 100f)
+            }
+        )
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Dépenses — 6 derniers mois", style = MaterialTheme.typography.titleMedium)
+            ProvideChartStyle(m3ChartStyle()) {
+                Chart(
+                    chart = columnChart(),
+                    chartModelProducer = producer,
+                    startAxis = rememberStartAxis(),
+                    bottomAxis = rememberBottomAxis(
+                        valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
+                            labels.getOrElse(value.toInt()) { "" }
+                        }
+                    ),
+                    modifier = Modifier.fillMaxWidth().height(180.dp)
+                )
+            }
+        }
     }
 }
 
@@ -176,3 +235,8 @@ private fun DebtsCard(totalCents: Long, currency: Currency, onClick: () -> Unit)
     }
 }
 
+/** Convertit un numéro de mois (1–12) en abréviation française à 3 lettres. */
+private fun moisAbrege(month: Int): String = when (month) {
+    1 -> "Jan"; 2 -> "Fév"; 3 -> "Mar"; 4 -> "Avr"; 5 -> "Mai"; 6 -> "Jun"
+    7 -> "Jul"; 8 -> "Aoû"; 9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; else -> "Déc"
+}

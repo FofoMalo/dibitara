@@ -20,6 +20,16 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.presentation.common.toCurrencyDisplay
+import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
+import com.patrykandpatrick.vico.compose.chart.Chart
+import com.patrykandpatrick.vico.compose.chart.column.columnChart
+import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
+import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
+import com.patrykandpatrick.vico.core.axis.AxisPosition
+import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
+import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
+import com.patrykandpatrick.vico.core.entry.entryOf
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -116,6 +126,11 @@ private fun InvestmentsContent(
 
         // Carte récapitulative
         item { TotalInvestmentsCard(totalCents = totalCents, airbnbAnnualCents = state.airbnbAnnualTotal) }
+
+        // Graphique barres — affiché si au moins un actif immo ou SCPI
+        if (state.realEstate.isNotEmpty() || state.scpi.isNotEmpty()) {
+            item { AssetsBarChart(realEstate = state.realEstate, scpi = state.scpi) }
+        }
 
         // --- Section Immobilier ---
         item {
@@ -588,6 +603,57 @@ private fun AddAirbnbSheet(
                 enabled = label.isNotBlank() && amount.toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
+        }
+    }
+}
+
+// ─── Graphique barres ────────────────────────────────────────────────────────
+
+@Composable
+private fun AssetsBarChart(
+    realEstate: List<RealEstateAsset>,
+    scpi: List<ScpiInvestment>
+) {
+    // On combine immobilier et SCPI en une liste (libellé, valeur en centimes)
+    val actifs = (realEstate.map { it.label to it.currentValueCents } +
+                  scpi.map { it.label to it.totalValueCents })
+        .filter { it.second > 0 }
+
+    if (actifs.isEmpty()) return
+
+    // ChartEntryModelProducer gère les mises à jour asynchrones des données du graphique
+    val producer = remember { ChartEntryModelProducer() }
+    // Libellés tronqués à 8 caractères pour tenir sur l'axe
+    val labels = actifs.map { it.first.take(8) }
+
+    LaunchedEffect(actifs) {
+        // Conversion centimes → euros, x = index de l'actif dans la liste
+        producer.setEntries(
+            actifs.mapIndexed { i, (_, valueCents) ->
+                entryOf(i.toFloat(), valueCents.toFloat() / 100f)
+            }
+        )
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Valeur par actif (€)", style = MaterialTheme.typography.titleMedium)
+            ProvideChartStyle(m3ChartStyle()) {
+                Chart(
+                    chart = columnChart(),
+                    chartModelProducer = producer,
+                    startAxis = rememberStartAxis(),
+                    bottomAxis = rememberBottomAxis(
+                        valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
+                            labels.getOrElse(value.toInt()) { "" }
+                        }
+                    ),
+                    modifier = Modifier.fillMaxWidth().height(180.dp)
+                )
+            }
         }
     }
 }

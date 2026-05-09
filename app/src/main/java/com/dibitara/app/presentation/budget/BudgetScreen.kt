@@ -1,5 +1,6 @@
 package com.dibitara.app.presentation.budget
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +13,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -19,6 +23,7 @@ import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TransactionType
 import java.time.Month
 import java.time.format.TextStyle
 import java.util.Locale
@@ -102,6 +107,17 @@ private fun BudgetContent(
                 BudgetSummaryCard(budget = state.budget)
             } else {
                 NoBudgetCard(onSetBudget = onEditBudget)
+            }
+        }
+
+        // Donut — visible uniquement s'il y a des dépenses ce mois
+        val depenses = state.transactions.filter { it.type == TransactionType.EXPENSE }
+        if (depenses.isNotEmpty()) {
+            item {
+                CategoryDonutChart(
+                    transactions = depenses,
+                    currency = state.budget?.currency ?: Currency.EUR
+                )
             }
         }
 
@@ -242,6 +258,76 @@ private fun SetBudgetDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
     )
+}
+
+@Composable
+private fun CategoryDonutChart(transactions: List<Transaction>, currency: Currency) {
+    val total = transactions.sumOf { it.amountCents }.toFloat()
+    val groupes = transactions
+        .groupBy { it.category }
+        .map { (cat, txs) -> cat to txs.sumOf { it.amountCents } }
+        .sortedByDescending { it.second }
+
+    // Une couleur distincte par catégorie
+    val couleurs = listOf(
+        Color(0xFF1DB954), Color(0xFF2196F3), Color(0xFFFF9800),
+        Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF00BCD4),
+        Color(0xFF4CAF50), Color(0xFFFF5722), Color(0xFF607D8B)
+    )
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Répartition des dépenses", style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Cercle donut dessiné avec Canvas
+                Canvas(modifier = Modifier.size(110.dp)) {
+                    var angleDepart = -90f
+                    groupes.forEachIndexed { i, (_, cents) ->
+                        val balayage = (cents.toFloat() / total) * 360f
+                        drawArc(
+                            color = couleurs[i % couleurs.size],
+                            startAngle = angleDepart,
+                            sweepAngle = balayage,
+                            useCenter = false,
+                            style = Stroke(width = 28.dp.toPx(), cap = StrokeCap.Butt)
+                        )
+                        angleDepart += balayage
+                    }
+                }
+                // Légende associée
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    groupes.forEachIndexed { i, (categorie, cents) ->
+                        val pct = (cents.toFloat() / total * 100).toInt()
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .then(Modifier) // placeholder pour la couleur
+                            ) {
+                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                    drawCircle(color = couleurs[i % couleurs.size])
+                                }
+                            }
+                            Text(
+                                "${categorie.label()} $pct%",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 private fun categoryBreakdown(transactions: List<Transaction>): List<Pair<Category, Long>> =
