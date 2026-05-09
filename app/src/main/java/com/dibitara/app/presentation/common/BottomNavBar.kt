@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -21,11 +22,12 @@ import com.dibitara.app.presentation.navigation.Screen
 @Composable
 fun BottomNavBar(navController: NavController) {
     val items = listOf(
-        NavItem(Screen.Dashboard,   "Accueil",         Icons.Filled.Home),
-        NavItem(Screen.Budget,      "Budget",          Icons.Filled.AccountBalance),
-        NavItem(Screen.Expenses,    "Dépenses",        Icons.Filled.Receipt),
-        NavItem(Screen.Savings,     "Épargne",         Icons.Filled.Savings),
-        NavItem(Screen.Investments, "Investissements", Icons.AutoMirrored.Filled.TrendingUp),
+        NavItem(Screen.Dashboard,   "Accueil",    Icons.Filled.Home),
+        NavItem(Screen.Budget,      "Budget",     Icons.Filled.AccountBalance),
+        NavItem(Screen.Expenses,    "Dépenses",   Icons.Filled.Receipt),
+        NavItem(Screen.Savings,     "Épargne",    Icons.Filled.Savings),
+        NavItem(Screen.Investments, "Placements", Icons.AutoMirrored.Filled.TrendingUp),
+        NavItem(Screen.Settings,    "Paramètres", Icons.Filled.Settings),
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()

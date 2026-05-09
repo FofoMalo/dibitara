@@ -99,7 +99,7 @@ class NotificationHelper @Inject constructor(
     fun envoyerAvertissementFonds(soldeCents: Long, seuilCents: Long) {
         val notification = NotificationCompat.Builder(context, CANAL_FONDS)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("Fonds disponibles faibles")
+            .setContentTitle("Liquidités insuffisantes")
             .setContentText(
                 "Solde estimé : ${soldeCents / 100}€ " +
                 "(seuil d'alerte : ${seuilCents / 100}€)"

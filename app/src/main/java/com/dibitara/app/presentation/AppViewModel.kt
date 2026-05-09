@@ -6,8 +6,10 @@ import com.dibitara.app.domain.usecase.CheckAvailableFundsUseCase
 import com.dibitara.app.domain.usecase.CheckBudgetNotificationUseCase
 import com.dibitara.app.domain.usecase.CheckDebtRemindersUseCase
 import com.dibitara.app.domain.usecase.GenerateMonthlyRecurringUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.presentation.common.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -15,7 +17,8 @@ import javax.inject.Inject
  * ViewModel attaché à MainActivity.
  * Déclenche au démarrage :
  *  1. La génération des transactions récurrentes du mois.
- *  2. Les vérifications de notification (budget, dettes, fonds).
+ *  2. Les vérifications de notification (budget, dettes, liquidités).
+ * Le seuil d'alerte est lu depuis les préférences utilisateur — pas de valeur codée en dur.
  */
 @HiltViewModel
 class AppViewModel @Inject constructor(
@@ -23,13 +26,9 @@ class AppViewModel @Inject constructor(
     private val checkBudget: CheckBudgetNotificationUseCase,
     private val checkDebtReminders: CheckDebtRemindersUseCase,
     private val checkAvailableFunds: CheckAvailableFundsUseCase,
+    private val getPreferences: GetUserPreferencesUseCase,
     private val notificationHelper: NotificationHelper
 ) : ViewModel() {
-
-    companion object {
-        // Seuil en-dessous duquel on avertit l'utilisateur (500€ par défaut)
-        private const val SEUIL_FONDS_CENTS = 50_000L
-    }
 
     init {
         viewModelScope.launch {
@@ -39,6 +38,9 @@ class AppViewModel @Inject constructor(
     }
 
     private suspend fun verifierNotifications() {
+        // Snapshot unique des préférences — le seuil peut avoir été changé par l'utilisateur
+        val prefs = getPreferences().first()
+
         // 1. Budget dépassé ?
         val budgetDepasse = checkBudget()
         if (budgetDepasse != null) {
@@ -52,18 +54,18 @@ class AppViewModel @Inject constructor(
         val dettesAujourdhui = checkDebtReminders()
         dettesAujourdhui.forEach { dette ->
             notificationHelper.envoyerRappelDette(
-                idDette     = dette.id,
-                labelDette  = dette.label,
+                idDette      = dette.id,
+                labelDette   = dette.label,
                 montantCents = dette.monthlyPaymentCents
             )
         }
 
-        // 3. Solde du mois trop bas ?
+        // 3. Liquidités insuffisantes ? (seuil depuis les préférences)
         val soldeCents = checkAvailableFunds()
-        if (soldeCents < SEUIL_FONDS_CENTS) {
+        if (soldeCents < prefs.seuilFondsCents) {
             notificationHelper.envoyerAvertissementFonds(
                 soldeCents = soldeCents,
-                seuilCents = SEUIL_FONDS_CENTS
+                seuilCents = prefs.seuilFondsCents
             )
         }
     }
