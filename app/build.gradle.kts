@@ -9,10 +9,12 @@ plugins {
     alias(libs.plugins.kover)
 }
 
-// Lecture des secrets de signature depuis keystore.properties (hors dépôt git)
+// Lecture des secrets de signature depuis keystore.properties (hors dépôt git).
+// Le fichier est absent sur CI (gitignored) — la signing config release est donc
+// créée uniquement quand il est présent, pour ne pas bloquer lint/tests/debug.
+val keystoreFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
-    val f = rootProject.file("keystore.properties")
-    if (f.exists()) load(f.inputStream())
+    if (keystoreFile.exists()) load(keystoreFile.inputStream())
 }
 
 android {
@@ -29,12 +31,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    signingConfigs {
-        create("release") {
-            storeFile     = file(keystoreProps.getProperty("storeFile") ?: error("storeFile manquant dans keystore.properties"))
-            storePassword = keystoreProps.getProperty("storePassword") ?: error("storePassword manquant")
-            keyAlias      = keystoreProps.getProperty("keyAlias") ?: error("keyAlias manquant")
-            keyPassword   = keystoreProps.getProperty("keyPassword") ?: error("keyPassword manquant")
+    if (keystoreFile.exists()) {
+        signingConfigs {
+            create("release") {
+                storeFile     = file(keystoreProps.getProperty("storeFile")!!)
+                storePassword = keystoreProps.getProperty("storePassword")!!
+                keyAlias      = keystoreProps.getProperty("keyAlias")!!
+                keyPassword   = keystoreProps.getProperty("keyPassword")!!
+            }
         }
     }
 
@@ -44,7 +48,9 @@ android {
             isDebuggable = true
         }
         release {
-            signingConfig = signingConfigs.getByName("release")
+            if (keystoreFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
