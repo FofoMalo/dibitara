@@ -19,3 +19,8 @@ keystore.properties
 
 # Schémas Room — doit être versionné pour valider les migrations
 !app/schemas/
+
+# Fichiers de travail locaux — ne pas committer
+.claude/
+AMELIORATIONS.md
+session_reprise.md
