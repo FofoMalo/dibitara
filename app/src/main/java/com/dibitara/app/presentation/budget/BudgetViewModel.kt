@@ -76,14 +76,18 @@ class BudgetViewModel @Inject constructor(
         val cents = amountEuros.toDoubleOrNull()?.let { (it * 100).toLong() } ?: return
         val month = _selectedMonth.value
         val year  = _selectedYear.value
+        // On récupère le budget existant pour préserver son id Room.
+        // Sans cela, Budget(id=0) insère toujours une nouvelle ligne au lieu de remplacer l'existante.
+        val budgetExistant = (uiState.value as? BudgetUiState.Success)?.budget
         viewModelScope.launch {
             setBudget(
                 Budget(
-                    month = month,
-                    year  = year,
+                    id             = budgetExistant?.id ?: 0L,
+                    month          = month,
+                    year           = year,
                     allocatedCents = cents,
-                    spentCents = (uiState.value as? BudgetUiState.Success)?.budget?.spentCents ?: 0L,
-                    currency = currency
+                    spentCents     = budgetExistant?.spentCents ?: 0L,
+                    currency       = currency
                 )
             )
         }
