@@ -20,7 +20,8 @@ data class Transaction(
     val childId: Long? = null,          // Identifiant de l'enfant associé (null si pas d'enfant)
     val isRecurring: Boolean = false,   // true = cette transaction est un modèle récurrent mensuel
     val recurrenceDay: Int? = null,     // Jour du mois (1-28) auquel l'occurrence est générée
-    val sourceRecurringId: Long? = null // ID du modèle qui a généré cette occurrence (null si saisie manuelle)
+    val sourceRecurringId: Long? = null,// ID du modèle qui a généré cette occurrence (null si saisie manuelle)
+    val subCategory: SubCategory? = null// Non-null uniquement si category == AUTRE
 )
 
 enum class TransactionType { EXPENSE, INCOME, INVESTMENT }
@@ -32,7 +33,29 @@ enum class Currency(val symbol: String, val isoCode: String) {
     XAF("FCFA", "XAF")
 }
 
-enum class Category {
-    ALIMENTATION, LOGEMENT, TRANSPORT, SANTE,
-    LOISIRS, INVESTISSEMENT, EPARGNE, ENFANT, AUTRE
+enum class Category(val displayName: String) {
+    ALIMENTATION  ("Alimentation"),
+    LOGEMENT      ("Logement"),
+    TRANSPORT     ("Transport"),
+    SANTE         ("Santé"),
+    LOISIRS       ("Loisirs"),
+    INVESTISSEMENT("Investissement"),
+    EPARGNE       ("Épargne"),
+    ENFANT        ("Enfant"),
+    HABILLEMENT   ("Habillement"),
+    IMPOTS_CHARGES("Impôts & charges"),
+    ASSURANCES    ("Assurances"),
+    VACANCES      ("Vacances"),
+    TRANSFERTS    ("Transferts"),
+    AUTRE         ("Autre")            // toujours en dernier — fallback de safeValueOf
+}
+
+// Sous-catégories prédéfinies, utilisées uniquement quand category == AUTRE
+enum class SubCategory(val displayName: String) {
+    CADEAUX        ("Cadeaux"),
+    FRAIS_BANCAIRES("Frais bancaires"),
+    ABONNEMENTS    ("Abonnements"),
+    TELEPHONIE     ("Téléphonie"),
+    INFORMATIQUE   ("Informatique"),
+    DIVERS         ("Divers")          // toujours en dernier — fallback de safeValueOf
 }

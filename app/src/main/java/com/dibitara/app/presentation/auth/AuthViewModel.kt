@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.security.AuthResult
 import com.dibitara.app.security.BiometricAuthManager
+import com.dibitara.app.security.CredentialManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,35 +15,142 @@ import javax.inject.Inject
 
 /**
  * ViewModel de l'écran de verrouillage.
- * Il orchestre la demande d'authentification et expose l'état à la UI.
- * La logique biométrique est dans BiometricAuthManager — pas ici.
+ *
+ * Gère trois méthodes d'authentification :
+ *  1. Biométrique (empreinte / visage) via BiometricAuthManager
+ *  2. PIN à 4 chiffres via CredentialManager
+ *  3. Email + mot de passe local via CredentialManager
+ *
+ * Au démarrage, si aucun secret n'est configuré → NeedsSetup → l'UI navigue
+ * vers SetupAuthScreen pour que l'utilisateur crée un PIN.
  */
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val biometricAuthManager: BiometricAuthManager
+    private val biometricAuthManager: BiometricAuthManager,
+    private val credentialManager: CredentialManager
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
+    private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Loading)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            // Les lectures EncryptedSharedPreferences sont en mémoire après init
+            val hasPin      = credentialManager.isPinSetup()
+            val hasPassword = credentialManager.isPasswordSetup()
+            val email       = credentialManager.getStoredEmail()
+
+            _uiState.value = if (!hasPin && !hasPassword) {
+                AuthUiState.NeedsSetup
+            } else {
+                AuthUiState.Idle(hasPin = hasPin, hasPassword = hasPassword, storedEmail = email)
+            }
+        }
+    }
+
+    /** Lance l'authentification biométrique. */
     fun authenticate(activity: FragmentActivity) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             biometricAuthManager.authenticate(activity).collect { result ->
                 _uiState.value = when (result) {
                     is AuthResult.Success   -> AuthUiState.Authenticated
-                    is AuthResult.Cancelled -> AuthUiState.Idle
-                    is AuthResult.Failed    -> AuthUiState.Idle
+                    is AuthResult.Cancelled -> buildIdle()
+                    is AuthResult.Failed    -> buildIdle()
                     is AuthResult.Error     -> AuthUiState.Error(result.message)
                 }
             }
         }
     }
+
+    /**
+     * Vérifie le PIN saisi.
+     * En cas d'erreur, on remet l'état Idle avec un message d'erreur clair.
+     */
+    fun verifyPin(pin: String) {
+        viewModelScope.launch {
+            val correct = credentialManager.verifyPin(pin)
+            _uiState.value = if (correct) {
+                AuthUiState.Authenticated
+            } else {
+                buildIdle(pinError = "PIN incorrect — réessayez")
+            }
+        }
+    }
+
+    /** Vérifie l'email et le mot de passe saisis. */
+    fun verifyPassword(email: String, password: String) {
+        viewModelScope.launch {
+            val correct = credentialManager.verifyPassword(email, password)
+            _uiState.value = if (correct) {
+                AuthUiState.Authenticated
+            } else {
+                buildIdle(passwordError = "Email ou mot de passe incorrect")
+            }
+        }
+    }
+
+    /** Efface le message d'erreur PIN (appelé quand l'utilisateur recommence à saisir). */
+    fun clearPinError() {
+        val current = _uiState.value as? AuthUiState.Idle ?: return
+        _uiState.value = current.copy(pinError = null)
+    }
+
+    /**
+     * Récupération d'accès via biométrie.
+     *
+     * Si l'empreinte/visage est reconnu, les hashes PIN et mot de passe sont effacés
+     * et l'état passe à [AuthUiState.NeedsSetup] pour rediriger vers SetupAuthScreen.
+     * Les données Room ne sont PAS supprimées — l'utilisateur repart du setup d'accès
+     * sans perdre ses données financières.
+     */
+    fun reinitialiserAccesViaBiometrie(activity: FragmentActivity) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            biometricAuthManager.authenticate(activity).collect { result ->
+                _uiState.value = when (result) {
+                    is AuthResult.Success -> {
+                        credentialManager.clearCredentials()
+                        AuthUiState.NeedsSetup
+                    }
+                    is AuthResult.Cancelled -> buildIdle()
+                    is AuthResult.Failed    -> buildIdle()
+                    is AuthResult.Error     -> AuthUiState.Error(result.message)
+                }
+            }
+        }
+    }
+
+    private fun buildIdle(pinError: String? = null, passwordError: String? = null) =
+        AuthUiState.Idle(
+            hasPin        = credentialManager.isPinSetup(),
+            hasPassword   = credentialManager.isPasswordSetup(),
+            storedEmail   = credentialManager.getStoredEmail(),
+            pinError      = pinError,
+            passwordError = passwordError
+        )
 }
 
 sealed class AuthUiState {
-    data object Idle          : AuthUiState()
-    data object Loading       : AuthUiState()
+    /** Chargement initial — vérification des secrets en cours. */
+    data object Loading : AuthUiState()
+
+    /** Aucune méthode d'auth configurée — premier lancement. */
+    data object NeedsSetup : AuthUiState()
+
+    /**
+     * En attente de saisie.
+     * [hasPin] / [hasPassword] détermine quels modes afficher.
+     * [pinError] / [passwordError] transportent les messages d'échec.
+     */
+    data class Idle(
+        val hasPin        : Boolean = false,
+        val hasPassword   : Boolean = false,
+        val storedEmail   : String? = null,
+        val pinError      : String? = null,
+        val passwordError : String? = null
+    ) : AuthUiState()
+
     data object Authenticated : AuthUiState()
-    data class Error(val message: String) : AuthUiState()
+    data class  Error(val message: String) : AuthUiState()
 }

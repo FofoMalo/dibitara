@@ -92,4 +92,50 @@ class BudgetViewModelTest {
         assertEquals(100000L, state.budget?.remainingCents)
         job.cancel()
     }
+
+    @Test
+    fun `revenusCents et soldeCents calculés depuis les transactions INCOME`() = runTest {
+        val transactions = listOf(
+            Transaction(amountCents = 200000L, currency = Currency.EUR,
+                category = Category.AUTRE, type = TransactionType.INCOME,
+                date = LocalDate.now(), note = "Salaire"),
+            Transaction(amountCents = 50000L, currency = Currency.EUR,
+                category = Category.ALIMENTATION, type = TransactionType.EXPENSE,
+                date = LocalDate.now()),
+            Transaction(amountCents = 30000L, currency = Currency.EUR,
+                category = Category.TRANSPORT, type = TransactionType.EXPENSE,
+                date = LocalDate.now())
+        )
+        every { getMonthlyBudget(any(), any()) } returns flowOf(null)
+        every { getMonthlyTransactions(any(), any()) } returns flowOf(transactions)
+        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget)
+
+        val job = launch { viewModel.uiState.collect {} }
+        val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success
+
+        assertEquals(200000L, state.revenusCents)               // 1 INCOME
+        assertEquals(80000L,  state.depensesCents)              // 50000 + 30000
+        assertEquals(120000L, state.soldeCents)                 // 200000 - 80000
+        job.cancel()
+    }
+
+    @Test
+    fun `soldeCents est négatif quand les dépenses dépassent les revenus`() = runTest {
+        val transactions = listOf(
+            Transaction(amountCents = 50000L, currency = Currency.EUR,
+                category = Category.AUTRE, type = TransactionType.INCOME,
+                date = LocalDate.now()),
+            Transaction(amountCents = 80000L, currency = Currency.EUR,
+                category = Category.LOISIRS, type = TransactionType.EXPENSE,
+                date = LocalDate.now())
+        )
+        every { getMonthlyTransactions(any(), any()) } returns flowOf(transactions)
+        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget)
+
+        val job = launch { viewModel.uiState.collect {} }
+        val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success
+
+        assertEquals(-30000L, state.soldeCents)
+        job.cancel()
+    }
 }

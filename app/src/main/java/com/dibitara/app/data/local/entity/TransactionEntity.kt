@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import java.time.LocalDate
@@ -26,7 +27,8 @@ data class TransactionEntity(
     val childId: Long? = null,      // Nullable : null si la dépense n'est pas liée à un enfant
     val isRecurring: Boolean = false,       // Ajouté en v3 : true = modèle récurrent mensuel
     val recurrenceDay: Int? = null,         // Ajouté en v3 : jour du mois (1-28)
-    val sourceRecurringId: Long? = null     // Ajouté en v3 : ID du modèle qui a généré cette occurrence
+    val sourceRecurringId: Long? = null,    // Ajouté en v3 : ID du modèle qui a généré cette occurrence
+    val subCategory: String? = null         // Ajouté en v4 : sous-catégorie (uniquement si category == AUTRE)
 ) {
     fun toDomain() = Transaction(
         id = id,
@@ -39,7 +41,8 @@ data class TransactionEntity(
         childId = childId,
         isRecurring = isRecurring,
         recurrenceDay = recurrenceDay,
-        sourceRecurringId = sourceRecurringId
+        sourceRecurringId = sourceRecurringId,
+        subCategory = subCategory?.let { safeValueOf(it, SubCategory.DIVERS) }
     )
 
     companion object {
@@ -54,7 +57,8 @@ data class TransactionEntity(
             childId = t.childId,
             isRecurring = t.isRecurring,
             recurrenceDay = t.recurrenceDay,
-            sourceRecurringId = t.sourceRecurringId
+            sourceRecurringId = t.sourceRecurringId,
+            subCategory = t.subCategory?.name
         )
     }
 }

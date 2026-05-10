@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.AddTransactionUseCase
@@ -52,7 +53,8 @@ class ExpensesViewModel @Inject constructor(
         note: String,
         childId: Long? = null,
         isRecurring: Boolean = false,
-        recurrenceDay: Int? = null
+        recurrenceDay: Int? = null,
+        subCategory: SubCategory? = null
     ) {
         val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -69,7 +71,8 @@ class ExpensesViewModel @Inject constructor(
                     note = note,
                     childId = childId,
                     isRecurring = isRecurring,
-                    recurrenceDay = recurrenceDay
+                    recurrenceDay = recurrenceDay,
+                    subCategory = subCategory
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }
@@ -85,7 +88,8 @@ class ExpensesViewModel @Inject constructor(
         note: String,
         childId: Long? = null,
         isRecurring: Boolean = false,
-        recurrenceDay: Int? = null
+        recurrenceDay: Int? = null,
+        subCategory: SubCategory? = null
     ) {
         val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -100,7 +104,8 @@ class ExpensesViewModel @Inject constructor(
                     note = note,
                     childId = childId,
                     isRecurring = isRecurring,
-                    recurrenceDay = recurrenceDay
+                    recurrenceDay = recurrenceDay,
+                    subCategory = subCategory
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }

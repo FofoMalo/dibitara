@@ -6,6 +6,7 @@ import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
+import com.dibitara.app.security.CredentialManager
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -26,6 +27,7 @@ class SettingsViewModelTest {
     private val ucSeuil: UpdateSeuilFondsUseCase = mockk(relaxed = true)
     private val ucDevise: UpdateDeviseParDefautUseCase = mockk(relaxed = true)
     private val ucRapport: UpdateAfficherRapportUseCase = mockk(relaxed = true)
+    private val credentialManager: CredentialManager = mockk(relaxed = true)
 
     private lateinit var viewModel: SettingsViewModel
 
@@ -33,7 +35,10 @@ class SettingsViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         every { ucGet() } returns flowOf(UserPreferences())
-        viewModel = SettingsViewModel(ucGet, ucSeuil, ucDevise, ucRapport)
+        every { credentialManager.isPinSetup()      } returns false
+        every { credentialManager.isPasswordSetup() } returns false
+        every { credentialManager.getStoredEmail()  } returns null
+        viewModel = SettingsViewModel(ucGet, ucSeuil, ucDevise, ucRapport, credentialManager)
     }
 
     @AfterEach

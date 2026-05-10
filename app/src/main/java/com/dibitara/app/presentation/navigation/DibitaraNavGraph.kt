@@ -10,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.dibitara.app.presentation.auth.LockScreen
+import com.dibitara.app.presentation.auth.SetupAuthScreen
 import com.dibitara.app.presentation.budget.BudgetScreen
 import com.dibitara.app.presentation.common.BottomNavBar
 import com.dibitara.app.presentation.dashboard.DashboardScreen
@@ -21,15 +22,16 @@ import com.dibitara.app.presentation.report.MonthlyReportScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
 
 sealed class Screen(val route: String) {
-    data object Lock        : Screen("lock")
-    data object Dashboard   : Screen("dashboard")
-    data object Budget      : Screen("budget")
-    data object Expenses    : Screen("expenses")
-    data object Savings     : Screen("savings")
-    data object Investments : Screen("investments")
-    data object Debts       : Screen("debts")
-    data object Settings    : Screen("settings")
-    data object Report      : Screen("report")
+    data object Lock       : Screen("lock")
+    data object SetupAuth  : Screen("setup_auth")
+    data object Dashboard  : Screen("dashboard")
+    data object Budget     : Screen("budget")
+    data object Expenses   : Screen("expenses")
+    data object Savings    : Screen("savings")
+    data object Investments: Screen("investments")
+    data object Debts      : Screen("debts")
+    data object Settings   : Screen("settings")
+    data object Report     : Screen("report")
 }
 
 // Écrans qui affichent la barre de navigation inférieure
@@ -64,16 +66,35 @@ fun DibitaraNavGraph(
                 LockScreen(
                     onAuthenticated = {
                         navController.navigate(Screen.Dashboard.route) {
-                            // Supprimer LockScreen de la pile — l'utilisateur ne peut pas revenir en arrière
+                            // Supprimer LockScreen de la pile — impossible de revenir en arrière
+                            popUpTo(Screen.Lock.route) { inclusive = true }
+                        }
+                    },
+                    onNeedsSetup = {
+                        navController.navigate(Screen.SetupAuth.route) {
                             popUpTo(Screen.Lock.route) { inclusive = true }
                         }
                     }
                 )
             }
+
+            composable(Screen.SetupAuth.route) {
+                SetupAuthScreen(
+                    onSetupComplete = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.SetupAuth.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
-                    onNavigateToDebts  = { navController.navigate(Screen.Debts.route) },
-                    onNavigateToReport = { navController.navigate(Screen.Report.route) }
+                    onNavigateToDebts       = { navController.navigate(Screen.Debts.route) },
+                    onNavigateToReport      = { navController.navigate(Screen.Report.route) },
+                    onNavigateToBudget      = { navController.navigate(Screen.Budget.route) },
+                    onNavigateToSavings     = { navController.navigate(Screen.Savings.route) },
+                    onNavigateToInvestments = { navController.navigate(Screen.Investments.route) }
                 )
             }
             composable(Screen.Budget.route)      { BudgetScreen() }

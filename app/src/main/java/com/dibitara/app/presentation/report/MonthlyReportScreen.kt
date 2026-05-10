@@ -203,7 +203,7 @@ private fun TopCategoriesCard(report: MonthlyReport) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            nomCategorie(catExp.category),
+                            catExp.category.displayName,
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
@@ -279,14 +279,4 @@ private fun nomMois(month: Int): String = when (month) {
     9 -> "Septembre"; 10 -> "Octobre"; 11 -> "Novembre"; else -> "Décembre"
 }
 
-private fun nomCategorie(category: Category): String = when (category) {
-    Category.ALIMENTATION  -> "Alimentation"
-    Category.LOGEMENT      -> "Logement"
-    Category.TRANSPORT     -> "Transport"
-    Category.SANTE         -> "Santé"
-    Category.LOISIRS       -> "Loisirs"
-    Category.INVESTISSEMENT -> "Investissement"
-    Category.EPARGNE       -> "Épargne"
-    Category.ENFANT        -> "Enfant"
-    Category.AUTRE         -> "Autre"
-}
+

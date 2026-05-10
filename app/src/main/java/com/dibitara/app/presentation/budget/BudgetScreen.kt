@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.text.font.FontWeight
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
@@ -102,35 +103,102 @@ private fun BudgetContent(
             }
         }
 
+        val currency = state.budget?.currency ?: Currency.EUR
+
+        // Bilan réel — toujours affiché (même si tout est à 0)
+        item {
+            BilanReelCard(
+                revenusCents  = state.revenusCents,
+                depensesCents = state.depensesCents,
+                soldeCents    = state.soldeCents,
+                currency      = currency
+            )
+        }
+
+        // Objectif budget (optionnel — défini par l'utilisateur)
         item {
             if (state.budget != null) {
-                BudgetSummaryCard(budget = state.budget)
+                BudgetObjectifCard(budget = state.budget)
             } else {
                 NoBudgetCard(onSetBudget = onEditBudget)
             }
         }
 
-        // Donut — visible uniquement s'il y a des dépenses ce mois
-        val depenses = state.transactions.filter { it.type == TransactionType.EXPENSE }
-        if (depenses.isNotEmpty()) {
+        // Section revenus — visible s'il y a des transactions INCOME
+        val revenus = state.transactions.filter { it.type == TransactionType.INCOME }
+        if (revenus.isNotEmpty()) {
             item {
-                CategoryDonutChart(
-                    transactions = depenses,
-                    currency = state.budget?.currency ?: Currency.EUR
+                Text(
+                    "Revenus du mois",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp)
                 )
+            }
+            items(revenus.sortedByDescending { it.amountCents }) { tx ->
+                RevenuRow(transaction = tx, currency = currency)
             }
         }
 
-        if (state.transactions.isNotEmpty()) {
+        // Section dépenses — donut + répartition par catégorie
+        val depenses = state.transactions.filter { it.type == TransactionType.EXPENSE }
+        if (depenses.isNotEmpty()) {
             item {
-                Text("Répartition par catégorie", style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 8.dp))
+                CategoryDonutChart(transactions = depenses, currency = currency)
             }
-            items(categoryBreakdown(state.transactions)) { (category, cents) ->
-                CategoryRow(
-                    category = category,
-                    amountCents = cents,
-                    currency = state.budget?.currency ?: Currency.EUR
+            item {
+                Text(
+                    "Dépenses par catégorie",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            items(categoryBreakdown(depenses)) { (category, cents) ->
+                CategoryRow(category = category, amountCents = cents, currency = currency)
+            }
+        }
+    }
+}
+
+// ─── Bilan réel ───────────────────────────────────────────────────────────────
+
+/**
+ * Carte toujours visible montrant le bilan réel du mois :
+ * revenus (transactions INCOME) − dépenses (transactions EXPENSE) = solde.
+ * C'est la réalité financière, indépendante du budget objectif.
+ */
+@Composable
+private fun BilanReelCard(
+    revenusCents  : Long,
+    depensesCents : Long,
+    soldeCents    : Long,
+    currency      : Currency
+) {
+    val soldePositif = soldeCents >= 0
+    val couleurSolde = if (soldePositif) MaterialTheme.colorScheme.primary
+                       else MaterialTheme.colorScheme.error
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                "Bilan du mois",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                BilanColonne("Revenus",  revenusCents,  currency, MaterialTheme.colorScheme.primary)
+                BilanColonne("Dépenses", depensesCents, currency, MaterialTheme.colorScheme.error)
+                BilanColonne(
+                    label      = "Solde",
+                    valueCents = soldeCents,
+                    currency   = currency,
+                    color      = couleurSolde,
+                    prefix     = if (soldePositif) "+" else ""
                 )
             }
         }
@@ -138,15 +206,46 @@ private fun BudgetContent(
 }
 
 @Composable
-private fun BudgetSummaryCard(budget: Budget) {
+private fun BilanColonne(
+    label      : String,
+    valueCents : Long,
+    currency   : Currency,
+    color      : androidx.compose.ui.graphics.Color,
+    prefix     : String = ""
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+        )
+        Text(
+            "$prefix${valueCents.toCurrencyDisplay(currency)}",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+    }
+}
+
+// ─── Objectif budget ──────────────────────────────────────────────────────────
+
+/** Carte d'objectif budgétaire — défini manuellement par l'utilisateur. */
+@Composable
+private fun BudgetObjectifCard(budget: Budget) {
     val progress = if (budget.allocatedCents > 0)
         budget.spentCents.toFloat() / budget.allocatedCents else 0f
     val isOver = budget.isOverBudget
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                "Objectif budget",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Budget alloué", style = MaterialTheme.typography.bodyMedium,
+                Text("Enveloppe allouée", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(budget.allocatedCents.toCurrencyDisplay(budget.currency),
                     style = MaterialTheme.typography.bodyLarge)
@@ -181,6 +280,31 @@ private fun BudgetSummaryCard(budget: Budget) {
     }
 }
 
+// ─── Ligne revenu individuelle ────────────────────────────────────────────────
+
+@Composable
+private fun RevenuRow(transaction: Transaction, currency: Currency) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = transaction.note.ifBlank { "Revenu" },
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "+${transaction.amountCents.toCurrencyDisplay(currency)}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
 @Composable
 private fun NoBudgetCard(onSetBudget: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -199,7 +323,7 @@ private fun NoBudgetCard(onSetBudget: () -> Unit) {
 private fun CategoryRow(category: Category, amountCents: Long, currency: Currency) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(category.label(), style = MaterialTheme.typography.bodyMedium)
+        Text(category.displayName, style = MaterialTheme.typography.bodyMedium)
         Text(amountCents.toCurrencyDisplay(currency), style = MaterialTheme.typography.bodyMedium)
     }
 }
@@ -319,7 +443,7 @@ private fun CategoryDonutChart(transactions: List<Transaction>, currency: Curren
                                 }
                             }
                             Text(
-                                "${categorie.label()} $pct%",
+                                "${categorie.displayName} $pct%",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -339,14 +463,3 @@ private fun categoryBreakdown(transactions: List<Transaction>): List<Pair<Catego
 private fun Long.toCurrencyDisplay(currency: Currency): String =
     "%.2f %s".format(this / 100.0, currency.symbol)
 
-private fun Category.label(): String = when (this) {
-    Category.ALIMENTATION   -> "Alimentation"
-    Category.LOGEMENT       -> "Logement"
-    Category.TRANSPORT      -> "Transport"
-    Category.SANTE          -> "Santé"
-    Category.LOISIRS        -> "Loisirs"
-    Category.INVESTISSEMENT -> "Investissement"
-    Category.EPARGNE        -> "Épargne"
-    Category.ENFANT         -> "Enfant"
-    Category.AUTRE          -> "Autre"
-}

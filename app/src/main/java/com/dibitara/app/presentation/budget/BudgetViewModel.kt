@@ -40,16 +40,20 @@ class BudgetViewModel @Inject constructor(
                 getMonthlyBudget(month, year),
                 getMonthlyTransactions(month, year)
             ) { budget, transactions ->
-                // On calcule le montant dépensé à partir des transactions réelles
-                // plutôt que d'utiliser la valeur stockée en base (jamais mise à jour)
-                val depensesTotales = transactions
+                val depensesCents = transactions
                     .filter { it.type == TransactionType.EXPENSE }
                     .sumOf { it.amountCents }
+                val revenusCents = transactions
+                    .filter { it.type == TransactionType.INCOME }
+                    .sumOf { it.amountCents }
                 BudgetUiState.Success(
-                    budget = budget?.copy(spentCents = depensesTotales),
-                    transactions = transactions,
-                    month = month,
-                    year = year
+                    budget        = budget?.copy(spentCents = depensesCents),
+                    transactions  = transactions,
+                    month         = month,
+                    year          = year,
+                    revenusCents  = revenusCents,
+                    depensesCents = depensesCents,
+                    soldeCents    = revenusCents - depensesCents
                 ) as BudgetUiState
             }
         }
@@ -97,10 +101,16 @@ class BudgetViewModel @Inject constructor(
 sealed class BudgetUiState {
     data object Loading : BudgetUiState()
     data class Success(
-        val budget: Budget?,
-        val transactions: List<Transaction>,
-        val month: Int,
-        val year: Int
+        val budget        : Budget?,
+        val transactions  : List<Transaction>,
+        val month         : Int,
+        val year          : Int,
+        /** Somme des transactions INCOME du mois. */
+        val revenusCents  : Long = 0L,
+        /** Somme des transactions EXPENSE du mois. */
+        val depensesCents : Long = 0L,
+        /** revenusCents − depensesCents — peut être négatif. */
+        val soldeCents    : Long = 0L
     ) : BudgetUiState()
     data class Error(val message: String) : BudgetUiState()
 }

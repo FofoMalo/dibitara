@@ -32,8 +32,11 @@ import com.patrykandpatrick.vico.core.entry.entryOf
 
 @Composable
 fun DashboardScreen(
-    onNavigateToDebts: () -> Unit = {},
-    onNavigateToReport: () -> Unit = {},
+    onNavigateToDebts       : () -> Unit = {},
+    onNavigateToReport      : () -> Unit = {},
+    onNavigateToBudget      : () -> Unit = {},
+    onNavigateToSavings     : () -> Unit = {},
+    onNavigateToInvestments : () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -50,11 +53,14 @@ fun DashboardScreen(
                 }
             is DashboardUiState.Success ->
                 DashboardContent(
-                    overview           = state.overview,
-                    spendingHistory    = state.spendingHistory,
-                    onNavigateToDebts  = onNavigateToDebts,
-                    onNavigateToReport = onNavigateToReport,
-                    rapportMensuel     = state.rapportMensuel
+                    overview                = state.overview,
+                    spendingHistory         = state.spendingHistory,
+                    onNavigateToDebts       = onNavigateToDebts,
+                    onNavigateToReport      = onNavigateToReport,
+                    onNavigateToBudget      = onNavigateToBudget,
+                    onNavigateToSavings     = onNavigateToSavings,
+                    onNavigateToInvestments = onNavigateToInvestments,
+                    rapportMensuel          = state.rapportMensuel
                 )
         }
     }
@@ -62,11 +68,14 @@ fun DashboardScreen(
 
 @Composable
 private fun DashboardContent(
-    overview: PatrimonyOverview,
-    spendingHistory: List<MonthlyExpense>,
-    onNavigateToDebts: () -> Unit,
-    onNavigateToReport: () -> Unit,
-    rapportMensuel: MonthlyReport? = null
+    overview                : PatrimonyOverview,
+    spendingHistory         : List<MonthlyExpense>,
+    onNavigateToDebts       : () -> Unit,
+    onNavigateToReport      : () -> Unit,
+    onNavigateToBudget      : () -> Unit,
+    onNavigateToSavings     : () -> Unit,
+    onNavigateToInvestments : () -> Unit,
+    rapportMensuel          : MonthlyReport? = null
 ) {
     Column(
         modifier = Modifier
@@ -81,34 +90,38 @@ private fun DashboardContent(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetricCard(
-                modifier = Modifier.weight(1f),
-                title = "Liquidités",
+                modifier   = Modifier.weight(1f),
+                title      = "Liquidités",
                 valueCents = overview.liquiditesCents,
-                currency = overview.currency,
-                color = MaterialTheme.colorScheme.primary
+                currency   = overview.currency,
+                color      = MaterialTheme.colorScheme.primary,
+                onClick    = onNavigateToBudget
             )
             MetricCard(
-                modifier = Modifier.weight(1f),
-                title = "Épargne",
+                modifier   = Modifier.weight(1f),
+                title      = "Épargne",
                 valueCents = overview.epargneCents,
-                currency = overview.currency,
-                color = MaterialTheme.colorScheme.secondary
+                currency   = overview.currency,
+                color      = MaterialTheme.colorScheme.secondary,
+                onClick    = onNavigateToSavings
             )
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetricCard(
-                modifier = Modifier.weight(1f),
-                title = "Investissements",
+                modifier   = Modifier.weight(1f),
+                title      = "Investissements",
                 valueCents = overview.investissementsCents,
-                currency = overview.currency,
-                color = MaterialTheme.colorScheme.tertiary
+                currency   = overview.currency,
+                color      = MaterialTheme.colorScheme.tertiary,
+                onClick    = onNavigateToInvestments
             )
             MetricCard(
-                modifier = Modifier.weight(1f),
-                title = "Revenus Airbnb (année)",
+                modifier   = Modifier.weight(1f),
+                title      = "Revenus Airbnb (année)",
                 valueCents = overview.airbnbAnnualRevenueCents,
-                currency = overview.currency,
-                color = MaterialTheme.colorScheme.tertiary
+                currency   = overview.currency,
+                color      = MaterialTheme.colorScheme.tertiary,
+                onClick    = onNavigateToInvestments
             )
         }
 
@@ -196,16 +209,37 @@ private fun PatrimonyNetCard(overview: PatrimonyOverview) {
 
 @Composable
 private fun MetricCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    valueCents: Long,
-    currency: Currency,
-    color: androidx.compose.ui.graphics.Color
+    modifier   : Modifier = Modifier,
+    title      : String,
+    valueCents : Long,
+    currency   : Currency,
+    color      : androidx.compose.ui.graphics.Color,
+    onClick    : (() -> Unit)? = null
 ) {
-    Card(modifier = modifier) {
+    // Contenu commun extrait pour éviter la duplication entre les deux surcharges de Card
+    @Composable
+    fun content() {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                if (onClick != null) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Voir le détail",
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
+            }
             Text(
                 valueCents.toCurrencyDisplay(currency),
                 style = MaterialTheme.typography.titleMedium,
@@ -213,6 +247,12 @@ private fun MetricCard(
                 color = color
             )
         }
+    }
+
+    if (onClick != null) {
+        Card(modifier = modifier, onClick = onClick) { content() }
+    } else {
+        Card(modifier = modifier) { content() }
     }
 }
 

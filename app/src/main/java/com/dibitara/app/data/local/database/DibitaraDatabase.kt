@@ -25,7 +25,7 @@ import com.dibitara.app.data.local.entity.*
         ScpiInvestmentEntity::class,
         AirbnbRentalEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -39,6 +39,14 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun airbnbRentalDao(): AirbnbRentalDao
 
     companion object {
+        // Migration v3 → v4 : ajout de la sous-catégorie pour AUTRE
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // TEXT nullable, sans DEFAULT — Room accepte NULL pour les colonnes optionnelles
+                db.execSQL("ALTER TABLE transactions ADD COLUMN subCategory TEXT")
+            }
+        }
+
         // Migration v2 → v3 : ajout des champs pour les transactions récurrentes
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {

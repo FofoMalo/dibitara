@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import java.time.format.DateTimeFormatter
@@ -129,9 +130,10 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     if (showAddSheet) {
         ExpenseSheet(
             expense = null,
-            onSave = { amount, category, currency, note, isRecurring, recurrenceDay ->
+            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory ->
                 viewModel.addExpense(amount, category, currency, note,
-                    isRecurring = isRecurring, recurrenceDay = recurrenceDay)
+                    isRecurring = isRecurring, recurrenceDay = recurrenceDay,
+                    subCategory = subCategory)
             },
             onDismiss = { showAddSheet = false }
         )
@@ -141,9 +143,10 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     editingExpense?.let { expense ->
         ExpenseSheet(
             expense = expense,
-            onSave = { amount, category, currency, note, isRecurring, recurrenceDay ->
+            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory ->
                 viewModel.updateExpense(expense, amount, category, currency, note,
-                    isRecurring = isRecurring, recurrenceDay = recurrenceDay)
+                    isRecurring = isRecurring, recurrenceDay = recurrenceDay,
+                    subCategory = subCategory)
             },
             onDismiss = { editingExpense = null }
         )
@@ -217,7 +220,7 @@ private fun FilterSheet(
                     FilterChip(
                         selected = filter.category == cat,
                         onClick = { onFilterChange(filter.copy(category = cat)) },
-                        label = { Text(cat.label()) }
+                        label = { Text(cat.displayName) }
                     )
                 }
             }
@@ -279,7 +282,7 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(expense.category.label(), style = MaterialTheme.typography.bodyLarge)
+                    Text(expense.category.displayName, style = MaterialTheme.typography.bodyLarge)
                     if (expense.isRecurring) {
                         Icon(
                             imageVector = Icons.Filled.Refresh,
@@ -288,6 +291,10 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
                             modifier = Modifier.size(16.dp)
                         )
                     }
+                }
+                if (expense.subCategory != null) {
+                    Text(expense.subCategory.displayName, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary)
                 }
                 Text(expense.date.format(formatter), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -347,7 +354,7 @@ private fun EmptyExpenses(modifier: Modifier = Modifier) {
 @Composable
 private fun ExpenseSheet(
     expense: Transaction?,
-    onSave: (String, Category, Currency, String, Boolean, Int?) -> Unit,
+    onSave: (String, Category, Currency, String, Boolean, Int?, SubCategory?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0) } ?: "") }
@@ -358,6 +365,8 @@ private fun ExpenseSheet(
     var currencyExpanded by remember { mutableStateOf(false) }
     var isRecurring by remember { mutableStateOf(expense?.isRecurring ?: false) }
     var recurrenceDayStr by remember { mutableStateOf(expense?.recurrenceDay?.toString() ?: "") }
+    var selectedSubCategory by remember { mutableStateOf(expense?.subCategory) }
+    var subCategoryExpanded by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -378,7 +387,7 @@ private fun ExpenseSheet(
 
             ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = it }) {
                 OutlinedTextField(
-                    value = selectedCategory.label(), onValueChange = {},
+                    value = selectedCategory.displayName, onValueChange = {},
                     readOnly = true, label = { Text("Catégorie") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(categoryExpanded) },
                     modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
@@ -386,9 +395,36 @@ private fun ExpenseSheet(
                 ExposedDropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
                     Category.entries.forEach { cat ->
                         DropdownMenuItem(
-                            text = { Text(cat.label()) },
-                            onClick = { selectedCategory = cat; categoryExpanded = false }
+                            text = { Text(cat.displayName) },
+                            onClick = {
+                                selectedCategory = cat
+                                // Réinitialise la sous-catégorie si on quitte AUTRE
+                                if (cat != Category.AUTRE) selectedSubCategory = null
+                                categoryExpanded = false
+                            }
                         )
+                    }
+                }
+            }
+
+            // Sous-catégorie — visible uniquement pour AUTRE
+            if (selectedCategory == Category.AUTRE) {
+                ExposedDropdownMenuBox(expanded = subCategoryExpanded, onExpandedChange = { subCategoryExpanded = it }) {
+                    OutlinedTextField(
+                        value = selectedSubCategory?.displayName ?: "Sélectionner…",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Sous-catégorie (optionnel)") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(subCategoryExpanded) },
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = subCategoryExpanded, onDismissRequest = { subCategoryExpanded = false }) {
+                        SubCategory.entries.forEach { sub ->
+                            DropdownMenuItem(
+                                text = { Text(sub.displayName) },
+                                onClick = { selectedSubCategory = sub; subCategoryExpanded = false }
+                            )
+                        }
                     }
                 }
             }
@@ -447,7 +483,8 @@ private fun ExpenseSheet(
                     && (!isRecurring || recurrenceDay != null)
 
             Button(
-                onClick = { onSave(amount, selectedCategory, selectedCurrency, note, isRecurring, recurrenceDay) },
+                onClick = { onSave(amount, selectedCategory, selectedCurrency, note, isRecurring, recurrenceDay,
+                    selectedSubCategory.takeIf { selectedCategory == Category.AUTRE }) },
                 enabled = saveEnabled,
                 modifier = Modifier.fillMaxWidth()
             ) { Text(if (expense == null) "Ajouter" else "Enregistrer les modifications") }
@@ -456,18 +493,6 @@ private fun ExpenseSheet(
 }
 
 // ─── Extensions d'affichage ───────────────────────────────────────────────────
-
-private fun Category.label(): String = when (this) {
-    Category.ALIMENTATION   -> "Alimentation"
-    Category.LOGEMENT       -> "Logement"
-    Category.TRANSPORT      -> "Transport"
-    Category.SANTE          -> "Santé"
-    Category.LOISIRS        -> "Loisirs"
-    Category.INVESTISSEMENT -> "Investissement"
-    Category.EPARGNE        -> "Épargne"
-    Category.ENFANT         -> "Enfant"
-    Category.AUTRE          -> "Autre"
-}
 
 private fun TransactionType.label(): String = when (this) {
     TransactionType.EXPENSE    -> "Dépenses"
