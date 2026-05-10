@@ -16,6 +16,9 @@ interface AirbnbRentalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(rental: AirbnbRentalEntity): Long
 
+    @Update
+    suspend fun update(rental: AirbnbRentalEntity)
+
     @Delete
     suspend fun delete(rental: AirbnbRentalEntity)
 }

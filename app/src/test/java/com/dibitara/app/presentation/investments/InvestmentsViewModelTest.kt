@@ -13,6 +13,9 @@ import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
+import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
+import com.dibitara.app.domain.usecase.UpdateScpiUseCase
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -39,6 +42,9 @@ class InvestmentsViewModelTest {
     private val ucSaveRealEstate: SaveRealEstateUseCase = mockk()
     private val ucSaveScpi: SaveScpiUseCase = mockk()
     private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase = mockk()
+    private val ucUpdateRealEstate: UpdateRealEstateUseCase = mockk()
+    private val ucUpdateScpi: UpdateScpiUseCase = mockk()
+    private val ucUpdateAirbnbRental: UpdateAirbnbRentalUseCase = mockk()
     private val ucDeleteRealEstate: DeleteRealEstateUseCase = mockk()
     private val ucDeleteScpi: DeleteScpiUseCase = mockk()
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase = mockk()
@@ -54,6 +60,7 @@ class InvestmentsViewModelTest {
         viewModel = InvestmentsViewModel(
             ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear,
             ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental,
+            ucUpdateRealEstate, ucUpdateScpi, ucUpdateAirbnbRental,
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental
         )
     }
@@ -91,6 +98,20 @@ class InvestmentsViewModelTest {
         val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
 
         viewModel.addScpi("SCPI Primovie", "10", "200.00", "50.00", Currency.EUR)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(events.any { it is InvestmentsEvent.Saved })
+        job.cancel()
+    }
+
+    @Test
+    fun `updateRealEstate avec valeur valide émet Saved`() = runTest {
+        val asset = RealEstateAsset(id = 1L, label = "Appart", currentValueCents = 25000000L, currency = Currency.EUR, updatedAt = LocalDate.now())
+        coEvery { ucUpdateRealEstate(any()) } returns Result.success(Unit)
+        val events = mutableListOf<InvestmentsEvent>()
+        val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
+
+        viewModel.updateRealEstate(asset, "Appartement Lyon", "260000.00", Currency.EUR)
         testScheduler.advanceUntilIdle()
 
         assertTrue(events.any { it is InvestmentsEvent.Saved })

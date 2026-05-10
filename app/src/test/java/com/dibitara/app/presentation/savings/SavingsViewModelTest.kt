@@ -4,7 +4,13 @@ import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
-import com.dibitara.app.domain.usecase.*
+import com.dibitara.app.domain.usecase.DeleteChildUseCase
+import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
+import com.dibitara.app.domain.usecase.GetChildrenUseCase
+import com.dibitara.app.domain.usecase.GetSavingsUseCase
+import com.dibitara.app.domain.usecase.SaveChildUseCase
+import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
+import com.dibitara.app.domain.usecase.UpdateSavingsAccountUseCase
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,6 +30,7 @@ class SavingsViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val getSavings: GetSavingsUseCase = mockk()
     private val saveSavingsAccount: SaveSavingsAccountUseCase = mockk()
+    private val updateSavingsAccount: UpdateSavingsAccountUseCase = mockk()
     private val deleteSavingsAccount: DeleteSavingsAccountUseCase = mockk()
     private val getChildren: GetChildrenUseCase = mockk()
     private val saveChild: SaveChildUseCase = mockk()
@@ -35,7 +42,10 @@ class SavingsViewModelTest {
         Dispatchers.setMain(testDispatcher)
         every { getSavings() } returns flowOf(emptyList())
         every { getChildren() } returns flowOf(emptyList())
-        viewModel = SavingsViewModel(getSavings, saveSavingsAccount, deleteSavingsAccount, getChildren, saveChild, deleteChild)
+        viewModel = SavingsViewModel(
+            getSavings, saveSavingsAccount, updateSavingsAccount,
+            deleteSavingsAccount, getChildren, saveChild, deleteChild
+        )
     }
 
     @AfterEach
@@ -64,6 +74,19 @@ class SavingsViewModelTest {
         testScheduler.advanceUntilIdle()
 
         assertTrue(events.any { it is SavingsEvent.ChildSaved })
+        job.cancel()
+    }
+
+    @Test
+    fun `updateAccount avec montant valide émet événement Saved`() = runTest {
+        coEvery { updateSavingsAccount(any()) } returns Result.success(Unit)
+        val events = mutableListOf<SavingsEvent>()
+        val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
+
+        viewModel.updateAccount(buildAccount(), SavingsType.LIVRET_A, "Livret A modifié", "6000.00", "300.00", Currency.EUR, null)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(events.any { it is SavingsEvent.Saved })
         job.cancel()
     }
 

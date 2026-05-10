@@ -22,6 +22,10 @@ class SavingsRepositoryImpl @Inject constructor(
         dao.insert(SavingsAccountEntity.fromDomain(account))
     }
 
+    override suspend fun update(account: SavingsAccount) {
+        dao.update(SavingsAccountEntity.fromDomain(account))
+    }
+
     override suspend fun delete(account: SavingsAccount) {
         dao.delete(SavingsAccountEntity.fromDomain(account))
     }

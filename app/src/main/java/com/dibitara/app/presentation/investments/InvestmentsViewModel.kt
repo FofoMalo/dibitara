@@ -15,6 +15,9 @@ import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
+import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
+import com.dibitara.app.domain.usecase.UpdateScpiUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -30,6 +33,9 @@ class InvestmentsViewModel @Inject constructor(
     private val ucSaveRealEstate: SaveRealEstateUseCase,
     private val ucSaveScpi: SaveScpiUseCase,
     private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase,
+    private val ucUpdateRealEstate: UpdateRealEstateUseCase,
+    private val ucUpdateScpi: UpdateScpiUseCase,
+    private val ucUpdateAirbnbRental: UpdateAirbnbRentalUseCase,
     private val ucDeleteRealEstate: DeleteRealEstateUseCase,
     private val ucDeleteScpi: DeleteScpiUseCase,
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase
@@ -103,6 +109,44 @@ class InvestmentsViewModel @Inject constructor(
             ucSaveAirbnbRental(
                 AirbnbRental(propertyLabel = label, amountCents = cents, date = date, currency = currency)
             )
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun updateRealEstate(asset: RealEstateAsset, label: String, valueStr: String, currency: Currency) {
+        val cents = valueStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
+            return
+        }
+        viewModelScope.launch {
+            ucUpdateRealEstate(asset.copy(label = label, currentValueCents = cents, currency = currency, updatedAt = LocalDate.now()))
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun updateScpi(scpi: ScpiInvestment, label: String, sharesStr: String, shareValueStr: String, contributionStr: String, currency: Currency) {
+        val shares = sharesStr.toIntOrNull() ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Nombre de parts invalide")) }
+            return
+        }
+        val shareValue   = shareValueStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val contribution = contributionStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        viewModelScope.launch {
+            ucUpdateScpi(scpi.copy(label = label, sharesCount = shares, shareValueCents = shareValue, monthlyContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun updateAirbnbRental(rental: AirbnbRental, label: String, amountStr: String, currency: Currency) {
+        val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
+            return
+        }
+        viewModelScope.launch {
+            ucUpdateAirbnbRental(rental.copy(propertyLabel = label, amountCents = cents, currency = currency))
                 .onSuccess { _event.emit(InvestmentsEvent.Saved) }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }

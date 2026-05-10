@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,12 +27,18 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var showAddChild by remember { mutableStateOf(false) }
+    // Compte à modifier : null = pas d'édition en cours
+    var accountToEdit by remember { mutableStateOf<SavingsAccount?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
             when (event) {
-                is SavingsEvent.Saved      -> { showAddSheet = false; snackbarHostState.showSnackbar("Compte enregistré") }
+                is SavingsEvent.Saved      -> {
+                    showAddSheet = false
+                    accountToEdit = null
+                    snackbarHostState.showSnackbar("Compte enregistré")
+                }
                 is SavingsEvent.Deleted    -> snackbarHostState.showSnackbar("Compte supprimé")
                 is SavingsEvent.ChildSaved -> { showAddChild = false; snackbarHostState.showSnackbar("Enfant ajouté") }
                 is SavingsEvent.Error      -> snackbarHostState.showSnackbar(event.message)
@@ -57,6 +64,7 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                 is SavingsUiState.Success ->
                     SavingsContent(
                         state = state,
+                        onEditAccount = { accountToEdit = it },
                         onDeleteAccount = viewModel::deleteAccount,
                         onAddChild = { showAddChild = true },
                         onDeleteChild = viewModel::removeChild
@@ -76,6 +84,19 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
         )
     }
 
+    // Feuille d'édition : s'ouvre quand l'utilisateur tape le crayon sur une carte
+    accountToEdit?.let { compte ->
+        val children = (uiState as? SavingsUiState.Success)?.children ?: emptyList()
+        EditSavingsSheet(
+            account = compte,
+            children = children,
+            onSave = { type, label, balance, contribution, currency, childId ->
+                viewModel.updateAccount(compte, type, label, balance, contribution, currency, childId)
+            },
+            onDismiss = { accountToEdit = null }
+        )
+    }
+
     if (showAddChild) {
         AddChildDialog(
             onConfirm = viewModel::addChild,
@@ -87,6 +108,7 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
 @Composable
 private fun SavingsContent(
     state: SavingsUiState.Success,
+    onEditAccount: (SavingsAccount) -> Unit,
     onDeleteAccount: (SavingsAccount) -> Unit,
     onAddChild: () -> Unit,
     onDeleteChild: (Child) -> Unit
@@ -134,6 +156,7 @@ private fun SavingsContent(
                 SavingsAccountCard(
                     account = account,
                     childName = state.children.find { it.id == account.childId }?.name,
+                    onEdit = { onEditAccount(account) },
                     onDelete = { onDeleteAccount(account) }
                 )
             }
@@ -176,6 +199,7 @@ private fun SavingsContent(
 private fun SavingsAccountCard(
     account: SavingsAccount,
     childName: String?,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showConfirm by remember { mutableStateOf(false) }
@@ -207,8 +231,14 @@ private fun SavingsAccountCard(
                     )
                 }
             }
-            IconButton(onClick = { showConfirm = true }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+            // Crayon = modifier | Poubelle = supprimer
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+                }
+                IconButton(onClick = { showConfirm = true }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -376,6 +406,107 @@ private fun AddSavingsSheet(
                 enabled = label.isNotBlank() && balance.toDoubleOrNull()?.let { it >= 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter le compte") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditSavingsSheet(
+    account: SavingsAccount,
+    children: List<Child>,
+    onSave: (SavingsType, String, String, String, Currency, Long?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Pré-remplissage avec les valeurs actuelles du compte
+    var selectedType by remember { mutableStateOf(account.type) }
+    var label by remember { mutableStateOf(account.label) }
+    var balance by remember { mutableStateOf("%.2f".format(account.currentBalanceCents / 100.0)) }
+    var contribution by remember {
+        mutableStateOf(
+            if (account.monthlyContributionCents > 0) "%.2f".format(account.monthlyContributionCents / 100.0) else ""
+        )
+    }
+    var selectedCurrency by remember { mutableStateOf(account.currency) }
+    var selectedChild by remember { mutableStateOf(children.find { it.id == account.childId }) }
+    var typeExpanded by remember { mutableStateOf(false) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    var childExpanded by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Modifier le compte épargne", style = MaterialTheme.typography.titleLarge)
+
+            ExposedDropdownMenuBox(expanded = typeExpanded, onExpandedChange = { typeExpanded = it }) {
+                OutlinedTextField(
+                    value = selectedType.displayName, onValueChange = {},
+                    readOnly = true, label = { Text("Type") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(typeExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
+                    SavingsType.entries.forEach { type ->
+                        DropdownMenuItem(text = { Text(type.displayName) },
+                            onClick = { selectedType = type; typeExpanded = false })
+                    }
+                }
+            }
+
+            OutlinedTextField(value = label, onValueChange = { label = it },
+                label = { Text("Libellé") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(value = balance, onValueChange = { balance = it },
+                label = { Text("Solde actuel") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(value = contribution, onValueChange = { contribution = it },
+                label = { Text("Versement mensuel (optionnel)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
+                    readOnly = true, label = { Text("Devise") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    Currency.entries.forEach { c ->
+                        DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false })
+                    }
+                }
+            }
+
+            if (children.isNotEmpty()) {
+                ExposedDropdownMenuBox(expanded = childExpanded, onExpandedChange = { childExpanded = it }) {
+                    OutlinedTextField(
+                        value = selectedChild?.name ?: "Aucun (personnel)", onValueChange = {},
+                        readOnly = true, label = { Text("Associer à un enfant") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(childExpanded) },
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = childExpanded, onDismissRequest = { childExpanded = false }) {
+                        DropdownMenuItem(text = { Text("Aucun (personnel)") },
+                            onClick = { selectedChild = null; childExpanded = false })
+                        children.forEach { child ->
+                            DropdownMenuItem(text = { Text(child.name) },
+                                onClick = { selectedChild = child; childExpanded = false })
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id) },
+                enabled = label.isNotBlank() && balance.toDoubleOrNull()?.let { it >= 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Enregistrer les modifications") }
         }
     }
 }

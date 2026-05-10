@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,8 +38,12 @@ import java.time.format.DateTimeFormatter
 fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddRealEstate by remember { mutableStateOf(false) }
-    var showAddScpi by remember { mutableStateOf(false) }
-    var showAddAirbnb by remember { mutableStateOf(false) }
+    var showAddScpi      by remember { mutableStateOf(false) }
+    var showAddAirbnb    by remember { mutableStateOf(false) }
+    // Éléments en cours d'édition — null = pas d'édition ouverte
+    var realEstateToEdit by remember { mutableStateOf<RealEstateAsset?>(null) }
+    var scpiToEdit       by remember { mutableStateOf<ScpiInvestment?>(null) }
+    var airbnbToEdit     by remember { mutableStateOf<AirbnbRental?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -48,6 +53,9 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                     showAddRealEstate = false
                     showAddScpi = false
                     showAddAirbnb = false
+                    realEstateToEdit = null
+                    scpiToEdit = null
+                    airbnbToEdit = null
                     snackbarHostState.showSnackbar("Investissement enregistré")
                 }
                 is InvestmentsEvent.Error -> snackbarHostState.showSnackbar(event.message)
@@ -72,6 +80,9 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                         onAddRealEstate = { showAddRealEstate = true },
                         onAddScpi = { showAddScpi = true },
                         onAddAirbnb = { showAddAirbnb = true },
+                        onEditRealEstate = { realEstateToEdit = it },
+                        onEditScpi = { scpiToEdit = it },
+                        onEditAirbnb = { airbnbToEdit = it },
                         onDeleteRealEstate = viewModel::deleteRealEstate,
                         onDeleteScpi = viewModel::deleteScpi,
                         onDeleteAirbnb = viewModel::deleteAirbnb
@@ -86,7 +97,6 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
             onDismiss = { showAddRealEstate = false }
         )
     }
-
     if (showAddScpi) {
         AddScpiSheet(
             onSave = { label, shares, shareValue, contribution, currency ->
@@ -95,11 +105,35 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
             onDismiss = { showAddScpi = false }
         )
     }
-
     if (showAddAirbnb) {
         AddAirbnbSheet(
             onSave = { label, amount, date, currency -> viewModel.addAirbnbRental(label, amount, date, currency) },
             onDismiss = { showAddAirbnb = false }
+        )
+    }
+
+    // Sheets d'édition
+    realEstateToEdit?.let { asset ->
+        EditRealEstateSheet(
+            asset = asset,
+            onSave = { label, value, currency -> viewModel.updateRealEstate(asset, label, value, currency) },
+            onDismiss = { realEstateToEdit = null }
+        )
+    }
+    scpiToEdit?.let { scpi ->
+        EditScpiSheet(
+            scpi = scpi,
+            onSave = { label, shares, shareValue, contribution, currency ->
+                viewModel.updateScpi(scpi, label, shares, shareValue, contribution, currency)
+            },
+            onDismiss = { scpiToEdit = null }
+        )
+    }
+    airbnbToEdit?.let { rental ->
+        EditAirbnbSheet(
+            rental = rental,
+            onSave = { label, amount, currency -> viewModel.updateAirbnbRental(rental, label, amount, currency) },
+            onDismiss = { airbnbToEdit = null }
         )
     }
 }
@@ -110,6 +144,9 @@ private fun InvestmentsContent(
     onAddRealEstate: () -> Unit,
     onAddScpi: () -> Unit,
     onAddAirbnb: () -> Unit,
+    onEditRealEstate: (RealEstateAsset) -> Unit,
+    onEditScpi: (ScpiInvestment) -> Unit,
+    onEditAirbnb: (AirbnbRental) -> Unit,
     onDeleteRealEstate: (RealEstateAsset) -> Unit,
     onDeleteScpi: (ScpiInvestment) -> Unit,
     onDeleteAirbnb: (AirbnbRental) -> Unit
@@ -142,7 +179,7 @@ private fun InvestmentsContent(
             }
         } else {
             items(state.realEstate, key = { "immo_${it.id}" }) { asset ->
-                RealEstateCard(asset = asset, onDelete = { onDeleteRealEstate(asset) })
+                RealEstateCard(asset = asset, onEdit = { onEditRealEstate(asset) }, onDelete = { onDeleteRealEstate(asset) })
             }
         }
 
@@ -156,7 +193,7 @@ private fun InvestmentsContent(
             }
         } else {
             items(state.scpi, key = { "scpi_${it.id}" }) { scpi ->
-                ScpiCard(scpi = scpi, onDelete = { onDeleteScpi(scpi) })
+                ScpiCard(scpi = scpi, onEdit = { onEditScpi(scpi) }, onDelete = { onDeleteScpi(scpi) })
             }
         }
 
@@ -170,7 +207,7 @@ private fun InvestmentsContent(
             }
         } else {
             items(state.airbnbRentals, key = { "airbnb_${it.id}" }) { rental ->
-                AirbnbRentalCard(rental = rental, onDelete = { onDeleteAirbnb(rental) })
+                AirbnbRentalCard(rental = rental, onEdit = { onEditAirbnb(rental) }, onDelete = { onDeleteAirbnb(rental) })
             }
         }
     }
@@ -241,7 +278,7 @@ private fun EmptySectionText(text: String) {
 }
 
 @Composable
-private fun RealEstateCard(asset: RealEstateAsset, onDelete: () -> Unit) {
+private fun RealEstateCard(asset: RealEstateAsset, onEdit: () -> Unit, onDelete: () -> Unit) {
     var showConfirm by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -263,8 +300,13 @@ private fun RealEstateCard(asset: RealEstateAsset, onDelete: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(onClick = { showConfirm = true }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+                }
+                IconButton(onClick = { showConfirm = true }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -280,7 +322,7 @@ private fun RealEstateCard(asset: RealEstateAsset, onDelete: () -> Unit) {
 }
 
 @Composable
-private fun ScpiCard(scpi: ScpiInvestment, onDelete: () -> Unit) {
+private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> Unit) {
     var showConfirm by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -309,8 +351,13 @@ private fun ScpiCard(scpi: ScpiInvestment, onDelete: () -> Unit) {
                     )
                 }
             }
-            IconButton(onClick = { showConfirm = true }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+                }
+                IconButton(onClick = { showConfirm = true }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -326,7 +373,7 @@ private fun ScpiCard(scpi: ScpiInvestment, onDelete: () -> Unit) {
 }
 
 @Composable
-private fun AirbnbRentalCard(rental: AirbnbRental, onDelete: () -> Unit) {
+private fun AirbnbRentalCard(rental: AirbnbRental, onEdit: () -> Unit, onDelete: () -> Unit) {
     var showConfirm by remember { mutableStateOf(false) }
     val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH)
 
@@ -350,8 +397,13 @@ private fun AirbnbRentalCard(rental: AirbnbRental, onDelete: () -> Unit) {
                     color = MaterialTheme.colorScheme.tertiary
                 )
             }
-            IconButton(onClick = { showConfirm = true }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+                }
+                IconButton(onClick = { showConfirm = true }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -603,6 +655,189 @@ private fun AddAirbnbSheet(
                 enabled = label.isNotBlank() && amount.toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
+        }
+    }
+}
+
+// ─── Bottom Sheets d'édition ─────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditRealEstateSheet(
+    asset: RealEstateAsset,
+    onSave: (label: String, value: String, currency: Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf(asset.label) }
+    var value by remember { mutableStateOf("%.2f".format(asset.currentValueCents / 100.0)) }
+    var selectedCurrency by remember { mutableStateOf(asset.currency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Modifier le bien immobilier", style = MaterialTheme.typography.titleLarge)
+
+            OutlinedTextField(value = label, onValueChange = { label = it },
+                label = { Text("Libellé") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(value = value, onValueChange = { value = it },
+                label = { Text("Valeur actuelle") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
+                    readOnly = true, label = { Text("Devise") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    Currency.entries.forEach { c ->
+                        DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false })
+                    }
+                }
+            }
+
+            Button(
+                onClick = { onSave(label, value, selectedCurrency) },
+                enabled = label.isNotBlank() && value.toDoubleOrNull()?.let { it > 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Enregistrer les modifications") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditScpiSheet(
+    scpi: ScpiInvestment,
+    onSave: (label: String, shares: String, shareValue: String, contribution: String, currency: Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf(scpi.label) }
+    var shares by remember { mutableStateOf(scpi.sharesCount.toString()) }
+    var shareValue by remember { mutableStateOf("%.2f".format(scpi.shareValueCents / 100.0)) }
+    var contribution by remember {
+        mutableStateOf(if (scpi.monthlyContributionCents > 0) "%.2f".format(scpi.monthlyContributionCents / 100.0) else "")
+    }
+    var selectedCurrency by remember { mutableStateOf(scpi.currency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Modifier la SCPI", style = MaterialTheme.typography.titleLarge)
+
+            OutlinedTextField(value = label, onValueChange = { label = it },
+                label = { Text("Nom de la SCPI") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = shares, onValueChange = { shares = it },
+                    label = { Text("Nb de parts") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(value = shareValue, onValueChange = { shareValue = it },
+                    label = { Text("Valeur / part") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true, modifier = Modifier.weight(1f))
+            }
+
+            OutlinedTextField(value = contribution, onValueChange = { contribution = it },
+                label = { Text("Versement mensuel (optionnel)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
+                    readOnly = true, label = { Text("Devise") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    Currency.entries.forEach { c ->
+                        DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false })
+                    }
+                }
+            }
+
+            val previewTotal = shares.toIntOrNull()?.let { s ->
+                shareValue.toDoubleOrNull()?.let { v -> s * (v * 100).toLong() }
+            }
+            if (previewTotal != null) {
+                Text("Total estimé : ${previewTotal.toCurrencyDisplay(selectedCurrency)}",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
+            }
+
+            Button(
+                onClick = { onSave(label, shares, shareValue, contribution, selectedCurrency) },
+                enabled = label.isNotBlank() && shares.toIntOrNull()?.let { it > 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Enregistrer les modifications") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditAirbnbSheet(
+    rental: AirbnbRental,
+    onSave: (label: String, amount: String, currency: Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf(rental.propertyLabel) }
+    var amount by remember { mutableStateOf("%.2f".format(rental.amountCents / 100.0)) }
+    var selectedCurrency by remember { mutableStateOf(rental.currency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH)
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Modifier le revenu Airbnb", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Mois : ${rental.date.format(formatter).replaceFirstChar { it.uppercase() }}",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OutlinedTextField(value = label, onValueChange = { label = it },
+                label = { Text("Bien loué") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(value = amount, onValueChange = { amount = it },
+                label = { Text("Revenu du mois") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
+                    readOnly = true, label = { Text("Devise") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    Currency.entries.forEach { c ->
+                        DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false })
+                    }
+                }
+            }
+
+            Button(
+                onClick = { onSave(label, amount, selectedCurrency) },
+                enabled = label.isNotBlank() && amount.toDoubleOrNull()?.let { it > 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Enregistrer les modifications") }
         }
     }
 }

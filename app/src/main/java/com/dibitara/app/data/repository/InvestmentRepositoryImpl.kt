@@ -28,6 +28,10 @@ class InvestmentRepositoryImpl @Inject constructor(
         realEstateDao.insert(RealEstateAssetEntity.fromDomain(asset))
     }
 
+    override suspend fun updateRealEstate(asset: RealEstateAsset) {
+        realEstateDao.update(RealEstateAssetEntity.fromDomain(asset))
+    }
+
     override suspend fun deleteRealEstate(asset: RealEstateAsset) {
         realEstateDao.delete(RealEstateAssetEntity.fromDomain(asset))
     }
@@ -37,6 +41,10 @@ class InvestmentRepositoryImpl @Inject constructor(
 
     override suspend fun saveScpi(scpi: ScpiInvestment): Result<Long> = runCatching {
         scpiDao.insert(ScpiInvestmentEntity.fromDomain(scpi))
+    }
+
+    override suspend fun updateScpi(scpi: ScpiInvestment) {
+        scpiDao.update(ScpiInvestmentEntity.fromDomain(scpi))
     }
 
     override suspend fun deleteScpi(scpi: ScpiInvestment) {
@@ -54,6 +62,10 @@ class InvestmentRepositoryImpl @Inject constructor(
 
     override suspend fun saveAirbnbRental(rental: AirbnbRental): Result<Long> = runCatching {
         airbnbDao.insert(AirbnbRentalEntity.fromDomain(rental))
+    }
+
+    override suspend fun updateAirbnbRental(rental: AirbnbRental) {
+        airbnbDao.update(AirbnbRentalEntity.fromDomain(rental))
     }
 
     override suspend fun deleteAirbnbRental(rental: AirbnbRental) {
