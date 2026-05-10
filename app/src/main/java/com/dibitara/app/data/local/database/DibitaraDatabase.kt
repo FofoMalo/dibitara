@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dibitara.app.data.local.dao.*
 import com.dibitara.app.data.local.entity.*
+import com.dibitara.app.data.local.entity.CustomSubCategoryEntity
 
 /**
  * Base de données Room locale.
@@ -23,9 +24,10 @@ import com.dibitara.app.data.local.entity.*
         SavingsAccountEntity::class,
         RealEstateAssetEntity::class,
         ScpiInvestmentEntity::class,
-        AirbnbRentalEntity::class
+        AirbnbRentalEntity::class,
+        CustomSubCategoryEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -37,8 +39,23 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun realEstateAssetDao(): RealEstateAssetDao
     abstract fun scpiInvestmentDao(): ScpiInvestmentDao
     abstract fun airbnbRentalDao(): AirbnbRentalDao
+    abstract fun customSubCategoryDao(): CustomSubCategoryDao
 
     companion object {
+        // Migration v4 → v5 : nouvelle table custom_sub_categories + colonne customSubCategoryId
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS custom_sub_categories (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        parentCategory TEXT NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("ALTER TABLE transactions ADD COLUMN customSubCategoryId INTEGER")
+            }
+        }
+
         // Migration v3 → v4 : ajout de la sous-catégorie pour AUTRE
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {

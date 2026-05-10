@@ -4,13 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.AddTransactionUseCase
+import com.dibitara.app.domain.usecase.DeleteCustomSubCategoryUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
+import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
+import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -22,7 +26,10 @@ class ExpensesViewModel @Inject constructor(
     private val ucGetAll: GetAllTransactionsUseCase,
     private val ucAdd: AddTransactionUseCase,
     private val ucUpdate: UpdateTransactionUseCase,
-    private val ucDelete: DeleteTransactionUseCase
+    private val ucDelete: DeleteTransactionUseCase,
+    private val ucGetCustomSubCategories: GetCustomSubCategoriesUseCase,
+    private val ucUpsertCustomSubCategory: UpsertCustomSubCategoryUseCase,
+    private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase
 ) : ViewModel() {
 
     private val _filter = MutableStateFlow(ExpensesFilter())
@@ -30,9 +37,13 @@ class ExpensesViewModel @Inject constructor(
 
     val uiState: StateFlow<ExpensesUiState> = combine(
         ucGetAll(),
-        _filter
-    ) { transactions, filter ->
-        ExpensesUiState.Success(expenses = filter.apply(transactions)) as ExpensesUiState
+        _filter,
+        ucGetCustomSubCategories()
+    ) { transactions, filter, customSubCats ->
+        ExpensesUiState.Success(
+            expenses            = filter.apply(transactions),
+            customSubCategories = customSubCats
+        ) as ExpensesUiState
     }
         .catch { emit(ExpensesUiState.Error(it.message ?: "Erreur inconnue")) }
         .stateIn(
@@ -55,7 +66,8 @@ class ExpensesViewModel @Inject constructor(
         childId: Long? = null,
         isRecurring: Boolean = false,
         recurrenceDay: Int? = null,
-        subCategory: SubCategory? = null
+        subCategory: SubCategory? = null,
+        customSubCategoryId: Long? = null
     ) {
         val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -73,7 +85,8 @@ class ExpensesViewModel @Inject constructor(
                     childId = childId,
                     isRecurring = isRecurring,
                     recurrenceDay = recurrenceDay,
-                    subCategory = subCategory
+                    subCategory = subCategory,
+                    customSubCategoryId = customSubCategoryId
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }
@@ -91,7 +104,8 @@ class ExpensesViewModel @Inject constructor(
         childId: Long? = null,
         isRecurring: Boolean = false,
         recurrenceDay: Int? = null,
-        subCategory: SubCategory? = null
+        subCategory: SubCategory? = null,
+        customSubCategoryId: Long? = null
     ) {
         val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -108,12 +122,31 @@ class ExpensesViewModel @Inject constructor(
                     childId = childId,
                     isRecurring = isRecurring,
                     recurrenceDay = recurrenceDay,
-                    subCategory = subCategory
+                    subCategory = subCategory,
+                    customSubCategoryId = customSubCategoryId
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }
                 .onFailure { _event.emit(ExpensesEvent.Error(it.message ?: "Erreur")) }
         }
+    }
+
+    // ─── Gestion des sous-catégories personnalisées ───────────────────────────
+
+    fun creerCustomSubCategory(name: String, category: Category) {
+        viewModelScope.launch {
+            ucUpsertCustomSubCategory(CustomSubCategory(name = name, parentCategory = category))
+        }
+    }
+
+    fun renommerCustomSubCategory(subCategory: CustomSubCategory, newName: String) {
+        viewModelScope.launch {
+            ucUpsertCustomSubCategory(subCategory.copy(name = newName))
+        }
+    }
+
+    fun supprimerCustomSubCategory(subCategory: CustomSubCategory) {
+        viewModelScope.launch { ucDeleteCustomSubCategory(subCategory) }
     }
 
     fun deleteExpense(transaction: Transaction) {
@@ -176,7 +209,10 @@ enum class SortOrder(val label: String) {
 
 sealed class ExpensesUiState {
     data object Loading : ExpensesUiState()
-    data class Success(val expenses: List<Transaction>) : ExpensesUiState()
+    data class Success(
+        val expenses: List<Transaction>,
+        val customSubCategories: List<CustomSubCategory> = emptyList()
+    ) : ExpensesUiState()
     data class Error(val message: String) : ExpensesUiState()
 }
 

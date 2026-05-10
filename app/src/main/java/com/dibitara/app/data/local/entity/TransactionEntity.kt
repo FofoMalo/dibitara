@@ -28,7 +28,8 @@ data class TransactionEntity(
     val isRecurring: Boolean = false,       // Ajouté en v3 : true = modèle récurrent mensuel
     val recurrenceDay: Int? = null,         // Ajouté en v3 : jour du mois (1-28)
     val sourceRecurringId: Long? = null,    // Ajouté en v3 : ID du modèle qui a généré cette occurrence
-    val subCategory: String? = null         // Ajouté en v4 : sous-catégorie (uniquement si category == AUTRE)
+    val subCategory: String? = null,            // Ajouté en v4 : sous-catégorie enum (uniquement si category == AUTRE)
+    val customSubCategoryId: Long? = null       // Ajouté en v5 : référence à custom_sub_categories
 ) {
     fun toDomain() = Transaction(
         id = id,
@@ -42,7 +43,8 @@ data class TransactionEntity(
         isRecurring = isRecurring,
         recurrenceDay = recurrenceDay,
         sourceRecurringId = sourceRecurringId,
-        subCategory = subCategory?.let { safeValueOf(it, SubCategory.DIVERS) }
+        subCategory = subCategory?.let { safeValueOf(it, SubCategory.DIVERS) },
+        customSubCategoryId = customSubCategoryId
     )
 
     companion object {
@@ -58,7 +60,8 @@ data class TransactionEntity(
             isRecurring = t.isRecurring,
             recurrenceDay = t.recurrenceDay,
             sourceRecurringId = t.sourceRecurringId,
-            subCategory = t.subCategory?.name
+            subCategory = t.subCategory?.name,
+            customSubCategoryId = t.customSubCategoryId
         )
     }
 }

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
@@ -34,6 +35,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     var showFilterSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Sous-catégories personnalisées — disponibles dès que le state est chargé
+    val customSubCategories = (uiState as? ExpensesUiState.Success)?.customSubCategories ?: emptyList()
 
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
@@ -106,9 +110,10 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                             EmptyExpenses(modifier = Modifier.align(Alignment.Center))
                         } else {
                             ExpensesList(
-                                expenses = state.expenses,
-                                onEdit = { editingExpense = it },
-                                onDelete = viewModel::deleteExpense
+                                expenses            = state.expenses,
+                                customSubCategories = state.customSubCategories,
+                                onEdit              = { editingExpense = it },
+                                onDelete            = viewModel::deleteExpense
                             )
                         }
                     }
@@ -129,12 +134,15 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     // Feuille d'ajout
     if (showAddSheet) {
         ExpenseSheet(
-            expense = null,
-            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory, type ->
+            expense                  = null,
+            customSubCategories      = customSubCategories,
+            onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
+            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
                 viewModel.addExpense(amount, category, currency, note,
                     type = type,
                     isRecurring = isRecurring, recurrenceDay = recurrenceDay,
-                    subCategory = subCategory)
+                    subCategory = subCategory,
+                    customSubCategoryId = customSubCategoryId)
             },
             onDismiss = { showAddSheet = false }
         )
@@ -143,12 +151,15 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     // Feuille d'édition
     editingExpense?.let { expense ->
         ExpenseSheet(
-            expense = expense,
-            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory, type ->
+            expense                  = expense,
+            customSubCategories      = customSubCategories,
+            onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
+            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
                 viewModel.updateExpense(expense, amount, category, currency, note,
                     type = type,
                     isRecurring = isRecurring, recurrenceDay = recurrenceDay,
-                    subCategory = subCategory)
+                    subCategory = subCategory,
+                    customSubCategoryId = customSubCategoryId)
             },
             onDismiss = { editingExpense = null }
         )
@@ -256,22 +267,36 @@ private fun FilterSheet(
 @Composable
 private fun ExpensesList(
     expenses: List<Transaction>,
+    customSubCategories: List<CustomSubCategory>,
     onEdit: (Transaction) -> Unit,
     onDelete: (Transaction) -> Unit
 ) {
+    // Index par id pour lookup O(1) dans chaque item
+    val customSubCatById = remember(customSubCategories) { customSubCategories.associateBy { it.id } }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(expenses, key = { it.id }) { expense ->
-            ExpenseItem(expense = expense, onEdit = { onEdit(expense) }, onDelete = { onDelete(expense) })
+            ExpenseItem(
+                expense                 = expense,
+                customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
+                onEdit                  = { onEdit(expense) },
+                onDelete                = { onDelete(expense) }
+            )
         }
     }
 }
 
 @Composable
-private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun ExpenseItem(
+    expense: Transaction,
+    customSubCategoryName: String?,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     val formatter = DateTimeFormatter.ofPattern("dd/MM")
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -299,8 +324,14 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
                         )
                     }
                 }
-                if (expense.type == TransactionType.EXPENSE && expense.subCategory != null) {
-                    Text(expense.subCategory.displayName, style = MaterialTheme.typography.bodySmall,
+                // Affiche la sous-catégorie enum (AUTRE) ou la sous-catégorie personnalisée
+                val subCatLabel = when {
+                    customSubCategoryName != null -> customSubCategoryName
+                    expense.subCategory != null   -> expense.subCategory.displayName
+                    else                          -> null
+                }
+                if (expense.type == TransactionType.EXPENSE && subCatLabel != null) {
+                    Text(subCatLabel, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary)
                 }
                 Text(expense.date.format(formatter), style = MaterialTheme.typography.bodySmall,
@@ -362,7 +393,9 @@ private fun EmptyExpenses(modifier: Modifier = Modifier) {
 @Composable
 private fun ExpenseSheet(
     expense: Transaction?,
-    onSave: (String, Category, Currency, String, Boolean, Int?, SubCategory?, TransactionType) -> Unit,
+    customSubCategories: List<CustomSubCategory>,
+    onCreateCustomSubCategory: (String, Category) -> Unit,
+    onSave: (String, Category, Currency, String, Boolean, Int?, SubCategory?, TransactionType, Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0) } ?: "") }
@@ -374,7 +407,12 @@ private fun ExpenseSheet(
     var isRecurring by remember { mutableStateOf(expense?.isRecurring ?: false) }
     var recurrenceDayStr by remember { mutableStateOf(expense?.recurrenceDay?.toString() ?: "") }
     var selectedSubCategory by remember { mutableStateOf(expense?.subCategory) }
+    // Sous-catégorie personnalisée sélectionnée (cherchée par id à l'ouverture)
+    var selectedCustomSubCategory by remember {
+        mutableStateOf(expense?.customSubCategoryId?.let { id -> customSubCategories.find { it.id == id } })
+    }
     var subCategoryExpanded by remember { mutableStateOf(false) }
+    var showCreateSubCatDialog by remember { mutableStateOf(false) }
     // Dépense par défaut ; on relit le type si on édite une transaction existante
     var selectedType by remember { mutableStateOf(expense?.type ?: TransactionType.EXPENSE) }
 
@@ -402,7 +440,11 @@ private fun ExpenseSheet(
                 )
                 SegmentedButton(
                     selected = selectedType == TransactionType.INCOME,
-                    onClick = { selectedType = TransactionType.INCOME; selectedSubCategory = null },
+                    onClick = {
+                        selectedType = TransactionType.INCOME
+                        selectedSubCategory = null
+                        selectedCustomSubCategory = null
+                    },
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                     label = { Text("Revenu") }
                 )
@@ -430,8 +472,9 @@ private fun ExpenseSheet(
                                 text = { Text(cat.displayName) },
                                 onClick = {
                                     selectedCategory = cat
-                                    // Réinitialise la sous-catégorie si on quitte AUTRE
-                                    if (cat != Category.AUTRE) selectedSubCategory = null
+                                    // Réinitialise les deux types de sous-catégorie au changement de catégorie
+                                    selectedSubCategory = null
+                                    selectedCustomSubCategory = null
                                     categoryExpanded = false
                                 }
                             )
@@ -439,11 +482,18 @@ private fun ExpenseSheet(
                     }
                 }
 
-                // Sous-catégorie — visible uniquement pour AUTRE
-                if (selectedCategory == Category.AUTRE) {
+                // Sous-catégorie — visible pour toute catégorie avec des custom subcats, ou pour AUTRE
+                val customSubCatsForCategory = customSubCategories.filter { it.parentCategory == selectedCategory }
+                val hasSubCategories = customSubCatsForCategory.isNotEmpty() || selectedCategory == Category.AUTRE
+
+                if (hasSubCategories) {
+                    val displayValue = selectedCustomSubCategory?.name
+                        ?: selectedSubCategory?.displayName
+                        ?: "Aucune"
+
                     ExposedDropdownMenuBox(expanded = subCategoryExpanded, onExpandedChange = { subCategoryExpanded = it }) {
                         OutlinedTextField(
-                            value = selectedSubCategory?.displayName ?: "Sélectionner…",
+                            value = displayValue,
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Sous-catégorie (optionnel)") },
@@ -451,12 +501,55 @@ private fun ExpenseSheet(
                             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                         )
                         ExposedDropdownMenu(expanded = subCategoryExpanded, onDismissRequest = { subCategoryExpanded = false }) {
-                            SubCategory.entries.forEach { sub ->
+                            // Entrée "Aucune" pour désélectionner
+                            DropdownMenuItem(
+                                text = { Text("Aucune", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                onClick = {
+                                    selectedSubCategory = null
+                                    selectedCustomSubCategory = null
+                                    subCategoryExpanded = false
+                                }
+                            )
+                            HorizontalDivider()
+                            // Sous-catégories prédéfinies (seulement pour AUTRE)
+                            if (selectedCategory == Category.AUTRE) {
+                                SubCategory.entries.forEach { sub ->
+                                    DropdownMenuItem(
+                                        text = { Text(sub.displayName) },
+                                        onClick = {
+                                            selectedSubCategory = sub
+                                            selectedCustomSubCategory = null
+                                            subCategoryExpanded = false
+                                        }
+                                    )
+                                }
+                                if (customSubCatsForCategory.isNotEmpty()) HorizontalDivider()
+                            }
+                            // Sous-catégories personnalisées pour la catégorie sélectionnée
+                            customSubCatsForCategory.forEach { custom ->
                                 DropdownMenuItem(
-                                    text = { Text(sub.displayName) },
-                                    onClick = { selectedSubCategory = sub; subCategoryExpanded = false }
+                                    text = { Text(custom.name) },
+                                    onClick = {
+                                        selectedCustomSubCategory = custom
+                                        selectedSubCategory = null
+                                        subCategoryExpanded = false
+                                    }
                                 )
                             }
+                            HorizontalDivider()
+                            // Option de création inline
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "＋ Créer une sous-catégorie…",
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                onClick = {
+                                    subCategoryExpanded = false
+                                    showCreateSubCatDialog = true
+                                }
+                            )
                         }
                     }
                 }
@@ -519,17 +612,74 @@ private fun ExpenseSheet(
                 onClick = {
                     // Pour un revenu, la catégorie n'a pas de sens sémantique — on stocke AUTRE en base
                     val catFinale = if (selectedType == TransactionType.INCOME) Category.AUTRE else selectedCategory
+                    // subCategory enum : uniquement pour AUTRE, et seulement si aucune custom n'est sélectionnée
                     val subCatFinale = selectedSubCategory.takeIf {
-                        selectedType == TransactionType.EXPENSE && selectedCategory == Category.AUTRE
+                        selectedType == TransactionType.EXPENSE
+                                && selectedCategory == Category.AUTRE
+                                && selectedCustomSubCategory == null
+                    }
+                    val customSubCatIdFinale = selectedCustomSubCategory?.id.takeIf {
+                        selectedType == TransactionType.EXPENSE
                     }
                     onSave(amount, catFinale, selectedCurrency, note, isRecurring, recurrenceDay,
-                        subCatFinale, selectedType)
+                        subCatFinale, selectedType, customSubCatIdFinale)
                 },
                 enabled = saveEnabled,
                 modifier = Modifier.fillMaxWidth()
             ) { Text(if (expense == null) "Ajouter" else "Enregistrer les modifications") }
         }
     }
+
+    // Dialogue de création de sous-catégorie inline
+    if (showCreateSubCatDialog) {
+        DialogueCreerSousCategorie(
+            categoryParente = if (selectedType == TransactionType.INCOME) Category.AUTRE else selectedCategory,
+            onCreate = { name, category ->
+                onCreateCustomSubCategory(name, category)
+                showCreateSubCatDialog = false
+            },
+            onDismiss = { showCreateSubCatDialog = false }
+        )
+    }
+}
+
+// ─── Dialogue création de sous-catégorie ──────────────────────────────────────
+
+@Composable
+private fun DialogueCreerSousCategorie(
+    categoryParente: Category,
+    onCreate: (String, Category) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var nom by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Nouvelle sous-catégorie") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Catégorie parente : ${categoryParente.displayName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = nom,
+                    onValueChange = { nom = it },
+                    label = { Text("Nom") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (nom.isNotBlank()) onCreate(nom.trim(), categoryParente) },
+                enabled = nom.isNotBlank()
+            ) { Text("Créer") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
+    )
 }
 
 // ─── Extensions d'affichage ───────────────────────────────────────────────────

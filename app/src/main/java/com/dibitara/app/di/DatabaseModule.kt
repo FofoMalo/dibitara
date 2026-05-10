@@ -22,7 +22,12 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): DibitaraDatabase =
         Room.databaseBuilder(context, DibitaraDatabase::class.java, "dibitara.db")
-            .addMigrations(DibitaraDatabase.MIGRATION_1_2, DibitaraDatabase.MIGRATION_2_3, DibitaraDatabase.MIGRATION_3_4)
+            .addMigrations(
+                DibitaraDatabase.MIGRATION_1_2,
+                DibitaraDatabase.MIGRATION_2_3,
+                DibitaraDatabase.MIGRATION_3_4,
+                DibitaraDatabase.MIGRATION_4_5
+            )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
 
@@ -34,6 +39,7 @@ object DatabaseModule {
     @Provides fun provideRealEstateAssetDao(db: DibitaraDatabase): RealEstateAssetDao = db.realEstateAssetDao()
     @Provides fun provideScpiInvestmentDao(db: DibitaraDatabase): ScpiInvestmentDao = db.scpiInvestmentDao()
     @Provides fun provideAirbnbRentalDao(db: DibitaraDatabase): AirbnbRentalDao = db.airbnbRentalDao()
+    @Provides fun provideCustomSubCategoryDao(db: DibitaraDatabase): CustomSubCategoryDao = db.customSubCategoryDao()
 }
 
 @Module
@@ -46,4 +52,5 @@ abstract class RepositoryModule {
     @Binds abstract fun bindDebtRepository(impl: DebtRepositoryImpl): DebtRepository
     @Binds abstract fun bindSavingsRepository(impl: SavingsRepositoryImpl): SavingsRepository
     @Binds abstract fun bindInvestmentRepository(impl: InvestmentRepositoryImpl): InvestmentRepository
+    @Binds abstract fun bindCustomSubCategoryRepository(impl: CustomSubCategoryRepositoryImpl): CustomSubCategoryRepository
 }

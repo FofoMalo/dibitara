@@ -21,7 +21,8 @@ data class Transaction(
     val isRecurring: Boolean = false,   // true = cette transaction est un modèle récurrent mensuel
     val recurrenceDay: Int? = null,     // Jour du mois (1-28) auquel l'occurrence est générée
     val sourceRecurringId: Long? = null,// ID du modèle qui a généré cette occurrence (null si saisie manuelle)
-    val subCategory: SubCategory? = null// Non-null uniquement si category == AUTRE
+    val subCategory: SubCategory? = null,       // Non-null uniquement si category == AUTRE (enum fixe)
+    val customSubCategoryId: Long? = null       // Référence à une CustomSubCategory créée par l'utilisateur
 )
 
 enum class TransactionType { EXPENSE, INCOME, INVESTMENT }
