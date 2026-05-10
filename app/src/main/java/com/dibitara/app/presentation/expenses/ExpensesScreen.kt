@@ -50,7 +50,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddSheet = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Ajouter une dépense")
+                Icon(Icons.Filled.Add, contentDescription = "Ajouter une transaction")
             }
         }
     ) { padding ->
@@ -130,8 +130,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     if (showAddSheet) {
         ExpenseSheet(
             expense = null,
-            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory ->
+            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory, type ->
                 viewModel.addExpense(amount, category, currency, note,
+                    type = type,
                     isRecurring = isRecurring, recurrenceDay = recurrenceDay,
                     subCategory = subCategory)
             },
@@ -143,8 +144,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     editingExpense?.let { expense ->
         ExpenseSheet(
             expense = expense,
-            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory ->
+            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory, type ->
                 viewModel.updateExpense(expense, amount, category, currency, note,
+                    type = type,
                     isRecurring = isRecurring, recurrenceDay = recurrenceDay,
                     subCategory = subCategory)
             },
@@ -282,7 +284,12 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(expense.category.displayName, style = MaterialTheme.typography.bodyLarge)
+                    // Pour un revenu, la note est plus significative que la catégorie (stockée AUTRE)
+                    val labelPrincipal = if (expense.type == TransactionType.INCOME)
+                        expense.note.ifBlank { "Revenu" }
+                    else
+                        expense.category.displayName
+                    Text(labelPrincipal, style = MaterialTheme.typography.bodyLarge)
                     if (expense.isRecurring) {
                         Icon(
                             imageVector = Icons.Filled.Refresh,
@@ -292,13 +299,14 @@ private fun ExpenseItem(expense: Transaction, onEdit: () -> Unit, onDelete: () -
                         )
                     }
                 }
-                if (expense.subCategory != null) {
+                if (expense.type == TransactionType.EXPENSE && expense.subCategory != null) {
                     Text(expense.subCategory.displayName, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary)
                 }
                 Text(expense.date.format(formatter), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (expense.note.isNotBlank()) {
+                // Pour les revenus, la note est déjà utilisée comme label principal
+                if (expense.type == TransactionType.EXPENSE && expense.note.isNotBlank()) {
                     Text(expense.note, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -354,7 +362,7 @@ private fun EmptyExpenses(modifier: Modifier = Modifier) {
 @Composable
 private fun ExpenseSheet(
     expense: Transaction?,
-    onSave: (String, Category, Currency, String, Boolean, Int?, SubCategory?) -> Unit,
+    onSave: (String, Category, Currency, String, Boolean, Int?, SubCategory?, TransactionType) -> Unit,
     onDismiss: () -> Unit
 ) {
     var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0) } ?: "") }
@@ -367,6 +375,8 @@ private fun ExpenseSheet(
     var recurrenceDayStr by remember { mutableStateOf(expense?.recurrenceDay?.toString() ?: "") }
     var selectedSubCategory by remember { mutableStateOf(expense?.subCategory) }
     var subCategoryExpanded by remember { mutableStateOf(false) }
+    // Dépense par défaut ; on relit le type si on édite une transaction existante
+    var selectedType by remember { mutableStateOf(expense?.type ?: TransactionType.EXPENSE) }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -374,9 +384,29 @@ private fun ExpenseSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                if (expense == null) "Nouvelle dépense" else "Modifier la dépense",
+                if (selectedType == TransactionType.INCOME) {
+                    if (expense == null) "Nouveau revenu" else "Modifier le revenu"
+                } else {
+                    if (expense == null) "Nouvelle dépense" else "Modifier la dépense"
+                },
                 style = MaterialTheme.typography.titleLarge
             )
+
+            // Sélecteur de type : Dépense ou Revenu
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = selectedType == TransactionType.EXPENSE,
+                    onClick = { selectedType = TransactionType.EXPENSE },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    label = { Text("Dépense") }
+                )
+                SegmentedButton(
+                    selected = selectedType == TransactionType.INCOME,
+                    onClick = { selectedType = TransactionType.INCOME; selectedSubCategory = null },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    label = { Text("Revenu") }
+                )
+            }
 
             OutlinedTextField(
                 value = amount, onValueChange = { amount = it },
@@ -385,45 +415,48 @@ private fun ExpenseSheet(
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
-            ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = it }) {
-                OutlinedTextField(
-                    value = selectedCategory.displayName, onValueChange = {},
-                    readOnly = true, label = { Text("Catégorie") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(categoryExpanded) },
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
-                )
-                ExposedDropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
-                    Category.entries.forEach { cat ->
-                        DropdownMenuItem(
-                            text = { Text(cat.displayName) },
-                            onClick = {
-                                selectedCategory = cat
-                                // Réinitialise la sous-catégorie si on quitte AUTRE
-                                if (cat != Category.AUTRE) selectedSubCategory = null
-                                categoryExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Sous-catégorie — visible uniquement pour AUTRE
-            if (selectedCategory == Category.AUTRE) {
-                ExposedDropdownMenuBox(expanded = subCategoryExpanded, onExpandedChange = { subCategoryExpanded = it }) {
+            // Catégorie + sous-catégorie — sans sens pour un revenu, masquées
+            if (selectedType == TransactionType.EXPENSE) {
+                ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = it }) {
                     OutlinedTextField(
-                        value = selectedSubCategory?.displayName ?: "Sélectionner…",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Sous-catégorie (optionnel)") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(subCategoryExpanded) },
+                        value = selectedCategory.displayName, onValueChange = {},
+                        readOnly = true, label = { Text("Catégorie") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(categoryExpanded) },
                         modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                     )
-                    ExposedDropdownMenu(expanded = subCategoryExpanded, onDismissRequest = { subCategoryExpanded = false }) {
-                        SubCategory.entries.forEach { sub ->
+                    ExposedDropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
+                        Category.entries.forEach { cat ->
                             DropdownMenuItem(
-                                text = { Text(sub.displayName) },
-                                onClick = { selectedSubCategory = sub; subCategoryExpanded = false }
+                                text = { Text(cat.displayName) },
+                                onClick = {
+                                    selectedCategory = cat
+                                    // Réinitialise la sous-catégorie si on quitte AUTRE
+                                    if (cat != Category.AUTRE) selectedSubCategory = null
+                                    categoryExpanded = false
+                                }
                             )
+                        }
+                    }
+                }
+
+                // Sous-catégorie — visible uniquement pour AUTRE
+                if (selectedCategory == Category.AUTRE) {
+                    ExposedDropdownMenuBox(expanded = subCategoryExpanded, onExpandedChange = { subCategoryExpanded = it }) {
+                        OutlinedTextField(
+                            value = selectedSubCategory?.displayName ?: "Sélectionner…",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Sous-catégorie (optionnel)") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(subCategoryExpanded) },
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(expanded = subCategoryExpanded, onDismissRequest = { subCategoryExpanded = false }) {
+                            SubCategory.entries.forEach { sub ->
+                                DropdownMenuItem(
+                                    text = { Text(sub.displayName) },
+                                    onClick = { selectedSubCategory = sub; subCategoryExpanded = false }
+                                )
+                            }
                         }
                     }
                 }
@@ -448,7 +481,7 @@ private fun ExpenseSheet(
 
             OutlinedTextField(
                 value = note, onValueChange = { note = it },
-                label = { Text("Note (optionnel)") },
+                label = { Text(if (selectedType == TransactionType.INCOME) "Libellé (ex: Salaire Florent)" else "Note (optionnel)") },
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
@@ -457,7 +490,7 @@ private fun ExpenseSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Dépense récurrente", style = MaterialTheme.typography.bodyLarge)
+                Text("Récurrente", style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = isRecurring, onCheckedChange = {
                     isRecurring = it
                     if (!it) recurrenceDayStr = ""
@@ -483,8 +516,15 @@ private fun ExpenseSheet(
                     && (!isRecurring || recurrenceDay != null)
 
             Button(
-                onClick = { onSave(amount, selectedCategory, selectedCurrency, note, isRecurring, recurrenceDay,
-                    selectedSubCategory.takeIf { selectedCategory == Category.AUTRE }) },
+                onClick = {
+                    // Pour un revenu, la catégorie n'a pas de sens sémantique — on stocke AUTRE en base
+                    val catFinale = if (selectedType == TransactionType.INCOME) Category.AUTRE else selectedCategory
+                    val subCatFinale = selectedSubCategory.takeIf {
+                        selectedType == TransactionType.EXPENSE && selectedCategory == Category.AUTRE
+                    }
+                    onSave(amount, catFinale, selectedCurrency, note, isRecurring, recurrenceDay,
+                        subCatFinale, selectedType)
+                },
                 enabled = saveEnabled,
                 modifier = Modifier.fillMaxWidth()
             ) { Text(if (expense == null) "Ajouter" else "Enregistrer les modifications") }

@@ -62,6 +62,7 @@ fun BudgetScreen(viewModel: BudgetViewModel = hiltViewModel()) {
     if (showDialog) {
         SetBudgetDialog(
             currentBudget = (uiState as? BudgetUiState.Success)?.budget,
+            revenusCents  = (uiState as? BudgetUiState.Success)?.revenusCents ?: 0L,
             onConfirm = { amount, currency ->
                 viewModel.saveBudget(amount, currency)
                 showDialog = false
@@ -118,7 +119,7 @@ private fun BudgetContent(
         // Objectif budget (optionnel — défini par l'utilisateur)
         item {
             if (state.budget != null) {
-                BudgetObjectifCard(budget = state.budget)
+                BudgetObjectifCard(budget = state.budget, revenusCents = state.revenusCents)
             } else {
                 NoBudgetCard(onSetBudget = onEditBudget)
             }
@@ -230,9 +231,39 @@ private fun BilanColonne(
 
 // ─── Objectif budget ──────────────────────────────────────────────────────────
 
-/** Carte d'objectif budgétaire — défini manuellement par l'utilisateur. */
+/** Ligne de la chaîne budgétaire : libellé à gauche, montant coloré à droite. */
 @Composable
-private fun BudgetObjectifCard(budget: Budget) {
+private fun BudgetLigne(
+    label: String,
+    valueCents: Long,
+    currency: Currency,
+    color: Color,
+    gras: Boolean = false
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            valueCents.toCurrencyDisplay(currency),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (gras) FontWeight.Bold else FontWeight.Normal,
+            color = color
+        )
+    }
+}
+
+/**
+ * Carte d'objectif budgétaire.
+ * Si des revenus ont été saisis, affiche la chaîne complète :
+ *   Revenus − Budget alloué = Épargne prévue
+ * puis la barre dépensé / alloué.
+ */
+@Composable
+private fun BudgetObjectifCard(budget: Budget, revenusCents: Long) {
     val progress = if (budget.allocatedCents > 0)
         budget.spentCents.toFloat() / budget.allocatedCents else 0f
     val isOver = budget.isOverBudget
@@ -244,12 +275,35 @@ private fun BudgetObjectifCard(budget: Budget) {
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Enveloppe allouée", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(budget.allocatedCents.toCurrencyDisplay(budget.currency),
-                    style = MaterialTheme.typography.bodyLarge)
+
+            if (revenusCents > 0) {
+                // Chaîne : Revenus → Budget alloué → Épargne prévue
+                val epargnePrevueCents = revenusCents - budget.allocatedCents
+                val epargnePositive = epargnePrevueCents >= 0
+                BudgetLigne("Revenus", revenusCents, budget.currency,
+                    MaterialTheme.colorScheme.primary)
+                BudgetLigne("− Budget alloué", budget.allocatedCents, budget.currency,
+                    MaterialTheme.colorScheme.onSurface)
+                HorizontalDivider()
+                BudgetLigne(
+                    label      = "= Épargne prévue",
+                    valueCents = epargnePrevueCents,
+                    currency   = budget.currency,
+                    color      = if (epargnePositive) MaterialTheme.colorScheme.primary
+                                 else MaterialTheme.colorScheme.error,
+                    gras       = true
+                )
+            } else {
+                // Pas encore de revenus saisis — affichage simple de l'enveloppe
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Enveloppe allouée", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(budget.allocatedCents.toCurrencyDisplay(budget.currency),
+                        style = MaterialTheme.typography.bodyLarge)
+                }
             }
+
+            // Barre de progression : combien du budget alloué a été dépensé
             LinearProgressIndicator(
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth(),
@@ -332,6 +386,7 @@ private fun CategoryRow(category: Category, amountCents: Long, currency: Currenc
 @Composable
 private fun SetBudgetDialog(
     currentBudget: Budget?,
+    revenusCents: Long,
     onConfirm: (String, Currency) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -346,6 +401,32 @@ private fun SetBudgetDialog(
         title = { Text(if (currentBudget != null) "Modifier le budget" else "Définir le budget mensuel") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Si des revenus ont été saisis, on propose une enveloppe à 80 % (règle courante : épargner 20 %)
+                if (revenusCents > 0) {
+                    val suggestion80 = "%.2f".format(revenusCents * 0.8 / 100.0)
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                "Revenus ce mois : ${revenusCents.toCurrencyDisplay(selectedCurrency)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            TextButton(
+                                onClick = { amount = suggestion80 },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
+                            ) {
+                                Text("Suggérer 80 % — $suggestion80 ${selectedCurrency.symbol}")
+                            }
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it },
