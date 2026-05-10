@@ -10,5 +10,6 @@ data class UserPreferences(
     val deviseParDefaut: Currency = Currency.EUR,
     val afficherRapportMensuel: Boolean = false,
     val afficherEpargne: Boolean = true,          // onglet "Épargne" visible dans la nav bar
-    val afficherInvestissements: Boolean = true   // onglet "Placements" visible dans la nav bar
+    val afficherInvestissements: Boolean = true,  // onglet "Placements" visible dans la nav bar
+    val twoFactorEnabled: Boolean = false         // TOTP requis après PIN ou mot de passe
 )

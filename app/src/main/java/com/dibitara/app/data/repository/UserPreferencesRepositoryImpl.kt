@@ -25,8 +25,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val KEY_SEUIL_CENTS           = longPreferencesKey("seuil_fonds_cents")
         val KEY_DEVISE                = stringPreferencesKey("devise_par_defaut")
         val KEY_RAPPORT_MENSUEL       = booleanPreferencesKey("afficher_rapport_mensuel")
-        val KEY_AFFICHER_EPARGNE      = booleanPreferencesKey("afficher_epargne")
+        val KEY_AFFICHER_EPARGNE         = booleanPreferencesKey("afficher_epargne")
         val KEY_AFFICHER_INVESTISSEMENTS = booleanPreferencesKey("afficher_investissements")
+        val KEY_TWO_FACTOR_ENABLED       = booleanPreferencesKey("two_factor_enabled")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -37,7 +38,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
                 ?: UserPreferences().deviseParDefaut,
             afficherRapportMensuel = prefs[KEY_RAPPORT_MENSUEL] ?: false,
             afficherEpargne        = prefs[KEY_AFFICHER_EPARGNE] ?: true,
-            afficherInvestissements = prefs[KEY_AFFICHER_INVESTISSEMENTS] ?: true
+            afficherInvestissements = prefs[KEY_AFFICHER_INVESTISSEMENTS] ?: true,
+            twoFactorEnabled       = prefs[KEY_TWO_FACTOR_ENABLED] ?: false
         )
     }
 
@@ -59,5 +61,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateAfficherInvestissements(afficher: Boolean) {
         dataStore.edit { it[KEY_AFFICHER_INVESTISSEMENTS] = afficher }
+    }
+
+    override suspend fun updateTwoFactorEnabled(enabled: Boolean) {
+        dataStore.edit { it[KEY_TWO_FACTOR_ENABLED] = enabled }
     }
 }

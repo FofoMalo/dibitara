@@ -8,7 +8,9 @@ import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
+import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
 import com.dibitara.app.security.CredentialManager
+import com.dibitara.app.security.TotpManager
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -31,7 +33,9 @@ class SettingsViewModelTest {
     private val ucRapport: UpdateAfficherRapportUseCase = mockk(relaxed = true)
     private val ucEpargne: UpdateAfficherEpargneUseCase = mockk(relaxed = true)
     private val ucInvestissements: UpdateAfficherInvestissementsUseCase = mockk(relaxed = true)
+    private val ucTwoFactor: UpdateTwoFactorEnabledUseCase = mockk(relaxed = true)
     private val credentialManager: CredentialManager = mockk(relaxed = true)
+    private val totpManager: TotpManager = mockk(relaxed = true)
 
     private lateinit var viewModel: SettingsViewModel
 
@@ -42,7 +46,8 @@ class SettingsViewModelTest {
         every { credentialManager.isPinSetup()      } returns false
         every { credentialManager.isPasswordSetup() } returns false
         every { credentialManager.getStoredEmail()  } returns null
-        viewModel = SettingsViewModel(ucGet, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, credentialManager)
+        every { credentialManager.isTotpSetup()     } returns false
+        viewModel = SettingsViewModel(ucGet, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucTwoFactor, credentialManager, totpManager)
     }
 
     @AfterEach

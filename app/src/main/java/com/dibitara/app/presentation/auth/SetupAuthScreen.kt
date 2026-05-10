@@ -266,11 +266,11 @@ private fun EtapeMotDePasseSetup(
 
 // ─── Composants partagés ────────────────────────────────────────────────────
 
-/** 4 cercles indiquant la progression de la saisie du PIN. */
+/** Cercles indiquant la progression de la saisie — 4 pour un PIN, 6 pour un code TOTP. */
 @Composable
-fun PinDots(longueur: Int) {
+fun PinDots(longueur: Int, total: Int = 4) {
     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        repeat(4) { index ->
+        repeat(total) { index ->
             val rempli = index < longueur
             Surface(
                 shape = MaterialTheme.shapes.small,

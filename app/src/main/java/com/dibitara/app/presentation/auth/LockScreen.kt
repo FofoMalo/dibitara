@@ -61,18 +61,23 @@ fun LockScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         when (val state = uiState) {
-            is AuthUiState.Loading    -> LoadingContent()
-            is AuthUiState.NeedsSetup -> LoadingContent() // transition rapide vers SetupAuth
+            is AuthUiState.Loading       -> LoadingContent()
+            is AuthUiState.NeedsSetup    -> LoadingContent() // transition rapide vers SetupAuth
             is AuthUiState.Authenticated -> LoadingContent() // transition rapide vers Dashboard
 
             is AuthUiState.Idle -> IdleContent(
-                state                    = state,
-                activity                 = activity,
-                onBiometrics             = { viewModel.authenticate(activity) },
-                onPinDigit               = { viewModel.clearPinError() },
-                onPinComplete            = { pin -> viewModel.verifyPin(pin) },
-                onPasswordSubmit         = { email, pwd -> viewModel.verifyPassword(email, pwd) },
+                state                      = state,
+                activity                   = activity,
+                onBiometrics               = { viewModel.authenticate(activity) },
+                onPinDigit                 = { viewModel.clearPinError() },
+                onPinComplete              = { pin -> viewModel.verifyPin(pin) },
+                onPasswordSubmit           = { email, pwd -> viewModel.verifyPassword(email, pwd) },
                 onRecuperationViaBiometrie = { viewModel.reinitialiserAccesViaBiometrie(activity) }
+            )
+
+            is AuthUiState.PendingTotp -> PendingTotpContent(
+                codeError      = state.codeError,
+                onCodeComplete = { code -> viewModel.verifyTotp(code) }
             )
 
             is AuthUiState.Error -> ErrorContent(
@@ -307,6 +312,65 @@ private fun DialogueRecuperationAcces(onConfirm: () -> Unit, onDismiss: () -> Un
             TextButton(onClick = onDismiss) { Text("Annuler") }
         }
     )
+}
+
+// ─── Saisie code TOTP ────────────────────────────────────────────────────────
+
+@Composable
+private fun PendingTotpContent(
+    codeError: String?,
+    onCodeComplete: (String) -> Unit
+) {
+    var code by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Dibitara", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Vos finances, en sécurité",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+        )
+
+        Spacer(Modifier.height(48.dp))
+
+        Text("Double authentification", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Ouvrez votre application d'authentification et saisissez le code à 6 chiffres.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        PinDots(longueur = code.length, total = 6)
+
+        codeError?.let {
+            Spacer(Modifier.height(10.dp))
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+            LaunchedEffect(it) { code = "" }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        ClavierNumerique(
+            onChiffre = { digit ->
+                if (code.length < 6) {
+                    code += digit
+                    if (code.length == 6) onCodeComplete(code)
+                }
+            },
+            onEffacer = { code = code.dropLast(1) }
+        )
+    }
 }
 
 // ─── États transitoires ───────────────────────────────────────────────────────

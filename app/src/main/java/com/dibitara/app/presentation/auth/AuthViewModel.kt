@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.security.AuthResult
 import com.dibitara.app.security.BiometricAuthManager
 import com.dibitara.app.security.CredentialManager
+import com.dibitara.app.security.TotpManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val biometricAuthManager: BiometricAuthManager,
-    private val credentialManager: CredentialManager
+    private val credentialManager: CredentialManager,
+    private val totpManager: TotpManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Loading)
@@ -65,28 +67,43 @@ class AuthViewModel @Inject constructor(
 
     /**
      * Vérifie le PIN saisi.
-     * En cas d'erreur, on remet l'état Idle avec un message d'erreur clair.
+     * Si correct et TOTP activé → [AuthUiState.PendingTotp] (étape 2FA).
+     * Si correct sans TOTP → [AuthUiState.Authenticated].
      */
     fun verifyPin(pin: String) {
         viewModelScope.launch {
             val correct = credentialManager.verifyPin(pin)
-            _uiState.value = if (correct) {
-                AuthUiState.Authenticated
-            } else {
-                buildIdle(pinError = "PIN incorrect — réessayez")
+            _uiState.value = when {
+                !correct                      -> buildIdle(pinError = "PIN incorrect — réessayez")
+                credentialManager.isTotpSetup() -> AuthUiState.PendingTotp()
+                else                          -> AuthUiState.Authenticated
             }
         }
     }
 
-    /** Vérifie l'email et le mot de passe saisis. */
+    /** Vérifie l'email et le mot de passe saisis. Même logique TOTP que [verifyPin]. */
     fun verifyPassword(email: String, password: String) {
         viewModelScope.launch {
             val correct = credentialManager.verifyPassword(email, password)
-            _uiState.value = if (correct) {
-                AuthUiState.Authenticated
-            } else {
-                buildIdle(passwordError = "Email ou mot de passe incorrect")
+            _uiState.value = when {
+                !correct                      -> buildIdle(passwordError = "Email ou mot de passe incorrect")
+                credentialManager.isTotpSetup() -> AuthUiState.PendingTotp()
+                else                          -> AuthUiState.Authenticated
             }
+        }
+    }
+
+    /**
+     * Vérifie le code TOTP à 6 chiffres.
+     * Appelé uniquement depuis l'état [AuthUiState.PendingTotp].
+     */
+    fun verifyTotp(code: String) {
+        val secret = credentialManager.getTotpSecret()
+        if (secret == null || totpManager.verify(secret, code)) {
+            // Secret absent = TOTP mal configuré, on laisse passer par sécurité
+            _uiState.value = AuthUiState.Authenticated
+        } else {
+            _uiState.value = AuthUiState.PendingTotp(codeError = "Code incorrect — réessayez")
         }
     }
 
@@ -150,6 +167,12 @@ sealed class AuthUiState {
         val pinError      : String? = null,
         val passwordError : String? = null
     ) : AuthUiState()
+
+    /**
+     * PIN ou mot de passe correct, mais TOTP activé — l'utilisateur doit saisir le code 2FA.
+     * [codeError] contient le message d'erreur si le dernier code était invalide.
+     */
+    data class PendingTotp(val codeError: String? = null) : AuthUiState()
 
     data object Authenticated : AuthUiState()
     data class  Error(val message: String) : AuthUiState()

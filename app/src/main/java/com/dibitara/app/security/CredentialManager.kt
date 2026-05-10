@@ -30,11 +30,12 @@ class CredentialManager @Inject constructor(
     companion object {
         private const val PREFS_FILE = "dibitara_auth_prefs"
 
-        private const val KEY_PIN_HASH = "pin_hash"
-        private const val KEY_PIN_SALT = "pin_salt"
-        private const val KEY_PWD_HASH = "pwd_hash"
-        private const val KEY_PWD_SALT = "pwd_salt"
-        private const val KEY_EMAIL    = "email"
+        private const val KEY_PIN_HASH   = "pin_hash"
+        private const val KEY_PIN_SALT   = "pin_salt"
+        private const val KEY_PWD_HASH   = "pwd_hash"
+        private const val KEY_PWD_SALT   = "pwd_salt"
+        private const val KEY_EMAIL      = "email"
+        private const val KEY_TOTP_SECRET = "totp_secret"
 
         // Paramètres PBKDF2 conformes aux recommandations OWASP 2024
         private const val ITERATIONS_PIN = 100_000
@@ -124,10 +125,28 @@ class CredentialManager @Inject constructor(
         storedHash == inputHash
     }
 
+    // ─── TOTP ────────────────────────────────────────────────────────────────
+
+    /** Retourne true si un secret TOTP a été enregistré. */
+    fun isTotpSetup(): Boolean = prefs.contains(KEY_TOTP_SECRET)
+
+    /** Retourne le secret TOTP encodé en Base32, ou null si aucun n'est configuré. */
+    fun getTotpSecret(): String? = prefs.getString(KEY_TOTP_SECRET, null)
+
+    /** Enregistre le secret TOTP (Base32) dans le stockage chiffré. */
+    suspend fun setupTotp(secret: String) = withContext(Dispatchers.IO) {
+        prefs.edit().putString(KEY_TOTP_SECRET, secret).apply()
+    }
+
+    /** Efface le secret TOTP uniquement. */
+    fun clearTotp() {
+        prefs.edit().remove(KEY_TOTP_SECRET).apply()
+    }
+
     // ─── Réinitialisation ────────────────────────────────────────────────────
 
     /**
-     * Efface tous les secrets stockés (PIN + mot de passe + email).
+     * Efface tous les secrets stockés (PIN + mot de passe + email + TOTP).
      * La base de données Room n'est PAS touchée — les données financières sont conservées.
      * À n'appeler qu'après une vérification biométrique réussie.
      */
@@ -138,6 +157,7 @@ class CredentialManager @Inject constructor(
             .remove(KEY_PWD_HASH)
             .remove(KEY_PWD_SALT)
             .remove(KEY_EMAIL)
+            .remove(KEY_TOTP_SECRET)
             .apply()
     }
 

@@ -123,6 +123,7 @@ dependencies {
     // Graphiques
     implementation(libs.vico.compose)
     implementation(libs.vico.compose.m3)
+    implementation(libs.zxing.core)
 
     // Tests unitaires
     testImplementation(libs.junit.jupiter.api)

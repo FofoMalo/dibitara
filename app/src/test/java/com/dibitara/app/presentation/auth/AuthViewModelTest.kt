@@ -3,6 +3,7 @@ package com.dibitara.app.presentation.auth
 import com.dibitara.app.security.AuthResult
 import com.dibitara.app.security.BiometricAuthManager
 import com.dibitara.app.security.CredentialManager
+import com.dibitara.app.security.TotpManager
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
@@ -30,16 +31,18 @@ class AuthViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val biometricAuthManager: BiometricAuthManager = mockk()
     private val credentialManager: CredentialManager = mockk()
+    private val totpManager: TotpManager = mockk(relaxed = true)
     private lateinit var viewModel: AuthViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        // Par défaut : PIN configuré, pas de mot de passe
+        // Par défaut : PIN configuré, pas de mot de passe, pas de TOTP
         every { credentialManager.isPinSetup()      } returns true
         every { credentialManager.isPasswordSetup() } returns false
         every { credentialManager.getStoredEmail()  } returns null
-        viewModel = AuthViewModel(biometricAuthManager, credentialManager)
+        every { credentialManager.isTotpSetup()     } returns false
+        viewModel = AuthViewModel(biometricAuthManager, credentialManager, totpManager)
     }
 
     @AfterEach
@@ -49,7 +52,7 @@ class AuthViewModelTest {
     fun `état initial est NeedsSetup quand aucune méthode configurée`() {
         every { credentialManager.isPinSetup()      } returns false
         every { credentialManager.isPasswordSetup() } returns false
-        val vm = AuthViewModel(biometricAuthManager, credentialManager)
+        val vm = AuthViewModel(biometricAuthManager, credentialManager, totpManager)
         assertEquals(AuthUiState.NeedsSetup, vm.uiState.value)
     }
 
@@ -119,7 +122,7 @@ class AuthViewModelTest {
         every { credentialManager.isPasswordSetup() } returns true
         every { credentialManager.getStoredEmail()  } returns "test@example.com"
         // Recréer le ViewModel avec mot de passe configuré pour avoir Idle(hasPassword=true)
-        val vm = AuthViewModel(biometricAuthManager, credentialManager)
+        val vm = AuthViewModel(biometricAuthManager, credentialManager, totpManager)
         coEvery { credentialManager.verifyPassword("test@example.com", "monMdp!A1b") } returns true
 
         vm.verifyPassword("test@example.com", "monMdp!A1b")

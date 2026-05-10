@@ -32,6 +32,10 @@
 # ─── Vico Charts ──────────────────────────────────────────────────────────────
 -keep class com.patrykandpatrick.vico.** { *; }
 
+# ─── ZXing (génération QR code) ───────────────────────────────────────────────
+-keep class com.google.zxing.** { *; }
+-dontwarn com.google.zxing.**
+
 # ─── Compose ──────────────────────────────────────────────────────────────────
 # Le plugin Compose gère ses propres règles via le compilateur.
 # On conserve les lambdas pour éviter des crashs sur certains appareils.

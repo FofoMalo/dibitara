@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -20,11 +21,13 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.presentation.auth.ClavierNumerique
 import com.dibitara.app.presentation.auth.PinDots
 import com.dibitara.app.presentation.auth.passwordCriteria
+import com.dibitara.app.presentation.common.QrCodeImage
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val prefs by viewModel.preferences.collectAsState()
     val security by viewModel.securityState.collectAsState()
+    val totpSetupState by viewModel.totpSetupState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var seuilEuros by remember(prefs.seuilFondsCents) {
@@ -32,8 +35,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     }
 
     // Dialogues de sécurité
-    var showChangerPin by remember { mutableStateOf(false) }
-    var showChangerMdp by remember { mutableStateOf(false) }
+    var showChangerPin        by remember { mutableStateOf(false) }
+    var showChangerMdp        by remember { mutableStateOf(false) }
+    var showDesactiverTotp    by remember { mutableStateOf(false) }
 
     // Écouter les événements du ViewModel pour les Snackbars
     LaunchedEffect(Unit) {
@@ -41,6 +45,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             val message = when (event) {
                 is SettingsEvent.PinMisAJour        -> "PIN mis à jour"
                 is SettingsEvent.MotDePasseMisAJour -> "Mot de passe mis à jour"
+                is SettingsEvent.TotpActive         -> "Double authentification activée"
+                is SettingsEvent.TotpDesactive      -> "Double authentification désactivée"
             }
             snackbarHostState.showSnackbar(message)
         }
@@ -202,6 +208,30 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         Text(if (security.hasPasswordConfigured) "Modifier" else "Configurer")
                     }
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Double authentification TOTP
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Double authentification", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            if (security.hasTotpConfigured) "Code TOTP requis à chaque connexion"
+                            else "Non activée",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (security.hasTotpConfigured) {
+                        TextButton(onClick = { showDesactiverTotp = true }) { Text("Désactiver") }
+                    } else {
+                        TextButton(onClick = { viewModel.preparerSetupTotp() }) { Text("Configurer") }
+                    }
+                }
             }
         }
     }
@@ -228,6 +258,109 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             onDismiss = { showChangerMdp = false }
         )
     }
+
+    // ─── Dialogue setup TOTP ──────────────────────────────────────────────────
+    totpSetupState?.let { state ->
+        DialogueSetupTotp(
+            state     = state,
+            onActiver = { code -> viewModel.activerTotp(code) },
+            onDismiss = { viewModel.annulerSetupTotp() }
+        )
+    }
+
+    // ─── Dialogue désactivation TOTP ─────────────────────────────────────────
+    if (showDesactiverTotp) {
+        AlertDialog(
+            onDismissRequest = { showDesactiverTotp = false },
+            title = { Text("Désactiver la 2FA") },
+            text  = { Text("Le code TOTP ne sera plus demandé à la connexion. Vous pouvez le réactiver à tout moment.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.desactiverTotp()
+                        showDesactiverTotp = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Désactiver") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDesactiverTotp = false }) { Text("Annuler") }
+            }
+        )
+    }
+}
+
+// ─── Dialogue : configuration TOTP ────────────────────────────────────────────
+
+@Composable
+private fun DialogueSetupTotp(
+    state: TotpSetupUiState,
+    onActiver: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var code by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Configurer la 2FA") },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "1. Scannez ce QR code avec Google Authenticator, Authy ou une application compatible.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                QrCodeImage(
+                    content  = state.uri,
+                    taillePx = 400,
+                    modifier = Modifier.size(200.dp)
+                )
+
+                Text(
+                    "Ou saisissez manuellement la clé :",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Clé secrète affichée en police monospace pour faciliter la saisie manuelle
+                Text(
+                    state.secret,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                HorizontalDivider()
+
+                Text(
+                    "2. Saisissez le code à 6 chiffres affiché dans l'application pour valider la configuration.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                PinDots(longueur = code.length, total = 6)
+
+                state.codeError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    // Vider le champ après une erreur
+                    LaunchedEffect(it) { code = "" }
+                }
+
+                ClavierNumerique(
+                    onChiffre = { digit ->
+                        if (code.length < 6) {
+                            code += digit
+                            if (code.length == 6) onActiver(code)
+                        }
+                    },
+                    onEffacer = { code = code.dropLast(1) }
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
+    )
 }
 
 // ─── Dialogue : changement de PIN ─────────────────────────────────────────────
