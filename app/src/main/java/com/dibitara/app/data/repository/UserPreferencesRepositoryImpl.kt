@@ -22,18 +22,22 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 ) : UserPreferencesRepository {
 
     companion object {
-        val KEY_SEUIL_CENTS      = longPreferencesKey("seuil_fonds_cents")
-        val KEY_DEVISE           = stringPreferencesKey("devise_par_defaut")
-        val KEY_RAPPORT_MENSUEL  = booleanPreferencesKey("afficher_rapport_mensuel")
+        val KEY_SEUIL_CENTS           = longPreferencesKey("seuil_fonds_cents")
+        val KEY_DEVISE                = stringPreferencesKey("devise_par_defaut")
+        val KEY_RAPPORT_MENSUEL       = booleanPreferencesKey("afficher_rapport_mensuel")
+        val KEY_AFFICHER_EPARGNE      = booleanPreferencesKey("afficher_epargne")
+        val KEY_AFFICHER_INVESTISSEMENTS = booleanPreferencesKey("afficher_investissements")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
         UserPreferences(
-            seuilFondsCents = prefs[KEY_SEUIL_CENTS] ?: UserPreferences().seuilFondsCents,
-            deviseParDefaut = prefs[KEY_DEVISE]
+            seuilFondsCents        = prefs[KEY_SEUIL_CENTS] ?: UserPreferences().seuilFondsCents,
+            deviseParDefaut        = prefs[KEY_DEVISE]
                 ?.let { runCatching { Currency.valueOf(it) }.getOrNull() }
                 ?: UserPreferences().deviseParDefaut,
-            afficherRapportMensuel = prefs[KEY_RAPPORT_MENSUEL] ?: false
+            afficherRapportMensuel = prefs[KEY_RAPPORT_MENSUEL] ?: false,
+            afficherEpargne        = prefs[KEY_AFFICHER_EPARGNE] ?: true,
+            afficherInvestissements = prefs[KEY_AFFICHER_INVESTISSEMENTS] ?: true
         )
     }
 
@@ -47,5 +51,13 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateAfficherRapport(afficher: Boolean) {
         dataStore.edit { it[KEY_RAPPORT_MENSUEL] = afficher }
+    }
+
+    override suspend fun updateAfficherEpargne(afficher: Boolean) {
+        dataStore.edit { it[KEY_AFFICHER_EPARGNE] = afficher }
+    }
+
+    override suspend fun updateAfficherInvestissements(afficher: Boolean) {
+        dataStore.edit { it[KEY_AFFICHER_INVESTISSEMENTS] = afficher }
     }
 }

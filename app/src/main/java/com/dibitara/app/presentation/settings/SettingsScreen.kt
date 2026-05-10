@@ -107,6 +107,39 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 }
             }
 
+            // ─── Section navigation ───────────────────────────────────────────
+            SectionCard(titre = "Navigation") {
+                Text(
+                    "Masquer un onglet le retire de la barre de navigation. Il reste accessible depuis le tableau de bord.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Épargne", style = MaterialTheme.typography.titleSmall)
+                    Switch(
+                        checked = prefs.afficherEpargne,
+                        onCheckedChange = { viewModel.mettreAJourAfficherEpargne(it) }
+                    )
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Placements", style = MaterialTheme.typography.titleSmall)
+                    Switch(
+                        checked = prefs.afficherInvestissements,
+                        onCheckedChange = { viewModel.mettreAJourAfficherInvestissements(it) }
+                    )
+                }
+            }
+
             // ─── Section devise ───────────────────────────────────────────────
             SectionCard(titre = "Devise par défaut") {
                 Text(

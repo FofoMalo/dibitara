@@ -20,15 +20,21 @@ import com.dibitara.app.presentation.navigation.Screen
  * Pour ajouter un onglet : ajouter une entrée dans [NavItem] + une destination dans Screen.
  */
 @Composable
-fun BottomNavBar(navController: NavController) {
+fun BottomNavBar(
+    navController: NavController,
+    afficherEpargne: Boolean = true,
+    afficherInvestissements: Boolean = true
+) {
     val items = listOf(
         NavItem(Screen.Dashboard,   "Accueil",    Icons.Filled.Home),
         NavItem(Screen.Budget,      "Budget",     Icons.Filled.AccountBalance),
         NavItem(Screen.Expenses,    "Dépenses",   Icons.Filled.Receipt),
-        NavItem(Screen.Savings,     "Épargne",    Icons.Filled.Savings),
-        NavItem(Screen.Investments, "Placements", Icons.AutoMirrored.Filled.TrendingUp),
+        NavItem(Screen.Savings,     "Épargne",    Icons.Filled.Savings,
+            visible = afficherEpargne),
+        NavItem(Screen.Investments, "Placements", Icons.AutoMirrored.Filled.TrendingUp,
+            visible = afficherInvestissements),
         NavItem(Screen.Settings,    "Paramètres", Icons.Filled.Settings),
-    )
+    ).filter { it.visible }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -55,5 +61,6 @@ fun BottomNavBar(navController: NavController) {
 private data class NavItem(
     val screen: Screen,
     val label: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val visible: Boolean = true
 )

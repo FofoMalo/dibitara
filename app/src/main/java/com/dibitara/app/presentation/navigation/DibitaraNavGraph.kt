@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,6 +21,7 @@ import com.dibitara.app.presentation.investments.InvestmentsScreen
 import com.dibitara.app.presentation.savings.SavingsScreen
 import com.dibitara.app.presentation.report.MonthlyReportScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
+import com.dibitara.app.presentation.settings.SettingsViewModel
 
 sealed class Screen(val route: String) {
     data object Lock       : Screen("lock")
@@ -52,9 +54,17 @@ fun DibitaraNavGraph(
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute in bottomNavScreens
 
+    // Préférences de navigation — lues ici pour filtrer la nav bar en temps réel
+    val settingsVm: SettingsViewModel = hiltViewModel()
+    val prefs by settingsVm.preferences.collectAsState()
+
     Scaffold(
         bottomBar = {
-            if (showBottomBar) BottomNavBar(navController)
+            if (showBottomBar) BottomNavBar(
+                navController           = navController,
+                afficherEpargne         = prefs.afficherEpargne,
+                afficherInvestissements = prefs.afficherInvestissements
+            )
         }
     ) { innerPadding ->
         NavHost(

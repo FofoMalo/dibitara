@@ -10,4 +10,6 @@ interface UserPreferencesRepository {
     suspend fun updateSeuil(seuilCents: Long)
     suspend fun updateDevise(currency: Currency)
     suspend fun updateAfficherRapport(afficher: Boolean)
+    suspend fun updateAfficherEpargne(afficher: Boolean)
+    suspend fun updateAfficherInvestissements(afficher: Boolean)
 }

@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
+import com.dibitara.app.domain.usecase.UpdateAfficherEpargneUseCase
+import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
@@ -26,6 +28,8 @@ class SettingsViewModel @Inject constructor(
     private val ucUpdateSeuil: UpdateSeuilFondsUseCase,
     private val ucUpdateDevise: UpdateDeviseParDefautUseCase,
     private val ucUpdateAfficherRapport: UpdateAfficherRapportUseCase,
+    private val ucUpdateAfficherEpargne: UpdateAfficherEpargneUseCase,
+    private val ucUpdateAfficherInvestissements: UpdateAfficherInvestissementsUseCase,
     private val credentialManager: CredentialManager
 ) : ViewModel() {
 
@@ -69,6 +73,14 @@ class SettingsViewModel @Inject constructor(
 
     fun mettreAJourAfficherRapport(afficher: Boolean) {
         viewModelScope.launch { ucUpdateAfficherRapport(afficher) }
+    }
+
+    fun mettreAJourAfficherEpargne(afficher: Boolean) {
+        viewModelScope.launch { ucUpdateAfficherEpargne(afficher) }
+    }
+
+    fun mettreAJourAfficherInvestissements(afficher: Boolean) {
+        viewModelScope.launch { ucUpdateAfficherInvestissements(afficher) }
     }
 
     // ─── Sécurité ─────────────────────────────────────────────────────────────
