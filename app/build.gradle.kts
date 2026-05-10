@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,12 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.kover)
+}
+
+// Lecture des secrets de signature depuis keystore.properties (hors dépôt git)
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) load(f.inputStream())
 }
 
 android {
@@ -21,12 +29,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile     = file(keystoreProps.getProperty("storeFile") ?: error("storeFile manquant dans keystore.properties"))
+            storePassword = keystoreProps.getProperty("storePassword") ?: error("storePassword manquant")
+            keyAlias      = keystoreProps.getProperty("keyAlias") ?: error("keyAlias manquant")
+            keyPassword   = keystoreProps.getProperty("keyPassword") ?: error("keyPassword manquant")
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
