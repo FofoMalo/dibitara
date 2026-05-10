@@ -3,6 +3,8 @@ package com.dibitara.app.presentation.settings
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
+import com.dibitara.app.domain.usecase.UpdateAfficherEpargneUseCase
+import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
@@ -27,6 +29,8 @@ class SettingsViewModelTest {
     private val ucSeuil: UpdateSeuilFondsUseCase = mockk(relaxed = true)
     private val ucDevise: UpdateDeviseParDefautUseCase = mockk(relaxed = true)
     private val ucRapport: UpdateAfficherRapportUseCase = mockk(relaxed = true)
+    private val ucEpargne: UpdateAfficherEpargneUseCase = mockk(relaxed = true)
+    private val ucInvestissements: UpdateAfficherInvestissementsUseCase = mockk(relaxed = true)
     private val credentialManager: CredentialManager = mockk(relaxed = true)
 
     private lateinit var viewModel: SettingsViewModel
@@ -38,7 +42,7 @@ class SettingsViewModelTest {
         every { credentialManager.isPinSetup()      } returns false
         every { credentialManager.isPasswordSetup() } returns false
         every { credentialManager.getStoredEmail()  } returns null
-        viewModel = SettingsViewModel(ucGet, ucSeuil, ucDevise, ucRapport, credentialManager)
+        viewModel = SettingsViewModel(ucGet, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, credentialManager)
     }
 
     @AfterEach
