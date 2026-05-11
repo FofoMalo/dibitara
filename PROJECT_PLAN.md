@@ -1,8 +1,8 @@
-# Dibitara — Plan de Préparation du Projet
+# Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 1.0 — 2026-05-04  
-> Statut : **Préparation**
+> Version du document : 2.0 — 2026-05-11  
+> Statut : **En production** — v2.5.0 soumise Play Store, validation Google en cours
 
 ---
 
@@ -13,9 +13,10 @@
 3. [Besoins non-techniques](#3-besoins-non-techniques)
 4. [Environnement de test & gestion des régressions](#4-environnement-de-test--gestion-des-régressions)
 5. [Estimation des coûts](#5-estimation-des-coûts)
-6. [Planning & Livrables](#6-planning--livrables)
-7. [Risques & Mitigations](#7-risques--mitigations)
-8. [Suivi de version du document](#8-suivi-de-version-du-document)
+6. [Avancement des sprints](#6-avancement-des-sprints)
+7. [Backlog post-v2.5.0](#7-backlog-post-v250)
+8. [Risques & Mitigations](#8-risques--mitigations)
+9. [Suivi de version du document](#9-suivi-de-version-du-document)
 
 ---
 
@@ -24,20 +25,27 @@
 ### Objectif
 Centraliser toutes les informations financières personnelles (budget, dépenses, investissements) dans une application Android native, sécurisée, et pédagogiquement construite.
 
-### Fonctionnalités V1 (MVP)
-| # | Fonctionnalité | Priorité |
-|---|---------------|----------|
-| F1 | Saisie et suivi du budget mensuel | MUST |
-| F2 | Suivi des dépenses par catégorie | MUST |
-| F3 | Suivi des investissements | MUST |
-| F4 | Multi-devises : EUR, USD, XOF/XAF | MUST |
-| F5 | Projections graphiques | MUST |
-| F6 | Rappels et conseils sur fonds disponibles | SHOULD |
-| F7 | Authentification biométrique | SHOULD |
-| F8 | Export des données (CSV/PDF) | COULD |
-| F9 | Sauvegarde cloud chiffrée | COULD |
+### Fonctionnalités V1 — Statut actuel
+| # | Fonctionnalité | Priorité | Statut |
+|---|---------------|----------|--------|
+| F1 | Saisie et suivi du budget mensuel | MUST | ✅ Fait |
+| F2 | Suivi des dépenses par catégorie | MUST | ✅ Fait (+ recherche, filtres, sous-catégories) |
+| F3 | Suivi des investissements | MUST | ✅ Fait (SCPI, immobilier, Airbnb, épargne) |
+| F4 | Multi-devises : EUR, USD, XOF/XAF | MUST | ⚠️ Partiel — stockage en centimes ✅, taux de change API ❌ |
+| F5 | Projections graphiques | MUST | ✅ Fait (donut, courbe 6 mois, barres investissements) |
+| F6 | Rappels et conseils sur fonds disponibles | SHOULD | ✅ Fait (3 canaux de notifications, Sprint 6) |
+| F7 | Authentification sécurisée | SHOULD | ✅ Fait (PIN 4 chiffres + email/password PBKDF2 + biométrie récupération) |
+| F8 | Export des données (CSV/PDF) | COULD | ❌ Non implémenté — backlog V3 |
+| F9 | Sauvegarde cloud chiffrée | COULD | ❌ Non implémenté — backlog V3 |
 
-### Hors périmètre V1
+### Fonctionnalités réalisées au-delà du périmètre initial
+- **Rapport mensuel** — Module complet avec bilan, top catégories, variation M/M-1 (Sprint 8)
+- **Transactions récurrentes** — Génération automatique par `AppViewModel` au démarrage (Sprint 4)
+- **Préférences utilisateur** — DataStore : devise par défaut, seuil liquidités, toggle rapport (Sprint 7)
+- **Rapport mensuel dashboard** — Carte synthèse compacte activable depuis les paramètres
+- **Politique de confidentialité** — Publiée sur GitHub pour le Play Store
+
+### Hors périmètre V1 (inchangé)
 - Connexion aux APIs bancaires réelles (Open Banking)
 - Version iOS
 - Application web
@@ -47,206 +55,254 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 ## 2. Besoins techniques
 
 ### 2.1 Environnement de développement
-| Outil | Version minimale | Rôle |
+| Outil | Version utilisée | Rôle |
 |-------|-----------------|------|
 | Android Studio | Hedgehog (2023.1+) | IDE principal |
 | JDK | 17 | Compilation |
 | Kotlin | 1.9+ | Langage |
 | Gradle | 8.x | Build system |
 | Git | 2.x | Contrôle de version |
-| GitHub / GitLab | — | Hébergement + CI/CD |
+| GitHub | — | Hébergement + CI (build debug) |
 
-### 2.2 Stack technique Android
+### 2.2 Stack technique Android — État réel
 ```
-app/
-├── presentation/     # MVVM : Fragments, ViewModels, Compose UI
-├── domain/           # UseCases, Entités, interfaces Repository
-└── data/             # Room, DataStore, API clients
+app/src/main/java/com/dibitara/app/
+├── data/
+│   ├── local/        — Room v4, migrations 1→2→3→4
+│   └── repository/   — *RepositoryImpl.kt + UserPreferencesRepositoryImpl (DataStore)
+├── di/               — DatabaseModule, DataStoreModule, SecurityModule
+├── domain/
+│   ├── model/        — Transaction, Budget, Debt, SavingsAccount, RealEstateAsset,
+│   │                   ScpiInvestment, AirbnbRental, PatrimonyOverview, Currency,
+│   │                   Category, SubCategory, DebtType, SavingsType, Child,
+│   │                   UserPreferences, MonthlyReport, CategoryExpense
+│   ├── repository/   — 7 interfaces + UserPreferencesRepository
+│   └── usecase/      — 37+ UseCases (1 responsabilité = 1 UseCase)
+└── presentation/
+    ├── auth/         — LockScreen, AuthViewModel (PIN + email/password + biométrie)
+    ├── dashboard/    — graphique 6 mois OU carte rapport selon toggle
+    ├── budget/       — donut + bilan revenus/dépenses réels
+    ├── expenses/     — liste + recherche + filtres + sous-catégories
+    ├── investments/  — barres + SRP (SCPI, immobilier, Airbnb)
+    ├── savings/      — SavingsScreen, SavingsViewModel (CRUD complet)
+    ├── debts/        — DebtsScreen, DebtsViewModel
+    ├── report/       — MonthlyReportScreen, MonthlyReportViewModel
+    ├── settings/     — SettingsScreen (seuil, devise, toggle rapport, toggle nav)
+    ├── common/       — CurrencyExt.kt, NotificationHelper.kt, BottomNavBar.kt
+    ├── AppViewModel  — récurrentes + notifications au démarrage
+    └── navigation/   — DibitaraNavGraph (8 routes), BottomNavBar (6 onglets)
 ```
 
-| Composant | Bibliothèque | Justification |
-|-----------|-------------|---------------|
-| UI | Jetpack Compose | Standard moderne Android |
-| Navigation | Navigation Component | Gestion des écrans |
-| Architecture | ViewModel + StateFlow | MVVM réactif |
-| Base de données locale | Room | ORM officiel Android |
-| Injection de dépendances | Hilt | Standard Google |
-| Async | Coroutines + Flow | Programmation réactive |
-| Graphiques | Vico (ou MPAndroidChart) | Projections visuelles |
-| Préférences | DataStore | Remplacement SharedPreferences |
-| Sécurité | AndroidKeyStore + BiometricPrompt | Protection des données |
-| Taux de change | API Frankfurter (gratuite) | Conversion EUR/USD/XOF |
-| Tests UI | Espresso / Compose Test | Tests d'interface |
-| Tests unitaires | JUnit 5 + MockK | Tests métier |
-| Couverture | Kover | Rapport de couverture |
+| Composant | Bibliothèque | Statut |
+|-----------|-------------|--------|
+| UI | Jetpack Compose | ✅ En production |
+| Navigation | Navigation Component | ✅ En production |
+| Architecture | ViewModel + StateFlow | ✅ En production |
+| Base de données locale | Room v4 | ✅ En production |
+| Injection de dépendances | Hilt | ✅ En production |
+| Async | Coroutines + Flow | ✅ En production |
+| Graphiques | Vico (ou MPAndroidChart) | ✅ En production |
+| Préférences | DataStore | ✅ En production |
+| Sécurité auth | EncryptedSharedPreferences + PBKDF2 | ✅ En production |
+| Biométrie | BiometricPrompt (récupération accès) | ✅ En production |
+| Taux de change API | Frankfurter | ❌ Non implémenté |
+| Tests UI | Espresso / Compose Test | ❌ Non implémenté |
+| Tests unitaires | JUnit 5 + MockK | ✅ 110 tests |
+| Couverture | Kover | ❌ Non configuré |
+| Firebase Crashlytics | — | ❌ Non intégré |
 
 ### 2.3 Cibles Android
 | Paramètre | Valeur |
 |-----------|--------|
-| minSdkVersion | 26 (Android 8.0) — couvre 95%+ des appareils |
+| minSdkVersion | 26 (Android 8.0) |
 | targetSdkVersion | 35 (Android 15) |
 | compileSdkVersion | 35 |
 
-### 2.4 Sécurité (non négociable)
-- Toutes les données locales chiffrées via **EncryptedSharedPreferences** ou **SQLCipher + Room**.
-- Authentification biométrique avant accès à l'app.
-- Aucune donnée financière en clair dans les logs.
-- Obfuscation du code release via **R8/ProGuard**.
+### 2.4 Sécurité — État réel
+- Authentification : PIN 4 chiffres + email/password PBKDF2 (EncryptedSharedPreferences) ✅
+- Récupération par biométrie sans perte de données ✅
+- Aucune donnée financière en clair dans les logs ✅
+- Obfuscation R8/ProGuard en mode release ✅
+- SQLCipher (chiffrement Room) — **non implémenté**, Room non chiffrée
+
+> **Recommandation v3 :** Ajouter SQLCipher pour chiffrer la base Room. C'est la principale lacune sécurité restante.
 
 ---
 
 ## 3. Besoins non-techniques
 
-### 3.1 Conception & UX
-| Livrable | Outil recommandé | Statut |
-|---------|-----------------|--------|
-| Wireframes basse fidélité | Figma (gratuit) | À faire |
-| Charte graphique & Design System | Figma | À faire |
-| Maquettes haute fidélité | Figma | À faire |
-| Prototype cliquable | Figma | Optionnel V1 |
+### 3.1 Conception & UX — État réel
+| Livrable | Outil | Statut |
+|---------|-------|--------|
+| Wireframes & maquettes UI | Figma (par Florent) | ✅ Réalisé — thème lanterne, conforme au cahier des charges |
+| Charte graphique | Figma | ✅ Définie |
+| Icône app 512×512 | Design Figma livré | ✅ Livré |
+| Feature graphic 1024×500 | Design Figma livré | ✅ Livré |
+| Screenshots Play Store | 7 sélectionnés | ✅ Prêts |
 
-> **Inspiration :** étudier l'UX de Finary, Linxo, et Wallet pour identifier les patterns UX de référence en gestion financière.
+### 3.2 Organisation & Méthode — Ajustements constatés
 
-### 3.2 Organisation & Méthode
-- **Méthode :** Agile allégé — sprints de 2 semaines avec revue de fin de sprint.
-- **Suivi des tâches :** GitHub Projects (kanban : Backlog / En cours / Review / Done).
-- **Branches Git :** `main` (stable), `develop` (intégration), `feature/xxx`, `fix/xxx`.
-- **Convention de commits :** [Conventional Commits](https://www.conventionalcommits.org/) — ex. `feat(budget): ajouter saisie dépense`.
-- **Code review :** toute PR doit être relue avant merge — moment pédagogique senior → junior.
-- **Versioning :** Semantic Versioning `MAJOR.MINOR.PATCH`.
+Le plan initial prévoyait une organisation Agile stricte qui a été adaptée en pratique :
 
-### 3.3 Compétences junior à développer
-| Compétence | Sprint cible |
-|-----------|-------------|
-| Architecture MVVM | Sprint 1 |
-| Room & migrations | Sprint 2 |
-| Coroutines & Flow | Sprint 2 |
-| Jetpack Compose | Sprint 3 |
-| Tests unitaires | Sprint 3 |
-| Sécurité Android | Sprint 4 |
+| Pratique | Plan initial | Réalité |
+|----------|-------------|---------|
+| Branches git | main / develop / feature/xxx / fix/xxx | Travail sur `main` directement |
+| Convention commits | Conventional Commits (feat:, fix:) | Style FR : sujet verbe complément |
+| Code review | PR obligatoire | Sessions pair-programming synchrones |
+| Versioning | Semantic Versioning strict | Semantic Versioning suivi (v1.0.0 → v2.5.0) |
+| Suivi des tâches | GitHub Projects | AMELIORATIONS.md local + mémoire sessions |
+
+> **Recommandation :** La méthode actuelle fonctionne pour un binôme. Pour les sprints suivants, envisager des branches `fix/xxx` uniquement pour les corrections non triviales afin de faciliter les retours arrière.
+
+### 3.3 Compétences junior — Bilan
+| Compétence | Sprint prévu | Réalisé |
+|-----------|-------------|---------|
+| Architecture MVVM | Sprint 1 | ✅ Sprint 1 |
+| Room & migrations | Sprint 2 | ✅ Sprint 2–9 (4 migrations) |
+| Coroutines & Flow | Sprint 2 | ✅ Sprint 2 |
+| Jetpack Compose | Sprint 3 | ✅ Sprint 3 |
+| Tests unitaires | Sprint 3 | ✅ 110 tests en place |
+| Sécurité Android | Sprint 4 | ✅ Sprint 9 (PBKDF2, EncryptedSharedPreferences) |
+| DataStore | Non prévu | ✅ Sprint 7 |
+| Notifications Android | Non prévu | ✅ Sprint 6 |
 
 ---
 
 ## 4. Environnement de test & Gestion des régressions
 
-### 4.1 Niveaux de test
+### 4.1 Niveaux de test — État réel
 ```
-Pyramide de tests :
-        [E2E]          ← Peu nombreux, coûteux
-      [Intégration]    ← Room, Repository
-    [Tests Unitaires]  ← UseCases, ViewModels, Convertisseurs
+Pyramide de tests (situation actuelle) :
+        [E2E]          ← Non implémenté
+      [Intégration]    ← Non implémenté
+    [Tests Unitaires]  ← 110 tests (JUnit + MockK)
 ```
 
-| Niveau | Outil | Cible de couverture |
-|--------|-------|-------------------|
-| Unitaires | JUnit 5 + MockK | ≥ 80% sur `domain/` |
-| Intégration | JUnit + Room In-Memory | Repositories |
-| UI / E2E | Espresso + Compose Test | Parcours critiques |
+| Niveau | Outil | Cible | Réel |
+|--------|-------|-------|------|
+| Unitaires | JUnit + MockK | ≥ 80% sur `domain/` | 110 tests, couverture non mesurée |
+| Intégration | Room In-Memory | Repositories | ❌ Non implémenté |
+| UI / E2E | Espresso + Compose Test | Parcours critiques | ❌ Non implémenté |
+
+> **Recommandation :** Configurer Kover avant le Sprint suivant pour mesurer la couverture réelle. Priorité aux tests d'intégration Room avant d'ajouter une 5e migration.
 
 ### 4.2 Appareils de test
-| Type | Détail | Obligatoire |
-|------|--------|------------|
-| Émulateur API 26 | Android 8 — minSdk | Oui |
-| Émulateur API 35 | Android 15 — targetSdk | Oui |
-| Appareil physique | Ex. Pixel ou Samsung réel | Recommandé |
-| Firebase Test Lab | Cloud — multiples appareils | V2 |
+| Type | Détail | Statut |
+|------|--------|--------|
+| Appareil physique | Android 16 | ✅ Tests réalisés (session 2026-05-10) |
+| Émulateur | Non systématique | ⚠️ À formaliser |
+| Firebase Test Lab | Cloud | ❌ Non utilisé |
 
-### 4.3 CI/CD & Prévention des régressions
-Pipeline GitHub Actions déclenché à chaque PR sur `develop` et `main` :
+### 4.3 CI/CD — État réel
+- Build debug automatisé sur GitHub ✅
+- Signing config conditionnelle (ne bloque pas le CI) ✅
+- Tests unitaires automatisés en CI : ❌ À mettre en place
+- Seuil de couverture minimum : ❌ Kover non configuré
 
-```
-PR ouverte
-  └─> [Lint] gradle lint
-  └─> [Tests unitaires] gradle test
-  └─> [Couverture] rapport Kover (seuil min 80%)
-  └─> [Build debug] gradle assembleDebug
-  └─> [Tests UI] gradle connectedAndroidTest (émulateur)
-  └─> Merge autorisé seulement si tout est vert ✅
-```
-
-### 4.4 Suivi des régressions
-- **CHANGELOG.md** tenu à jour à chaque sprint (format Keep a Changelog).
-- **Numéro de build** incrémenté automatiquement par CI.
-- Toute régression détectée crée automatiquement une issue GitHub avec le log.
-- Avant chaque release : **test de fumée** manuel sur les 5 parcours critiques (voir liste ci-dessous).
-
-### 4.5 Parcours critiques (smoke tests)
-1. Lancement app → authentification biométrique → tableau de bord.
-2. Ajout d'une dépense → apparition dans le budget mensuel.
-3. Changement de devise EUR → USD → vérification de la conversion.
-4. Consultation d'un graphique de projection.
-5. Sauvegarde et restauration des données.
+### 4.4 Parcours critiques (smoke tests manuels)
+1. Lancement app → écran PIN → tableau de bord ✅ Validé v2.5.0
+2. Ajout d'une dépense → apparition dans le budget mensuel ✅ Validé v2.5.0
+3. Modification d'un budget → valeur mise à jour ✅ Validé (BUG-02 corrigé)
+4. Consultation graphiques dashboard + rapport mensuel ✅ Validé v2.5.0
+5. CRUD Épargne et Investissements (édition + suppression) ✅ Validé (BUG-03/04 corrigés)
+6. Changement de devise EUR → USD → XOF ⚠️ Stockage OK, conversion API non implémentée
+7. Sauvegarde et restauration des données ❌ Non couvert (pas de backup cloud)
 
 ---
 
 ## 5. Estimation des coûts
 
-### 5.1 Coûts directs
-| Poste | Coût | Fréquence | Notes |
-|-------|------|-----------|-------|
-| Google Play Store | 25 € | Une fois | Compte développeur |
-| Figma | 0 € | — | Plan gratuit suffisant pour 2 éditeurs |
-| GitHub | 0 € | — | Plan gratuit (CI inclus) |
-| Firebase (Crashlytics + Analytics) | 0 € | — | Free tier largement suffisant |
-| API Frankfurter (taux de change) | 0 € | — | Open source, sans clé API |
-| Firebase Test Lab | ~5–15 €/mois | Sprint 3+ | Optionnel V1, recommandé V2 |
+### 5.1 Coûts directs — Bilan réel
+| Poste | Coût | Fréquence | Statut |
+|-------|------|-----------|--------|
+| Google Play Store | 25 € | Une fois | ✅ Payé |
+| Figma | 0 € | — | Non utilisé |
+| GitHub | 0 € | — | ✅ Actif |
+| Firebase Crashlytics | 0 € | — | ❌ Non intégré |
+| API Frankfurter | 0 € | — | ❌ Non implémenté |
 
-> **Total coûts directs V1 : ~25 € (one-shot)**
+> **Total coûts directs V1 : 25 € (réalisé)**
 
-### 5.2 Coûts en temps (estimation)
-| Phase | Durée estimée | Charge senior | Charge junior |
-|-------|--------------|--------------|--------------|
-| Préparation & Setup | 1 semaine | 60% | 40% |
-| Sprint 1 — Architecture & Auth | 2 semaines | 50% | 50% |
-| Sprint 2 — Budget & Dépenses | 2 semaines | 40% | 60% |
-| Sprint 3 — Investissements & Graphiques | 2 semaines | 40% | 60% |
-| Sprint 4 — Devises & Rappels | 2 semaines | 30% | 70% |
-| Sprint 5 — Tests, polish & release | 2 semaines | 50% | 50% |
-| **Total** | **~11 semaines** | | |
-
----
-
-## 6. Planning & Livrables
-
-### 6.1 Jalons
-```
-Semaine 1   ── Setup complet (repo, CI, structure projet)
-Semaine 3   ── Authentification + navigation principale
-Semaine 5   ── Budget mensuel + dépenses fonctionnels
-Semaine 7   ── Investissements + graphiques de base
-Semaine 9   ── Multi-devises + rappels
-Semaine 11  ── Release V1 sur Play Store (ou APK interne)
-```
-
-### 6.2 Livrables par phase
-| Phase | Livrables |
-|-------|-----------|
-| Préparation | Ce document + CLAUDE.md + repo initialisé + maquettes |
-| Sprint 1 | Squelette Clean Architecture + écran auth + navigation |
-| Sprint 2 | Module Budget complet + tests unitaires associés |
-| Sprint 3 | Module Investissements + graphiques Vico |
-| Sprint 4 | Conversion devises + système de rappels |
-| Sprint 5 | APK release signée + CHANGELOG + documentation utilisateur |
+### 5.2 Coûts en temps — Bilan réel
+| Phase | Durée estimée | Durée réelle |
+|-------|--------------|--------------|
+| Préparation & Setup | 1 semaine | ~1 semaine |
+| Sprint 1 — Architecture & Auth | 2 semaines | ~2 semaines |
+| Sprint 2 — Budget & Dépenses | 2 semaines | ~2 semaines |
+| Sprint 3 — Investissements & Graphiques | 2 semaines | ~2 semaines |
+| Sprint 4 — Récurrentes & Notifications prép. | 2 semaines | ~1 semaine |
+| Sprint 5 — Recherche & Filtres | 2 semaines | ~1 semaine |
+| Sprint 6 — Notifications | Non prévu | ~1 semaine |
+| Sprint 7 — Préférences DataStore | Non prévu | ~1 semaine |
+| Sprint 8 — Rapport mensuel | Non prévu | ~1 semaine |
+| Sprint 9 — Auth avancée + CRUD + Play Store | Non prévu | ~1 semaine |
+| **Total réel** | **~11 semaines** | **~13 semaines** |
 
 ---
 
-## 7. Risques & Mitigations
+## 6. Avancement des sprints
 
-| Risque | Probabilité | Impact | Mitigation |
-|--------|------------|--------|------------|
-| Complexité des migrations Room | Moyen | Élevé | Écrire les migrations dès le sprint 1, tests de migration systématiques |
-| Drift du junior sur l'architecture | Élevé | Moyen | Code review à chaque PR, session de pair-programming hebdomadaire |
-| API taux de change indisponible | Faible | Moyen | Cache local des derniers taux connus |
-| Fuite de données sensibles | Faible | Très élevé | Audit sécurité avant chaque release, aucun log de données financières |
-| Dérive des délais | Moyen | Moyen | Backlog priorisé, scope V1 figé — nouvelles idées → V2 |
+| Sprint | Titre | Statut | Version |
+|--------|-------|--------|---------|
+| Sprint 1 | Architecture + Navigation + Auth biométrique basique | ✅ Terminé | — |
+| Sprint 2 | Budget, dépenses, patrimoine | ✅ Terminé | — |
+| Sprint 3 | Graphiques, investissements, CI | ✅ Terminé | — |
+| Sprint 4 | Transactions récurrentes, dettes | ✅ Terminé | — |
+| Sprint 5 | Recherche & filtres | ✅ Terminé | — |
+| Sprint 6 | Notifications (3 canaux) | ✅ Terminé | — |
+| Sprint 7 | Préférences DataStore + SettingsScreen | ✅ Terminé | — |
+| Sprint 8 | Rapport mensuel complet | ✅ Terminé | v1.0.0 |
+| Sprint 9 | Auth PIN/password, CRUD Épargne/Invest, Dashboard liens, Play Store | ✅ Terminé | v2.5.0 |
 
 ---
 
-## 8. Suivi de version du document
+## 7. Backlog post-v2.5.0
+
+### 7.1 Priorité moyenne — À faire en Sprint 10
+| ID | Fonctionnalité | Effort | Migration |
+|----|---------------|--------|-----------|
+| FEAT-02 | Toggle Épargne/Investissements dans la navigation | 4-6h | ❌ |
+| TECH-01 | Configurer Kover + ajouter tests CI | 4-6h | ❌ |
+| TECH-02 | Intégrer Firebase Crashlytics (free tier) | 2-3h | ❌ |
+
+### 7.2 Priorité basse — Sprint 11+
+| ID | Fonctionnalité | Effort | Migration |
+|----|---------------|--------|-----------|
+| FEAT-01B | Sous-catégories personnalisées (CRUD libre) | 10-14h | ✅ v4→v5 |
+| FEAT-04 | Taux de change live (API Frankfurter) | 6-8h | ❌ |
+| AUTH-03 | 2FA TOTP (Authenticator) | 6-8h | ❌ |
+| FEAT-05 | Logo Dibitara — design final | Design | ❌ |
+
+### 7.3 Backlog V3 (après stabilisation Play Store)
+| ID | Fonctionnalité | Effort |
+|----|---------------|--------|
+| F8 | Export CSV des transactions | 8-12h |
+| F9 | Sauvegarde cloud chiffrée | 15-20h |
+| SEC-01 | SQLCipher — chiffrement Room | 8-12h |
+| PERF-01 | Tests d'intégration Room | 10-15h |
+
+---
+
+## 8. Risques & Mitigations
+
+| Risque | Probabilité | Impact | Mitigation | Statut |
+|--------|------------|--------|------------|--------|
+| Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 4 migrations faites, tests absents |
+| Régression lors d'une 5e migration | Moyen | Élevé | Configurer tests Room In-Memory avant v4→v5 | 🔴 Action requise |
+| Taux de change indisponible | Faible | Moyen | Cache local des derniers taux | 🟡 API pas encore intégrée |
+| Fuite de données sensibles | Faible | Très élevé | Room non chiffrée (SQLCipher absent) | 🟡 Acceptable V1, à traiter V3 |
+| Rejet Play Store | Moyen | Élevé | Politique de confidentialité publiée, assets conformes | ✅ Mitigé |
+| Dérive des délais | Moyen | Moyen | Backlog priorisé, scope V1 tenu | ✅ 2 semaines de dépassement acceptable |
+| Drift du junior sur l'architecture | Faible | Moyen | Sessions pair-programming régulières | ✅ Architecture respectée |
+
+---
+
+## 9. Suivi de version du document
 
 | Version | Date | Auteur | Changements |
 |---------|------|--------|-------------|
 | 1.0 | 2026-05-04 | Florent | Création initiale |
+| 2.0 | 2026-05-11 | Florent | Mise à jour complète — état réel v2.5.0, sprints 1-9 terminés, backlog post-deploy, ajustements méthode de travail |
 
 ---
 
