@@ -23,4 +23,5 @@ keystore.properties
 # Fichiers de travail locaux — ne pas committer
 .claude/
 AMELIORATIONS.md
+QUESTIONNAIRE.md
 session_reprise.md
