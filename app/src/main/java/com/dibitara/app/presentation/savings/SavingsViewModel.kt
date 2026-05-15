@@ -133,6 +133,25 @@ class SavingsViewModel @Inject constructor(
     }
 
     /**
+     * Associe ou désassocie des comptes épargne à un enfant.
+     * - Les comptes dont l'ID est dans [comptesSelectionnes] sont liés à [child].
+     * - Les comptes qui étaient déjà liés à [child] mais absents de la sélection sont délié (childId = null).
+     * - Les comptes liés à un AUTRE enfant ne sont pas touchés.
+     */
+    fun associerComptesEnfant(child: Child, tousLesComptes: List<SavingsAccount>, comptesSelectionnes: Set<Long>) {
+        viewModelScope.launch {
+            tousLesComptes.forEach { compte ->
+                val selectionne = compte.id in comptesSelectionnes
+                if (selectionne && compte.childId != child.id) {
+                    updateSavingsAccount(compte.copy(childId = child.id, updatedAt = LocalDate.now()))
+                } else if (!selectionne && compte.childId == child.id) {
+                    updateSavingsAccount(compte.copy(childId = null, updatedAt = LocalDate.now()))
+                }
+            }
+        }
+    }
+
+    /**
      * Applique le versement mensuel prévu sur un compte épargne.
      * - Vérifie qu'aucun versement n'a déjà été enregistré ce mois.
      * - Enregistre le versement en base.

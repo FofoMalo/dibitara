@@ -2,7 +2,10 @@ package com.dibitara.app.presentation.common
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.dibitara.app.R
@@ -96,8 +99,20 @@ class NotificationHelper @Inject constructor(
 
     /**
      * Avertissement quand le solde estimé du mois passe sous le seuil configuré.
+     * Un clic sur la notification ouvre directement l'écran Paramètres pour
+     * que l'utilisateur puisse ajuster son seuil d'alerte.
      */
     fun envoyerAvertissementFonds(soldeCents: Long, seuilCents: Long) {
+        val deepLinkIntent = Intent(Intent.ACTION_VIEW, Uri.parse("dibitara://settings")).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            NOTIF_ID_FONDS,
+            deepLinkIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification = NotificationCompat.Builder(context, CANAL_FONDS)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Liquidités insuffisantes")
@@ -106,6 +121,7 @@ class NotificationHelper @Inject constructor(
                 "(seuil d'alerte : ${seuilCents / 100}€)"
             )
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()
 

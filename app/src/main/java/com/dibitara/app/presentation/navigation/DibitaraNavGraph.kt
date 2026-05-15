@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
 import com.dibitara.app.presentation.auth.LockScreen
 import com.dibitara.app.presentation.auth.SetupAuthScreen
 import com.dibitara.app.presentation.budget.BudgetScreen
@@ -117,7 +118,10 @@ fun DibitaraNavGraph(
             composable(Screen.Debts.route) {
                 DebtsScreen(onNavigateBack = { navController.navigateUp() })
             }
-            composable(Screen.Settings.route) { SettingsScreen() }
+            composable(
+                route = Screen.Settings.route,
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://settings" })
+            ) { SettingsScreen() }
             composable(Screen.Report.route) {
                 MonthlyReportScreen(onNavigateBack = { navController.navigateUp() })
             }

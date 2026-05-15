@@ -1,8 +1,8 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 3.0 — 2026-05-15  
-> Statut : **En production** — v2.5.0 soumise Play Store, validation Google en cours
+> Version du document : 3.1 — 2026-05-15  
+> Statut : **En production** — v3.0.0 prête au déploiement
 
 ---
 
@@ -253,6 +253,9 @@ Pyramide de tests (situation actuelle) :
 | Sprint 7 | Préférences DataStore + SettingsScreen | ✅ Terminé | — |
 | Sprint 8 | Rapport mensuel complet | ✅ Terminé | v1.0.0 |
 | Sprint 9 | Auth PIN/password, CRUD Épargne/Invest, Dashboard liens, Play Store | ✅ Terminé | v2.5.0 |
+| Sprint 10 | Corrections UX + CRUD Budget + Patrimoine détail + Responsive | ✅ Terminé | v3.0.0 |
+| Sprint 11 | Versement mensuel Épargne & SCPI (migration v5→v6) | ✅ Terminé | v3.0.0 |
+| Sprint 12 | Améliorations pré-déploiement v3.0.0 | ✅ Terminé | v3.0.0 |
 
 ---
 
@@ -268,54 +271,64 @@ Pyramide de tests (situation actuelle) :
 
 ---
 
-### 7.1 Sprint 10 — Corrections & Améliorations UX (cible : v2.6.0)
+### 7.1 Sprint 10 — Corrections & Améliorations UX ✅ v3.0.0
 
-#### P0 — Quick wins (< 2h, aucune migration)
-| ID | Fonctionnalité | Effort | Migration Room |
-|----|---------------|--------|----------------|
-| FIX-01 | Libellé "Salaire Florent" → "Salaire" | 1h | ❌ |
-| FIX-02 | Seuil notifications : valeur par défaut 200 € | 30min | ❌ |
+#### P0 — Quick wins
+| ID | Fonctionnalité | Statut |
+|----|---------------|--------|
+| FIX-01 | Libellé "Salaire Florent" → "Salaire" | ✅ Livré |
+| FIX-02 | Seuil notifications : valeur par défaut 200 € | ✅ Livré |
 
-#### P1 — CRUD & Navigation (2–4h chacun, aucune migration)
-| ID | Fonctionnalité | Effort | Migration Room |
-|----|---------------|--------|----------------|
-| FEAT-07 | Budget : suppression (CRUD complet) | 2-3h | ❌ |
-| FEAT-08 | Dashboard → Patrimoine net & Brut → détails CRUD | 3-4h | ❌ |
-| FEAT-09 | Épargne : créer un type personnalisé depuis "Autres" (UI) | 3-4h | ❌ |
+#### P1 — CRUD & Navigation
+| ID | Fonctionnalité | Statut |
+|----|---------------|--------|
+| FEAT-07 | Budget : suppression (CRUD complet) | ✅ Livré |
+| FEAT-08 | Dashboard → Patrimoine net & Brut → détails CRUD | ✅ Livré |
+| FEAT-09 | Épargne : créer un type personnalisé depuis "Autres" (UI) | ✅ Livré |
 
-#### P2 — UX & Libellés (4–6h chacun, aucune migration)
-| ID | Fonctionnalité | Effort | Migration Room |
-|----|---------------|--------|----------------|
-| FEAT-10 | Responsive : écrans de saisie des informations | 4-6h | ❌ |
-| FEAT-11 | Revenus locatifs : libellé personnalisé (ex. Airbnb, Appartement) | 4-6h | ❌ |
+#### P2 — UX & Libellés
+| ID | Fonctionnalité | Statut |
+|----|---------------|--------|
+| FEAT-10 | Responsive : ModalBottomSheet + clavier IME | ✅ Livré |
+| FEAT-11 | Revenus locatifs : libellé + champ source personnalisé | ✅ Livré |
 
 ---
 
-### 7.2 Sprint 11 — Modèle Versement Mensuel (cible : v3.0.0)
+### 7.2 Sprint 11 — Modèle Versement Mensuel ✅ v3.0.0
 
-> **Fonctionnalité structurante** — nécessite migration Room v5→v6, nouveaux UseCases, logique non-rétroactive.
-
-| ID | Fonctionnalité | Effort | Migration Room |
-|----|---------------|--------|----------------|
-| FEAT-12 | Modèle versement mensuel — Épargne & Placements | 15-20h | ✅ v5→v6 |
+| ID | Fonctionnalité | Migration Room | Statut |
+|----|---------------|----------------|--------|
+| FEAT-12 | Versement mensuel non-rétroactif — Épargne & SCPI | ✅ v5→v6 | ✅ Livré |
 
 **Règles métier FEAT-12 :**
 - Solde Mois N = Solde Mois N-1 + Versement Mois N
 - Modification du versement mensuel → **non rétroactive** : applicable à partir de Mois N+1 uniquement
-- Dialogue de confirmation obligatoire avant toute validation
-- Message d'erreur explicite si données invalides ("Vérifier les informations saisies")
+- Dialogue de confirmation obligatoire avec la date du jour
+- Un seul versement par mois par compte (contrainte UNIQUE en base)
 - Applicable à : **Épargne ET Placements** (même modèle, deux écrans)
 
 ---
 
-### 7.3 Sprint 12 — Qualité technique (après stabilisation v3.0.0)
+### 7.3 Sprint 12 — Améliorations pré-déploiement ✅ v3.0.0
+
+| ID | Fonctionnalité | Statut |
+|----|---------------|--------|
+| FIX-NAV | Navigation Accueil : retour Dashboard fiable depuis n'importe quelle profondeur | ✅ Livré |
+| FIX-NOTIF | Notification "Fonds insuffisants" → deep link vers Paramètres (seuil d'alerte) | ✅ Livré |
+| FIX-DATE | Confirmation versement : affiche la date du jour ("le 15 mai 2026") | ✅ Livré |
+| FIX-ANNEE | Revenus locatifs : titre affiche l'année courante ("Revenus locatifs (2026)") | ✅ Livré |
+| FEAT-ENFANT | Section enfant : associer/désassocier des comptes épargne via dialog multi-sélection | ✅ Livré |
+
+---
+
+### 7.4 Sprint 13 — Qualité technique (post v3.0.0)
 | ID | Fonctionnalité | Effort |
 |----|---------------|--------|
 | TECH-01 | Configurer Kover + ajouter tests CI | 4-6h |
 | TECH-02 | Intégrer Firebase Crashlytics (free tier) | 2-3h |
 | FEAT-04 | Taux de change live (API Frankfurter) | 6-8h |
 
-### 7.4 Backlog V4 (long terme)
+### 7.5 Backlog V4 (long terme)
 | ID | Fonctionnalité | Effort |
 |----|---------------|--------|
 | F8 | Export CSV des transactions | 8-12h |
@@ -346,6 +359,7 @@ Pyramide de tests (situation actuelle) :
 | 1.0 | 2026-05-04 | Florent | Création initiale |
 | 2.0 | 2026-05-11 | Florent | Mise à jour complète — état réel v2.5.0, sprints 1-9 terminés, backlog post-deploy, ajustements méthode de travail |
 | 3.0 | 2026-05-15 | Florent | Backlog réorganisé — items post-Sprint 9 marqués livrés, Sprint 10 (8 items P0/P1/P2), Sprint 11 FEAT-12 versement mensuel |
+| 3.1 | 2026-05-15 | Florent | Sprints 10-11-12 marqués terminés, Sprint 12 améliorations pré-déploiement (navigation, notifications deep link, versement date, année locatifs, enfant associer comptes), Sprint 13 qualité technique |
 
 ---
 

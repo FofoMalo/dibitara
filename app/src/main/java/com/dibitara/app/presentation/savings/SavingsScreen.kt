@@ -10,7 +10,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Person
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -71,7 +75,14 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                         onDeleteAccount = viewModel::deleteAccount,
                         onAddChild = { showAddChild = true },
                         onDeleteChild = viewModel::removeChild,
-                        onAppliquerVersement = viewModel::appliquerVersement
+                        onAppliquerVersement = viewModel::appliquerVersement,
+                        onAssocierComptes = { child, selectionnes ->
+                            viewModel.associerComptesEnfant(
+                                child,
+                                (state as SavingsUiState.Success).accounts,
+                                selectionnes
+                            )
+                        }
                     )
             }
         }
@@ -116,7 +127,8 @@ private fun SavingsContent(
     onDeleteAccount: (SavingsAccount) -> Unit,
     onAddChild: () -> Unit,
     onDeleteChild: (Child) -> Unit,
-    onAppliquerVersement: (SavingsAccount) -> Unit
+    onAppliquerVersement: (SavingsAccount) -> Unit,
+    onAssocierComptes: (Child, Set<Long>) -> Unit
 ) {
     val totalEpargne = state.accounts.sumOf { it.currentBalanceCents }
     val totalMensuel = state.accounts.sumOf { it.monthlyContributionCents }
@@ -194,7 +206,9 @@ private fun SavingsContent(
                 ChildCard(
                     child = child,
                     savingsAccounts = state.accounts.filter { it.childId == child.id },
-                    onDelete = { onDeleteChild(child) }
+                    tousLesComptes = state.accounts,
+                    onDelete = { onDeleteChild(child) },
+                    onAssocierComptes = { selectionnes -> onAssocierComptes(child, selectionnes) }
                 )
             }
         }
@@ -282,13 +296,15 @@ private fun SavingsAccountCard(
     }
 
     if (showVersementConfirm) {
+        val dateAujourdhui = LocalDate.now()
+            .format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH))
         AlertDialog(
             onDismissRequest = { showVersementConfirm = false },
             title = { Text("Appliquer le versement ?") },
             text = {
                 Text(
                     "${account.monthlyContributionCents.toCurrencyDisplay(account.currency)} seront " +
-                    "ajoutés au solde. Un seul versement par mois est autorisé."
+                    "ajoutés au solde le $dateAujourdhui. Un seul versement par mois est autorisé."
                 )
             },
             confirmButton = {
@@ -319,12 +335,19 @@ private fun SavingsTypeChip(type: SavingsType, customName: String? = null) {
 }
 
 @Composable
-private fun ChildCard(child: Child, savingsAccounts: List<SavingsAccount>, onDelete: () -> Unit) {
+private fun ChildCard(
+    child: Child,
+    savingsAccounts: List<SavingsAccount>,
+    tousLesComptes: List<SavingsAccount>,
+    onDelete: () -> Unit,
+    onAssocierComptes: (Set<Long>) -> Unit
+) {
     var showConfirm by remember { mutableStateOf(false) }
+    var showAssocier by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -332,8 +355,14 @@ private fun ChildCard(child: Child, savingsAccounts: List<SavingsAccount>, onDel
                         tint = MaterialTheme.colorScheme.secondary)
                     Text(child.name, style = MaterialTheme.typography.titleSmall)
                 }
-                IconButton(onClick = { showConfirm = true }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                Row {
+                    IconButton(onClick = { showAssocier = true }) {
+                        Icon(Icons.Filled.Link, contentDescription = "Associer des comptes",
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = { showConfirm = true }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
             if (savingsAccounts.isEmpty()) {
@@ -359,6 +388,72 @@ private fun ChildCard(child: Child, savingsAccounts: List<SavingsAccount>, onDel
             dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } }
         )
     }
+
+    if (showAssocier) {
+        AssocierComptesDialog(
+            childName = child.name,
+            tousLesComptes = tousLesComptes,
+            comptesDejaAssocies = savingsAccounts.map { it.id }.toSet(),
+            onConfirm = { selectionnes -> onAssocierComptes(selectionnes); showAssocier = false },
+            onDismiss = { showAssocier = false }
+        )
+    }
+}
+
+@Composable
+private fun AssocierComptesDialog(
+    childName: String,
+    tousLesComptes: List<SavingsAccount>,
+    comptesDejaAssocies: Set<Long>,
+    onConfirm: (Set<Long>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // État local : IDs des comptes cochés dans le dialog
+    var selectionnes by remember { mutableStateOf(comptesDejaAssocies) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Comptes de $childName") },
+        text = {
+            if (tousLesComptes.isEmpty()) {
+                Text("Aucun compte épargne disponible.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    tousLesComptes.forEach { compte ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = compte.id in selectionnes,
+                                onCheckedChange = { coche ->
+                                    selectionnes = if (coche) selectionnes + compte.id
+                                    else selectionnes - compte.id
+                                }
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                val nomType = if (compte.type == SavingsType.AUTRE) compte.label
+                                              else compte.type.displayName
+                                Text(nomType, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    compte.currentBalanceCents.toCurrencyDisplay(compte.currency),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selectionnes) }) { Text("Enregistrer") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

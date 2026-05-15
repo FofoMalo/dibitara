@@ -35,6 +35,7 @@ import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 import com.patrykandpatrick.vico.core.entry.entryOf
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
@@ -209,7 +210,7 @@ private fun InvestmentsContent(
 
         // --- Section Revenus locatifs ---
         item {
-            SectionHeader(title = "Revenus locatifs (année)", onAdd = onAddAirbnb)
+            SectionHeader(title = "Revenus locatifs (${state.anneeLocatifs})", onAdd = onAddAirbnb)
         }
         if (state.airbnbRentals.isEmpty()) {
             item {
@@ -398,13 +399,15 @@ private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> U
     }
 
     if (showVersementConfirm) {
+        val dateAujourdhui = LocalDate.now()
+            .format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH))
         AlertDialog(
             onDismissRequest = { showVersementConfirm = false },
             title = { Text("Appliquer le versement ?") },
             text = {
                 Text(
                     "${scpi.monthlyContributionCents.toCurrencyDisplay(scpi.currency)} seront " +
-                    "enregistrés comme versement SCPI. Un seul versement par mois est autorisé."
+                    "enregistrés comme versement SCPI le $dateAujourdhui. Un seul versement par mois est autorisé."
                 )
             },
             confirmButton = {

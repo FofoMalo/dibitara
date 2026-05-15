@@ -44,11 +44,18 @@ fun BottomNavBar(
             NavigationBarItem(
                 selected = currentRoute == item.screen.route,
                 onClick = {
-                    navController.navigate(item.screen.route) {
-                        // Évite d'empiler des copies du même écran dans la pile
-                        popUpTo(Screen.Dashboard.route) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                    if (item.screen == Screen.Dashboard) {
+                        // Accueil : vider toute la pile et créer un Dashboard frais
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Dashboard.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    } else {
+                        navController.navigate(item.screen.route) {
+                            popUpTo(Screen.Dashboard.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 },
                 icon = { Icon(item.icon, contentDescription = item.label) },

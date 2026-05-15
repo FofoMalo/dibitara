@@ -47,16 +47,19 @@ class InvestmentsViewModel @Inject constructor(
     private val ucExisteVersementMois: ExisteVersementMoisUseCase
 ) : ViewModel() {
 
+    private val currentYear = LocalDate.now().year
+
     val uiState: StateFlow<InvestmentsUiState> = combine(
         ucGetRealEstate(),
         ucGetScpi(),
-        ucGetAirbnbByYear(LocalDate.now().year)
+        ucGetAirbnbByYear(currentYear)
     ) { realEstate, scpi, airbnb ->
         InvestmentsUiState.Success(
             realEstate = realEstate,
             scpi = scpi,
             airbnbRentals = airbnb,
-            airbnbAnnualTotal = airbnb.sumOf { it.amountCents }
+            airbnbAnnualTotal = airbnb.sumOf { it.amountCents },
+            anneeLocatifs = currentYear
         ) as InvestmentsUiState
     }
         .catch { emit(InvestmentsUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -212,7 +215,8 @@ sealed class InvestmentsUiState {
         val realEstate: List<RealEstateAsset>,
         val scpi: List<ScpiInvestment>,
         val airbnbRentals: List<AirbnbRental>,
-        val airbnbAnnualTotal: Long
+        val airbnbAnnualTotal: Long,
+        val anneeLocatifs: Int
     ) : InvestmentsUiState()
     data class Error(val message: String) : InvestmentsUiState()
 }
