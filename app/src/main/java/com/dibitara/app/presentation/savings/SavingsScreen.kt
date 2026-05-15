@@ -3,6 +3,8 @@ package com.dibitara.app.presentation.savings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -34,14 +36,15 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
             when (event) {
-                is SavingsEvent.Saved      -> {
+                is SavingsEvent.Saved             -> {
                     showAddSheet = false
                     accountToEdit = null
                     snackbarHostState.showSnackbar("Compte enregistré")
                 }
-                is SavingsEvent.Deleted    -> snackbarHostState.showSnackbar("Compte supprimé")
-                is SavingsEvent.ChildSaved -> { showAddChild = false; snackbarHostState.showSnackbar("Enfant ajouté") }
-                is SavingsEvent.Error      -> snackbarHostState.showSnackbar(event.message)
+                is SavingsEvent.Deleted           -> snackbarHostState.showSnackbar("Compte supprimé")
+                is SavingsEvent.ChildSaved        -> { showAddChild = false; snackbarHostState.showSnackbar("Enfant ajouté") }
+                is SavingsEvent.VersementApplique -> snackbarHostState.showSnackbar("Versement appliqué ✓")
+                is SavingsEvent.Error             -> snackbarHostState.showSnackbar(event.message)
             }
         }
     }
@@ -67,7 +70,8 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                         onEditAccount = { accountToEdit = it },
                         onDeleteAccount = viewModel::deleteAccount,
                         onAddChild = { showAddChild = true },
-                        onDeleteChild = viewModel::removeChild
+                        onDeleteChild = viewModel::removeChild,
+                        onAppliquerVersement = viewModel::appliquerVersement
                     )
             }
         }
@@ -111,7 +115,8 @@ private fun SavingsContent(
     onEditAccount: (SavingsAccount) -> Unit,
     onDeleteAccount: (SavingsAccount) -> Unit,
     onAddChild: () -> Unit,
-    onDeleteChild: (Child) -> Unit
+    onDeleteChild: (Child) -> Unit,
+    onAppliquerVersement: (SavingsAccount) -> Unit
 ) {
     val totalEpargne = state.accounts.sumOf { it.currentBalanceCents }
     val totalMensuel = state.accounts.sumOf { it.monthlyContributionCents }
@@ -157,7 +162,8 @@ private fun SavingsContent(
                     account = account,
                     childName = state.children.find { it.id == account.childId }?.name,
                     onEdit = { onEditAccount(account) },
-                    onDelete = { onDeleteAccount(account) }
+                    onDelete = { onDeleteAccount(account) },
+                    onVersement = { onAppliquerVersement(account) }
                 )
             }
         }
@@ -200,44 +206,67 @@ private fun SavingsAccountCard(
     account: SavingsAccount,
     childName: String?,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onVersement: () -> Unit
 ) {
     var showConfirm by remember { mutableStateOf(false) }
+    var showVersementConfirm by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SavingsTypeChip(type = account.type)
-                    Text(account.label, style = MaterialTheme.typography.bodyLarge)
-                }
-                if (childName != null) {
-                    Text("Pour $childName", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary)
-                }
-                Text(
-                    "Solde : ${account.currentBalanceCents.toCurrencyDisplay(account.currency)}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                if (account.monthlyContributionCents > 0) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SavingsTypeChip(
+                            type       = account.type,
+                            customName = if (account.type == SavingsType.AUTRE) account.label else null
+                        )
+                        // Quand type == AUTRE, le label EST le nom du type — pas de doublon
+                        if (account.type != SavingsType.AUTRE) {
+                            Text(account.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    if (childName != null) {
+                        Text("Pour $childName", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary)
+                    }
                     Text(
-                        "+ ${account.monthlyContributionCents.toCurrencyDisplay(account.currency)}/mois",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        "Solde : ${account.currentBalanceCents.toCurrencyDisplay(account.currency)}",
+                        style = MaterialTheme.typography.bodyMedium
                     )
+                    if (account.monthlyContributionCents > 0) {
+                        Text(
+                            "+ ${account.monthlyContributionCents.toCurrencyDisplay(account.currency)}/mois",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                // Crayon = modifier | Poubelle = supprimer
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+                    }
+                    IconButton(onClick = { showConfirm = true }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
-            // Crayon = modifier | Poubelle = supprimer
-            Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
-                }
-                IconButton(onClick = { showConfirm = true }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+
+            // Bouton versement : visible uniquement si un montant mensuel est configuré
+            if (account.monthlyContributionCents > 0) {
+                OutlinedButton(
+                    onClick = { showVersementConfirm = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Versement du mois (+${account.monthlyContributionCents.toCurrencyDisplay(account.currency)})")
                 }
             }
         }
@@ -251,16 +280,37 @@ private fun SavingsAccountCard(
             dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } }
         )
     }
+
+    if (showVersementConfirm) {
+        AlertDialog(
+            onDismissRequest = { showVersementConfirm = false },
+            title = { Text("Appliquer le versement ?") },
+            text = {
+                Text(
+                    "${account.monthlyContributionCents.toCurrencyDisplay(account.currency)} seront " +
+                    "ajoutés au solde. Un seul versement par mois est autorisé."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { onVersement(); showVersementConfirm = false }) { Text("Confirmer") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVersementConfirm = false }) { Text("Annuler") }
+            }
+        )
+    }
 }
 
 @Composable
-private fun SavingsTypeChip(type: SavingsType) {
+private fun SavingsTypeChip(type: SavingsType, customName: String? = null) {
+    val label = if (type == SavingsType.AUTRE && !customName.isNullOrBlank()) customName
+                else type.displayName
     Surface(
         shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Text(
-            type.displayName,
+            label,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -330,7 +380,12 @@ private fun AddSavingsSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Nouveau compte épargne", style = MaterialTheme.typography.titleLarge)
@@ -347,15 +402,33 @@ private fun AddSavingsSheet(
                         DropdownMenuItem(text = { Text(type.displayName) },
                             onClick = {
                                 selectedType = type
-                                if (label.isEmpty()) label = type.displayName
+                                // AUTRE : vider le libellé pour forcer la saisie du nom personnalisé
+                                // Autres types : pré-remplir avec le displayName si le champ est vide
+                                if (type == SavingsType.AUTRE) label = ""
+                                else if (label.isEmpty()) label = type.displayName
                                 typeExpanded = false
                             })
                     }
                 }
             }
 
-            OutlinedTextField(value = label, onValueChange = { label = it },
-                label = { Text("Libellé") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            // Quand AUTRE : le libellé devient le nom du type personnalisé (obligatoire)
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it },
+                label = {
+                    Text(
+                        if (selectedType == SavingsType.AUTRE) "Nom du type (ex. Nalo, PEP, Crowdfunding...)"
+                        else "Libellé"
+                    )
+                },
+                isError = selectedType == SavingsType.AUTRE && label.isBlank(),
+                supportingText = if (selectedType == SavingsType.AUTRE && label.isBlank()) {
+                    { Text("Le nom du type est obligatoire") }
+                } else null,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             OutlinedTextField(value = balance, onValueChange = { balance = it },
                 label = { Text("Solde actuel") },
@@ -435,7 +508,12 @@ private fun EditSavingsSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Modifier le compte épargne", style = MaterialTheme.typography.titleLarge)
@@ -450,13 +528,31 @@ private fun EditSavingsSheet(
                 ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
                     SavingsType.entries.forEach { type ->
                         DropdownMenuItem(text = { Text(type.displayName) },
-                            onClick = { selectedType = type; typeExpanded = false })
+                            onClick = {
+                                if (type == SavingsType.AUTRE && selectedType != SavingsType.AUTRE) label = ""
+                                selectedType = type
+                                typeExpanded = false
+                            })
                     }
                 }
             }
 
-            OutlinedTextField(value = label, onValueChange = { label = it },
-                label = { Text("Libellé") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it },
+                label = {
+                    Text(
+                        if (selectedType == SavingsType.AUTRE) "Nom du type (ex. Nalo, PEP, Crowdfunding...)"
+                        else "Libellé"
+                    )
+                },
+                isError = selectedType == SavingsType.AUTRE && label.isBlank(),
+                supportingText = if (selectedType == SavingsType.AUTRE && label.isBlank()) {
+                    { Text("Le nom du type est obligatoire") }
+                } else null,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             OutlinedTextField(value = balance, onValueChange = { balance = it },
                 label = { Text("Solde actuel") },

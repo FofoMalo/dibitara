@@ -17,4 +17,7 @@ class BudgetRepositoryImpl @Inject constructor(
 
     override suspend fun upsert(budget: Budget) =
         dao.upsert(BudgetEntity.fromDomain(budget))
+
+    override suspend fun delete(budget: Budget) =
+        dao.deleteById(budget.id)
 }

@@ -6,4 +6,5 @@ import kotlinx.coroutines.flow.Flow
 interface BudgetRepository {
     fun getBudget(month: Int, year: Int): Flow<Budget?>
     suspend fun upsert(budget: Budget)
+    suspend fun delete(budget: Budget)
 }

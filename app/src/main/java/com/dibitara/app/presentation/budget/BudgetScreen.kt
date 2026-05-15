@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,11 +33,12 @@ import java.util.Locale
 @Composable
 fun BudgetScreen(viewModel: BudgetViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
-    var showDialog by remember { mutableStateOf(false) }
+    var showEditDialog   by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { showDialog = true }) {
+            FloatingActionButton(onClick = { showEditDialog = true }) {
                 Icon(Icons.Filled.Edit, contentDescription = "Définir le budget")
             }
         }
@@ -51,23 +53,45 @@ fun BudgetScreen(viewModel: BudgetViewModel = hiltViewModel()) {
                 is BudgetUiState.Success ->
                     BudgetContent(
                         state = state,
-                        onPreviousMonth = viewModel::previousMonth,
-                        onNextMonth = viewModel::nextMonth,
-                        onEditBudget = { showDialog = true }
+                        onPreviousMonth  = viewModel::previousMonth,
+                        onNextMonth      = viewModel::nextMonth,
+                        onEditBudget     = { showEditDialog = true },
+                        onDeleteBudget   = { showDeleteDialog = true }
                     )
             }
         }
     }
 
-    if (showDialog) {
+    if (showEditDialog) {
         SetBudgetDialog(
             currentBudget = (uiState as? BudgetUiState.Success)?.budget,
             revenusCents  = (uiState as? BudgetUiState.Success)?.revenusCents ?: 0L,
             onConfirm = { amount, currency ->
                 viewModel.saveBudget(amount, currency)
-                showDialog = false
+                showEditDialog = false
             },
-            onDismiss = { showDialog = false }
+            onDismiss = { showEditDialog = false }
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Supprimer le budget") },
+            text  = { Text("Supprimer l'objectif budgétaire de ce mois ? Les transactions enregistrées ne seront pas supprimées.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.supprimerBudget()
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Supprimer", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Annuler") }
+            }
         )
     }
 }
@@ -77,7 +101,8 @@ private fun BudgetContent(
     state: BudgetUiState.Success,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
-    onEditBudget: () -> Unit
+    onEditBudget: () -> Unit,
+    onDeleteBudget: () -> Unit
 ) {
     val monthName = Month.of(state.month).getDisplayName(TextStyle.FULL, Locale.FRENCH)
         .replaceFirstChar { it.uppercase() }
@@ -119,7 +144,11 @@ private fun BudgetContent(
         // Objectif budget (optionnel — défini par l'utilisateur)
         item {
             if (state.budget != null) {
-                BudgetObjectifCard(budget = state.budget, revenusCents = state.revenusCents)
+                BudgetObjectifCard(
+                    budget        = state.budget,
+                    revenusCents  = state.revenusCents,
+                    onDelete      = onDeleteBudget
+                )
             } else {
                 NoBudgetCard(onSetBudget = onEditBudget)
             }
@@ -263,18 +292,31 @@ private fun BudgetLigne(
  * puis la barre dépensé / alloué.
  */
 @Composable
-private fun BudgetObjectifCard(budget: Budget, revenusCents: Long) {
+private fun BudgetObjectifCard(budget: Budget, revenusCents: Long, onDelete: () -> Unit) {
     val progress = if (budget.allocatedCents > 0)
         budget.spentCents.toFloat() / budget.allocatedCents else 0f
     val isOver = budget.isOverBudget
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                "Objectif budget",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Objectif budget",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = "Supprimer le budget",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
 
             if (revenusCents > 0) {
                 // Chaîne : Revenus → Budget alloué → Épargne prévue

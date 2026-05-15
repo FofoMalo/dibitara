@@ -3,15 +3,19 @@ package com.dibitara.app.presentation.savings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Child
+import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
+import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
+import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateSavingsAccountUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -27,7 +31,9 @@ class SavingsViewModel @Inject constructor(
     private val deleteSavingsAccount: DeleteSavingsAccountUseCase,
     private val getChildren: GetChildrenUseCase,
     private val saveChild: SaveChildUseCase,
-    private val deleteChild: DeleteChildUseCase
+    private val deleteChild: DeleteChildUseCase,
+    private val saveVersement: SaveVersementUseCase,
+    private val existeVersementMois: ExisteVersementMoisUseCase
 ) : ViewModel() {
 
     val uiState: StateFlow<SavingsUiState> = combine(
@@ -125,6 +131,42 @@ class SavingsViewModel @Inject constructor(
     fun removeChild(child: Child) {
         viewModelScope.launch { deleteChild(child) }
     }
+
+    /**
+     * Applique le versement mensuel prévu sur un compte épargne.
+     * - Vérifie qu'aucun versement n'a déjà été enregistré ce mois.
+     * - Enregistre le versement en base.
+     * - Met à jour le solde du compte : Solde N = Solde N-1 + montant versement.
+     * - Non-rétroactif : le montant enregistré est celui du compte AU MOMENT du versement.
+     */
+    fun appliquerVersement(account: SavingsAccount) {
+        val now = LocalDate.now()
+        viewModelScope.launch {
+            if (existeVersementMois(account.id, CompteType.EPARGNE, now.year, now.monthValue)) {
+                _event.emit(SavingsEvent.Error("Versement déjà enregistré pour ce mois"))
+                return@launch
+            }
+            val versement = MonthlyVersement(
+                accountId    = account.id,
+                compteType   = CompteType.EPARGNE,
+                year         = now.year,
+                month        = now.monthValue,
+                montantCents = account.monthlyContributionCents,
+                currency     = account.currency
+            )
+            saveVersement(versement)
+                .onSuccess {
+                    updateSavingsAccount(
+                        account.copy(
+                            currentBalanceCents = account.currentBalanceCents + account.monthlyContributionCents,
+                            updatedAt           = now
+                        )
+                    )
+                    _event.emit(SavingsEvent.VersementApplique)
+                }
+                .onFailure { _event.emit(SavingsEvent.Error("Vérifier les informations saisies")) }
+        }
+    }
 }
 
 sealed class SavingsUiState {
@@ -140,5 +182,6 @@ sealed class SavingsEvent {
     data object Saved : SavingsEvent()
     data object Deleted : SavingsEvent()
     data object ChildSaved : SavingsEvent()
+    data object VersementApplique : SavingsEvent()
     data class Error(val message: String) : SavingsEvent()
 }

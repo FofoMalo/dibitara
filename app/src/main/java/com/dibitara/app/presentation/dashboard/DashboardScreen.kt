@@ -32,11 +32,12 @@ import com.patrykandpatrick.vico.core.entry.entryOf
 
 @Composable
 fun DashboardScreen(
-    onNavigateToDebts       : () -> Unit = {},
-    onNavigateToReport      : () -> Unit = {},
-    onNavigateToBudget      : () -> Unit = {},
-    onNavigateToSavings     : () -> Unit = {},
-    onNavigateToInvestments : () -> Unit = {},
+    onNavigateToDebts        : () -> Unit = {},
+    onNavigateToReport       : () -> Unit = {},
+    onNavigateToBudget       : () -> Unit = {},
+    onNavigateToSavings      : () -> Unit = {},
+    onNavigateToInvestments  : () -> Unit = {},
+    onNavigateToPatrimoine   : () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -60,6 +61,7 @@ fun DashboardScreen(
                     onNavigateToBudget      = onNavigateToBudget,
                     onNavigateToSavings     = onNavigateToSavings,
                     onNavigateToInvestments = onNavigateToInvestments,
+                    onNavigateToPatrimoine  = onNavigateToPatrimoine,
                     rapportMensuel          = state.rapportMensuel
                 )
         }
@@ -75,6 +77,7 @@ private fun DashboardContent(
     onNavigateToBudget      : () -> Unit,
     onNavigateToSavings     : () -> Unit,
     onNavigateToInvestments : () -> Unit,
+    onNavigateToPatrimoine  : () -> Unit,
     rapportMensuel          : MonthlyReport? = null
 ) {
     Column(
@@ -86,7 +89,7 @@ private fun DashboardContent(
     ) {
         Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium)
 
-        PatrimonyNetCard(overview = overview)
+        PatrimonyNetCard(overview = overview, onClick = onNavigateToPatrimoine)
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetricCard(
@@ -117,7 +120,7 @@ private fun DashboardContent(
             )
             MetricCard(
                 modifier   = Modifier.weight(1f),
-                title      = "Revenus Airbnb (année)",
+                title      = "Revenus locatifs (année)",
                 valueCents = overview.airbnbAnnualRevenueCents,
                 currency   = overview.currency,
                 color      = MaterialTheme.colorScheme.tertiary,
@@ -179,14 +182,30 @@ private fun SpendingHistoryCard(history: List<MonthlyExpense>, currency: Currenc
 }
 
 @Composable
-private fun PatrimonyNetCard(overview: PatrimonyOverview) {
+private fun PatrimonyNetCard(overview: PatrimonyOverview, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Patrimoine brut", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Patrimoine brut",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Voir le détail du patrimoine",
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+                )
+            }
             Text(
                 overview.patrimoineBrutCents.toCurrencyDisplay(overview.currency),
                 style = MaterialTheme.typography.titleLarge,

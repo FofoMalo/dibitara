@@ -3,18 +3,22 @@ package com.dibitara.app.presentation.investments
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.AirbnbRental
+import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
+import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
+import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
@@ -38,7 +42,9 @@ class InvestmentsViewModel @Inject constructor(
     private val ucUpdateAirbnbRental: UpdateAirbnbRentalUseCase,
     private val ucDeleteRealEstate: DeleteRealEstateUseCase,
     private val ucDeleteScpi: DeleteScpiUseCase,
-    private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase
+    private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase,
+    private val ucSaveVersement: SaveVersementUseCase,
+    private val ucExisteVersementMois: ExisteVersementMoisUseCase
 ) : ViewModel() {
 
     val uiState: StateFlow<InvestmentsUiState> = combine(
@@ -163,6 +169,41 @@ class InvestmentsViewModel @Inject constructor(
     fun deleteAirbnb(rental: AirbnbRental) {
         viewModelScope.launch { ucDeleteAirbnbRental(rental) }
     }
+
+    /**
+     * Applique le versement mensuel prévu sur une SCPI.
+     * Même logique que pour l'épargne : non-rétroactif, un seul versement par mois.
+     */
+    fun appliquerVersementScpi(scpi: ScpiInvestment) {
+        val now = LocalDate.now()
+        viewModelScope.launch {
+            if (ucExisteVersementMois(scpi.id, CompteType.SCPI, now.year, now.monthValue)) {
+                _event.emit(InvestmentsEvent.Error("Versement déjà enregistré pour ce mois"))
+                return@launch
+            }
+            val versement = MonthlyVersement(
+                accountId    = scpi.id,
+                compteType   = CompteType.SCPI,
+                year         = now.year,
+                month        = now.monthValue,
+                montantCents = scpi.monthlyContributionCents,
+                currency     = scpi.currency
+            )
+            ucSaveVersement(versement)
+                .onSuccess {
+                    ucUpdateScpi(
+                        scpi.copy(
+                            sharesCount = scpi.sharesCount,
+                            shareValueCents = scpi.shareValueCents,
+                            monthlyContributionCents = scpi.monthlyContributionCents,
+                            updatedAt = now
+                        )
+                    )
+                    _event.emit(InvestmentsEvent.VersementApplique)
+                }
+                .onFailure { _event.emit(InvestmentsEvent.Error("Vérifier les informations saisies")) }
+        }
+    }
 }
 
 sealed class InvestmentsUiState {
@@ -178,5 +219,6 @@ sealed class InvestmentsUiState {
 
 sealed class InvestmentsEvent {
     data object Saved : InvestmentsEvent()
+    data object VersementApplique : InvestmentsEvent()
     data class Error(val message: String) : InvestmentsEvent()
 }

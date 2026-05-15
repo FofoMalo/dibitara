@@ -6,6 +6,7 @@ import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.usecase.DeleteBudgetUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyBudgetUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
 import com.dibitara.app.domain.usecase.SetBudgetUseCase
@@ -19,7 +20,8 @@ import javax.inject.Inject
 class BudgetViewModel @Inject constructor(
     private val getMonthlyBudget: GetMonthlyBudgetUseCase,
     private val getMonthlyTransactions: GetMonthlyTransactionsUseCase,
-    private val setBudget: SetBudgetUseCase
+    private val setBudget: SetBudgetUseCase,
+    private val deleteBudget: DeleteBudgetUseCase
 ) : ViewModel() {
 
     private val now = LocalDate.now()
@@ -74,6 +76,11 @@ class BudgetViewModel @Inject constructor(
         val current = LocalDate.of(_selectedYear.value, _selectedMonth.value, 1).plusMonths(1)
         _selectedMonth.value = current.monthValue
         _selectedYear.value  = current.year
+    }
+
+    fun supprimerBudget() {
+        val budget = (uiState.value as? BudgetUiState.Success)?.budget ?: return
+        viewModelScope.launch { deleteBudget(budget) }
     }
 
     fun saveBudget(amountEuros: String, currency: Currency) {

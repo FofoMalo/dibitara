@@ -19,6 +19,7 @@ import com.dibitara.app.presentation.expenses.ExpensesScreen
 import com.dibitara.app.presentation.debts.DebtsScreen
 import com.dibitara.app.presentation.investments.InvestmentsScreen
 import com.dibitara.app.presentation.savings.SavingsScreen
+import com.dibitara.app.presentation.patrimoine.PatrimoineDetailScreen
 import com.dibitara.app.presentation.report.MonthlyReportScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
 import com.dibitara.app.presentation.settings.SettingsViewModel
@@ -32,8 +33,9 @@ sealed class Screen(val route: String) {
     data object Savings    : Screen("savings")
     data object Investments: Screen("investments")
     data object Debts      : Screen("debts")
-    data object Settings   : Screen("settings")
-    data object Report     : Screen("report")
+    data object Settings          : Screen("settings")
+    data object Report            : Screen("report")
+    data object PatrimoineDetail  : Screen("patrimoine_detail")
 }
 
 // Écrans qui affichent la barre de navigation inférieure
@@ -100,11 +102,12 @@ fun DibitaraNavGraph(
 
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
-                    onNavigateToDebts       = { navController.navigate(Screen.Debts.route) },
-                    onNavigateToReport      = { navController.navigate(Screen.Report.route) },
-                    onNavigateToBudget      = { navController.navigate(Screen.Budget.route) },
-                    onNavigateToSavings     = { navController.navigate(Screen.Savings.route) },
-                    onNavigateToInvestments = { navController.navigate(Screen.Investments.route) }
+                    onNavigateToDebts        = { navController.navigate(Screen.Debts.route) },
+                    onNavigateToReport       = { navController.navigate(Screen.Report.route) },
+                    onNavigateToBudget       = { navController.navigate(Screen.Budget.route) },
+                    onNavigateToSavings      = { navController.navigate(Screen.Savings.route) },
+                    onNavigateToInvestments  = { navController.navigate(Screen.Investments.route) },
+                    onNavigateToPatrimoine   = { navController.navigate(Screen.PatrimoineDetail.route) }
                 )
             }
             composable(Screen.Budget.route)      { BudgetScreen() }
@@ -117,6 +120,15 @@ fun DibitaraNavGraph(
             composable(Screen.Settings.route) { SettingsScreen() }
             composable(Screen.Report.route) {
                 MonthlyReportScreen(onNavigateBack = { navController.navigateUp() })
+            }
+            composable(Screen.PatrimoineDetail.route) {
+                PatrimoineDetailScreen(
+                    onNavigateBack         = { navController.navigateUp() },
+                    onNavigateToBudget     = { navController.navigate(Screen.Budget.route) },
+                    onNavigateToSavings    = { navController.navigate(Screen.Savings.route) },
+                    onNavigateToInvestments = { navController.navigate(Screen.Investments.route) },
+                    onNavigateToDebts      = { navController.navigate(Screen.Debts.route) }
+                )
             }
         }
     }

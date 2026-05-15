@@ -3,6 +3,8 @@ package com.dibitara.app.presentation.investments
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -58,6 +60,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                     airbnbToEdit = null
                     snackbarHostState.showSnackbar("Investissement enregistré")
                 }
+                is InvestmentsEvent.VersementApplique -> snackbarHostState.showSnackbar("Versement appliqué ✓")
                 is InvestmentsEvent.Error -> snackbarHostState.showSnackbar(event.message)
             }
         }
@@ -85,7 +88,8 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                         onEditAirbnb = { airbnbToEdit = it },
                         onDeleteRealEstate = viewModel::deleteRealEstate,
                         onDeleteScpi = viewModel::deleteScpi,
-                        onDeleteAirbnb = viewModel::deleteAirbnb
+                        onDeleteAirbnb = viewModel::deleteAirbnb,
+                        onAppliquerVersementScpi = viewModel::appliquerVersementScpi
                     )
             }
         }
@@ -149,7 +153,8 @@ private fun InvestmentsContent(
     onEditAirbnb: (AirbnbRental) -> Unit,
     onDeleteRealEstate: (RealEstateAsset) -> Unit,
     onDeleteScpi: (ScpiInvestment) -> Unit,
-    onDeleteAirbnb: (AirbnbRental) -> Unit
+    onDeleteAirbnb: (AirbnbRental) -> Unit,
+    onAppliquerVersementScpi: (ScpiInvestment) -> Unit
 ) {
     val totalCents = state.realEstate.sumOf { it.currentValueCents } +
             state.scpi.sumOf { it.totalValueCents }
@@ -193,17 +198,22 @@ private fun InvestmentsContent(
             }
         } else {
             items(state.scpi, key = { "scpi_${it.id}" }) { scpi ->
-                ScpiCard(scpi = scpi, onEdit = { onEditScpi(scpi) }, onDelete = { onDeleteScpi(scpi) })
+                ScpiCard(
+                    scpi = scpi,
+                    onEdit = { onEditScpi(scpi) },
+                    onDelete = { onDeleteScpi(scpi) },
+                    onVersement = { onAppliquerVersementScpi(scpi) }
+                )
             }
         }
 
-        // --- Section Revenus Airbnb ---
+        // --- Section Revenus locatifs ---
         item {
-            SectionHeader(title = "Revenus Airbnb (année)", onAdd = onAddAirbnb)
+            SectionHeader(title = "Revenus locatifs (année)", onAdd = onAddAirbnb)
         }
         if (state.airbnbRentals.isEmpty()) {
             item {
-                EmptySectionText("Aucun revenu Airbnb enregistré.")
+                EmptySectionText("Aucun revenu locatif enregistré.")
             }
         } else {
             items(state.airbnbRentals, key = { "airbnb_${it.id}" }) { rental ->
@@ -238,7 +248,7 @@ private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "Airbnb / an",
+                    "Locatif / an",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                 )
@@ -322,41 +332,57 @@ private fun RealEstateCard(asset: RealEstateAsset, onEdit: () -> Unit, onDelete:
 }
 
 @Composable
-private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> Unit, onVersement: () -> Unit) {
     var showConfirm by remember { mutableStateOf(false) }
+    var showVersementConfirm by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(scpi.label, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "${scpi.sharesCount} parts × ${scpi.shareValueCents.toCurrencyDisplay(scpi.currency)}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    "Total : ${scpi.totalValueCents.toCurrencyDisplay(scpi.currency)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-                if (scpi.monthlyContributionCents > 0) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(scpi.label, style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "+ ${scpi.monthlyContributionCents.toCurrencyDisplay(scpi.currency)}/mois",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        "${scpi.sharesCount} parts × ${scpi.shareValueCents.toCurrencyDisplay(scpi.currency)}",
+                        style = MaterialTheme.typography.bodyMedium
                     )
+                    Text(
+                        "Total : ${scpi.totalValueCents.toCurrencyDisplay(scpi.currency)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    if (scpi.monthlyContributionCents > 0) {
+                        Text(
+                            "+ ${scpi.monthlyContributionCents.toCurrencyDisplay(scpi.currency)}/mois",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+                    }
+                    IconButton(onClick = { showConfirm = true }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
-            Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
-                }
-                IconButton(onClick = { showConfirm = true }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+
+            // Bouton versement : visible uniquement si un montant mensuel est configuré
+            if (scpi.monthlyContributionCents > 0) {
+                OutlinedButton(
+                    onClick = { showVersementConfirm = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Versement du mois (+${scpi.monthlyContributionCents.toCurrencyDisplay(scpi.currency)})")
                 }
             }
         }
@@ -368,6 +394,25 @@ private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> U
             title = { Text("Supprimer cette SCPI ?") },
             confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
             dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } }
+        )
+    }
+
+    if (showVersementConfirm) {
+        AlertDialog(
+            onDismissRequest = { showVersementConfirm = false },
+            title = { Text("Appliquer le versement ?") },
+            text = {
+                Text(
+                    "${scpi.monthlyContributionCents.toCurrencyDisplay(scpi.currency)} seront " +
+                    "enregistrés comme versement SCPI. Un seul versement par mois est autorisé."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { onVersement(); showVersementConfirm = false }) { Text("Confirmer") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVersementConfirm = false }) { Text("Annuler") }
+            }
         )
     }
 }
@@ -435,6 +480,8 @@ private fun AddRealEstateSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -503,6 +550,8 @@ private fun AddScpiSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -603,11 +652,13 @@ private fun AddAirbnbSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Revenu Airbnb", style = MaterialTheme.typography.titleLarge)
+            Text("Revenu locatif", style = MaterialTheme.typography.titleLarge)
             Text(
                 "Mois : ${today.format(formatter).replaceFirstChar { it.uppercase() }}",
                 style = MaterialTheme.typography.bodyMedium,
@@ -617,7 +668,7 @@ private fun AddAirbnbSheet(
             OutlinedTextField(
                 value = label,
                 onValueChange = { label = it },
-                label = { Text("Bien loué (ex. Studio Bordeaux)") },
+                label = { Text("Source (ex. Airbnb, Appartement Lyon...)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -675,7 +726,12 @@ private fun EditRealEstateSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Modifier le bien immobilier", style = MaterialTheme.typography.titleLarge)
@@ -730,7 +786,12 @@ private fun EditScpiSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Modifier la SCPI", style = MaterialTheme.typography.titleLarge)
@@ -801,17 +862,22 @@ private fun EditAirbnbSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Modifier le revenu Airbnb", style = MaterialTheme.typography.titleLarge)
+            Text("Modifier le revenu locatif", style = MaterialTheme.typography.titleLarge)
             Text(
                 "Mois : ${rental.date.format(formatter).replaceFirstChar { it.uppercase() }}",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             OutlinedTextField(value = label, onValueChange = { label = it },
-                label = { Text("Bien loué") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text("Source (ex. Airbnb, Appartement)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
 
             OutlinedTextField(value = amount, onValueChange = { amount = it },
                 label = { Text("Revenu du mois") },

@@ -6,7 +6,7 @@ package com.dibitara.app.domain.model
  * [deviseParDefaut] : devise utilisée à l'affichage et à la saisie.
  */
 data class UserPreferences(
-    val seuilFondsCents: Long = 50_000L,
+    val seuilFondsCents: Long = 20_000L,
     val deviseParDefaut: Currency = Currency.EUR,
     val afficherRapportMensuel: Boolean = false,
     val afficherEpargne: Boolean = true,          // onglet "Épargne" visible dans la nav bar

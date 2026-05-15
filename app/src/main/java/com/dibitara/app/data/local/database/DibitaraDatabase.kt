@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dibitara.app.data.local.dao.*
 import com.dibitara.app.data.local.entity.*
 import com.dibitara.app.data.local.entity.CustomSubCategoryEntity
+import com.dibitara.app.data.local.entity.MonthlyVersementEntity
 
 /**
  * Base de données Room locale.
@@ -25,9 +26,10 @@ import com.dibitara.app.data.local.entity.CustomSubCategoryEntity
         RealEstateAssetEntity::class,
         ScpiInvestmentEntity::class,
         AirbnbRentalEntity::class,
-        CustomSubCategoryEntity::class
+        CustomSubCategoryEntity::class,
+        MonthlyVersementEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -40,8 +42,27 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun scpiInvestmentDao(): ScpiInvestmentDao
     abstract fun airbnbRentalDao(): AirbnbRentalDao
     abstract fun customSubCategoryDao(): CustomSubCategoryDao
+    abstract fun monthlyVersementDao(): MonthlyVersementDao
 
     companion object {
+        // Migration v5 → v6 : nouvelle table monthly_versements pour les versements mensuels
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS monthly_versements (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        account_id INTEGER NOT NULL,
+                        account_type TEXT NOT NULL,
+                        year INTEGER NOT NULL,
+                        month INTEGER NOT NULL,
+                        montant_cents INTEGER NOT NULL,
+                        currency TEXT NOT NULL,
+                        UNIQUE(account_id, account_type, year, month)
+                    )
+                """.trimIndent())
+            }
+        }
+
         // Migration v4 → v5 : nouvelle table custom_sub_categories + colonne customSubCategoryId
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {

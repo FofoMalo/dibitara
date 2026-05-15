@@ -1,7 +1,7 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 2.0 — 2026-05-11  
+> Version du document : 3.0 — 2026-05-15  
 > Statut : **En production** — v2.5.0 soumise Play Store, validation Google en cours
 
 ---
@@ -258,22 +258,64 @@ Pyramide de tests (situation actuelle) :
 
 ## 7. Backlog post-v2.5.0
 
-### 7.1 Priorité moyenne — À faire en Sprint 10
-| ID | Fonctionnalité | Effort | Migration |
-|----|---------------|--------|-----------|
-| FEAT-02 | Toggle Épargne/Investissements dans la navigation | 4-6h | ❌ |
-| TECH-01 | Configurer Kover + ajouter tests CI | 4-6h | ❌ |
-| TECH-02 | Intégrer Firebase Crashlytics (free tier) | 2-3h | ❌ |
+### 7.0 Items déjà livrés (post-Sprint 9)
+| ID | Fonctionnalité | Statut | Version |
+|----|---------------|--------|---------|
+| FEAT-02 | Toggle Épargne/Investissements dans la navigation | ✅ Livré | v2.0.0 |
+| AUTH-03 | 2FA TOTP complet RFC 6238, QR code | ✅ Livré | v2.1.0 |
+| FEAT-01B | Sous-catégories personnalisées CRUD + migration v4→v5 | ✅ Livré | v2.2.0 |
+| FEAT-05 | Logo Dibitara lanterne or/noir (mipmaps) | ✅ Livré | v2.3.0 |
 
-### 7.2 Priorité basse — Sprint 11+
-| ID | Fonctionnalité | Effort | Migration |
-|----|---------------|--------|-----------|
-| FEAT-01B | Sous-catégories personnalisées (CRUD libre) | 10-14h | ✅ v4→v5 |
-| FEAT-04 | Taux de change live (API Frankfurter) | 6-8h | ❌ |
-| AUTH-03 | 2FA TOTP (Authenticator) | 6-8h | ❌ |
-| FEAT-05 | Logo Dibitara — design final | Design | ❌ |
+---
 
-### 7.3 Backlog V3 (après stabilisation Play Store)
+### 7.1 Sprint 10 — Corrections & Améliorations UX (cible : v2.6.0)
+
+#### P0 — Quick wins (< 2h, aucune migration)
+| ID | Fonctionnalité | Effort | Migration Room |
+|----|---------------|--------|----------------|
+| FIX-01 | Libellé "Salaire Florent" → "Salaire" | 1h | ❌ |
+| FIX-02 | Seuil notifications : valeur par défaut 200 € | 30min | ❌ |
+
+#### P1 — CRUD & Navigation (2–4h chacun, aucune migration)
+| ID | Fonctionnalité | Effort | Migration Room |
+|----|---------------|--------|----------------|
+| FEAT-07 | Budget : suppression (CRUD complet) | 2-3h | ❌ |
+| FEAT-08 | Dashboard → Patrimoine net & Brut → détails CRUD | 3-4h | ❌ |
+| FEAT-09 | Épargne : créer un type personnalisé depuis "Autres" (UI) | 3-4h | ❌ |
+
+#### P2 — UX & Libellés (4–6h chacun, aucune migration)
+| ID | Fonctionnalité | Effort | Migration Room |
+|----|---------------|--------|----------------|
+| FEAT-10 | Responsive : écrans de saisie des informations | 4-6h | ❌ |
+| FEAT-11 | Revenus locatifs : libellé personnalisé (ex. Airbnb, Appartement) | 4-6h | ❌ |
+
+---
+
+### 7.2 Sprint 11 — Modèle Versement Mensuel (cible : v3.0.0)
+
+> **Fonctionnalité structurante** — nécessite migration Room v5→v6, nouveaux UseCases, logique non-rétroactive.
+
+| ID | Fonctionnalité | Effort | Migration Room |
+|----|---------------|--------|----------------|
+| FEAT-12 | Modèle versement mensuel — Épargne & Placements | 15-20h | ✅ v5→v6 |
+
+**Règles métier FEAT-12 :**
+- Solde Mois N = Solde Mois N-1 + Versement Mois N
+- Modification du versement mensuel → **non rétroactive** : applicable à partir de Mois N+1 uniquement
+- Dialogue de confirmation obligatoire avant toute validation
+- Message d'erreur explicite si données invalides ("Vérifier les informations saisies")
+- Applicable à : **Épargne ET Placements** (même modèle, deux écrans)
+
+---
+
+### 7.3 Sprint 12 — Qualité technique (après stabilisation v3.0.0)
+| ID | Fonctionnalité | Effort |
+|----|---------------|--------|
+| TECH-01 | Configurer Kover + ajouter tests CI | 4-6h |
+| TECH-02 | Intégrer Firebase Crashlytics (free tier) | 2-3h |
+| FEAT-04 | Taux de change live (API Frankfurter) | 6-8h |
+
+### 7.4 Backlog V4 (long terme)
 | ID | Fonctionnalité | Effort |
 |----|---------------|--------|
 | F8 | Export CSV des transactions | 8-12h |
@@ -303,6 +345,7 @@ Pyramide de tests (situation actuelle) :
 |---------|------|--------|-------------|
 | 1.0 | 2026-05-04 | Florent | Création initiale |
 | 2.0 | 2026-05-11 | Florent | Mise à jour complète — état réel v2.5.0, sprints 1-9 terminés, backlog post-deploy, ajustements méthode de travail |
+| 3.0 | 2026-05-15 | Florent | Backlog réorganisé — items post-Sprint 9 marqués livrés, Sprint 10 (8 items P0/P1/P2), Sprint 11 FEAT-12 versement mensuel |
 
 ---
 

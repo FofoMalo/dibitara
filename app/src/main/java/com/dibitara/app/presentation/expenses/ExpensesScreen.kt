@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -179,6 +181,8 @@ private fun FilterSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -418,7 +422,12 @@ private fun ExpenseSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
@@ -574,7 +583,7 @@ private fun ExpenseSheet(
 
             OutlinedTextField(
                 value = note, onValueChange = { note = it },
-                label = { Text(if (selectedType == TransactionType.INCOME) "Libellé (ex: Salaire Florent)" else "Note (optionnel)") },
+                label = { Text(if (selectedType == TransactionType.INCOME) "Libellé (ex: Salaire)" else "Note (optionnel)") },
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 

@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import com.dibitara.app.data.local.database.DibitaraDatabase
 import com.dibitara.app.data.local.dao.*
+import com.dibitara.app.data.local.dao.MonthlyVersementDao
 import com.dibitara.app.data.repository.*
+import com.dibitara.app.data.repository.VersementRepositoryImpl
 import com.dibitara.app.domain.repository.*
+import com.dibitara.app.domain.repository.VersementRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -26,7 +29,8 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_1_2,
                 DibitaraDatabase.MIGRATION_2_3,
                 DibitaraDatabase.MIGRATION_3_4,
-                DibitaraDatabase.MIGRATION_4_5
+                DibitaraDatabase.MIGRATION_4_5,
+                DibitaraDatabase.MIGRATION_5_6
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
@@ -40,6 +44,7 @@ object DatabaseModule {
     @Provides fun provideScpiInvestmentDao(db: DibitaraDatabase): ScpiInvestmentDao = db.scpiInvestmentDao()
     @Provides fun provideAirbnbRentalDao(db: DibitaraDatabase): AirbnbRentalDao = db.airbnbRentalDao()
     @Provides fun provideCustomSubCategoryDao(db: DibitaraDatabase): CustomSubCategoryDao = db.customSubCategoryDao()
+    @Provides fun provideMonthlyVersementDao(db: DibitaraDatabase): MonthlyVersementDao = db.monthlyVersementDao()
 }
 
 @Module
@@ -53,4 +58,5 @@ abstract class RepositoryModule {
     @Binds abstract fun bindSavingsRepository(impl: SavingsRepositoryImpl): SavingsRepository
     @Binds abstract fun bindInvestmentRepository(impl: InvestmentRepositoryImpl): InvestmentRepository
     @Binds abstract fun bindCustomSubCategoryRepository(impl: CustomSubCategoryRepositoryImpl): CustomSubCategoryRepository
+    @Binds abstract fun bindVersementRepository(impl: VersementRepositoryImpl): VersementRepository
 }
