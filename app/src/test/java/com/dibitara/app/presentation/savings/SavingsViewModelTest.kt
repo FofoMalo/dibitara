@@ -6,10 +6,12 @@ import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
+import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
+import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateSavingsAccountUseCase
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +37,8 @@ class SavingsViewModelTest {
     private val getChildren: GetChildrenUseCase = mockk()
     private val saveChild: SaveChildUseCase = mockk()
     private val deleteChild: DeleteChildUseCase = mockk()
+    private val saveVersement: SaveVersementUseCase = mockk()
+    private val existeVersementMois: ExisteVersementMoisUseCase = mockk()
     private lateinit var viewModel: SavingsViewModel
 
     @BeforeEach
@@ -44,7 +48,8 @@ class SavingsViewModelTest {
         every { getChildren() } returns flowOf(emptyList())
         viewModel = SavingsViewModel(
             getSavings, saveSavingsAccount, updateSavingsAccount,
-            deleteSavingsAccount, getChildren, saveChild, deleteChild
+            deleteSavingsAccount, getChildren, saveChild, deleteChild,
+            saveVersement, existeVersementMois
         )
     }
 

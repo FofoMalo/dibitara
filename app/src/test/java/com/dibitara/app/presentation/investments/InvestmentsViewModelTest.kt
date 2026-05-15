@@ -7,12 +7,14 @@ import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
+import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
+import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
@@ -48,6 +50,8 @@ class InvestmentsViewModelTest {
     private val ucDeleteRealEstate: DeleteRealEstateUseCase = mockk()
     private val ucDeleteScpi: DeleteScpiUseCase = mockk()
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase = mockk()
+    private val ucSaveVersement: SaveVersementUseCase = mockk()
+    private val ucExisteVersementMois: ExisteVersementMoisUseCase = mockk()
 
     private lateinit var viewModel: InvestmentsViewModel
 
@@ -61,7 +65,8 @@ class InvestmentsViewModelTest {
             ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear,
             ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental,
             ucUpdateRealEstate, ucUpdateScpi, ucUpdateAirbnbRental,
-            ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental
+            ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental,
+            ucSaveVersement, ucExisteVersementMois
         )
     }
 

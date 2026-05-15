@@ -35,7 +35,7 @@ class UserPreferencesUseCasesTest {
 
         val result = GetUserPreferencesUseCase(repository)().first()
 
-        assertEquals(50_000L, result.seuilFondsCents)
+        assertEquals(20_000L, result.seuilFondsCents)
         assertEquals(Currency.EUR, result.deviseParDefaut)
     }
 

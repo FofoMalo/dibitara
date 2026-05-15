@@ -57,7 +57,7 @@ class SettingsViewModelTest {
     fun `préférences exposent les valeurs par défaut au démarrage`() = runTest {
         val prefs = viewModel.preferences.value
 
-        assertEquals(50_000L, prefs.seuilFondsCents)
+        assertEquals(20_000L, prefs.seuilFondsCents)
         assertEquals(Currency.EUR, prefs.deviseParDefaut)
     }
 
