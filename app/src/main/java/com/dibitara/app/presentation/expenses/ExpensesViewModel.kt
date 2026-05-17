@@ -62,6 +62,7 @@ class ExpensesViewModel @Inject constructor(
         category: Category,
         currency: Currency,
         note: String,
+        date: LocalDate = LocalDate.now(),
         type: TransactionType = TransactionType.EXPENSE,
         childId: Long? = null,
         isRecurring: Boolean = false,
@@ -69,7 +70,7 @@ class ExpensesViewModel @Inject constructor(
         subCategory: SubCategory? = null,
         customSubCategoryId: Long? = null
     ) {
-        val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
             return
         }
@@ -80,7 +81,7 @@ class ExpensesViewModel @Inject constructor(
                     currency = currency,
                     category = category,
                     type = type,
-                    date = LocalDate.now(),
+                    date = date,
                     note = note,
                     childId = childId,
                     isRecurring = isRecurring,
@@ -100,6 +101,7 @@ class ExpensesViewModel @Inject constructor(
         category: Category,
         currency: Currency,
         note: String,
+        date: LocalDate,
         type: TransactionType,
         childId: Long? = null,
         isRecurring: Boolean = false,
@@ -107,7 +109,7 @@ class ExpensesViewModel @Inject constructor(
         subCategory: SubCategory? = null,
         customSubCategoryId: Long? = null
     ) {
-        val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
             return
         }
@@ -118,6 +120,7 @@ class ExpensesViewModel @Inject constructor(
                     currency = currency,
                     category = category,
                     type = type,
+                    date = date,
                     note = note,
                     childId = childId,
                     isRecurring = isRecurring,

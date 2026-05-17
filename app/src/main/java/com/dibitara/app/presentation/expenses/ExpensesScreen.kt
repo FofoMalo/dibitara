@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
@@ -27,6 +28,7 @@ import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -139,8 +141,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             expense                  = null,
             customSubCategories      = customSubCategories,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
-            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
+            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
                 viewModel.addExpense(amount, category, currency, note,
+                    date = date,
                     type = type,
                     isRecurring = isRecurring, recurrenceDay = recurrenceDay,
                     subCategory = subCategory,
@@ -156,8 +159,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             expense                  = expense,
             customSubCategories      = customSubCategories,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
-            onSave = { amount, category, currency, note, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
+            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
                 viewModel.updateExpense(expense, amount, category, currency, note,
+                    date = date,
                     type = type,
                     isRecurring = isRecurring, recurrenceDay = recurrenceDay,
                     subCategory = subCategory,
@@ -399,13 +403,16 @@ private fun ExpenseSheet(
     expense: Transaction?,
     customSubCategories: List<CustomSubCategory>,
     onCreateCustomSubCategory: (String, Category) -> Unit,
-    onSave: (String, Category, Currency, String, Boolean, Int?, SubCategory?, TransactionType, Long?) -> Unit,
+    onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0) } ?: "") }
+    // Toujours formater avec un point — "%.2f" utilise la locale système (virgule sur FR)
+    var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0).replace(',', '.') } ?: "") }
     var note by remember { mutableStateOf(expense?.note ?: "") }
     var selectedCategory by remember { mutableStateOf(expense?.category ?: Category.ALIMENTATION) }
     var selectedCurrency by remember { mutableStateOf(expense?.currency ?: Currency.EUR) }
+    var selectedDate by remember { mutableStateOf(expense?.date ?: LocalDate.now()) }
+    var showDatePicker by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
     var isRecurring by remember { mutableStateOf(expense?.isRecurring ?: false) }
@@ -464,6 +471,19 @@ private fun ExpenseSheet(
                 label = { Text("Montant") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Date") },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Filled.CalendarToday, contentDescription = "Choisir une date")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
             )
 
             // Catégorie + sous-catégorie — sans sens pour un revenu, masquées
@@ -595,7 +615,12 @@ private fun ExpenseSheet(
                 Text("Récurrente", style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = isRecurring, onCheckedChange = {
                     isRecurring = it
-                    if (!it) recurrenceDayStr = ""
+                    if (!it) {
+                        recurrenceDayStr = ""
+                    } else if (recurrenceDayStr.isEmpty()) {
+                        // Pré-remplir avec le jour de la transaction (max 28 pour éviter les mois courts)
+                        recurrenceDayStr = selectedDate.dayOfMonth.coerceAtMost(28).toString()
+                    }
                 })
             }
 
@@ -614,7 +639,7 @@ private fun ExpenseSheet(
             }
 
             val recurrenceDay = recurrenceDayStr.toIntOrNull()
-            val saveEnabled = amount.toDoubleOrNull()?.let { it > 0 } == true
+            val saveEnabled = amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true
                     && (!isRecurring || recurrenceDay != null)
 
             Button(
@@ -630,12 +655,36 @@ private fun ExpenseSheet(
                     val customSubCatIdFinale = selectedCustomSubCategory?.id.takeIf {
                         selectedType == TransactionType.EXPENSE
                     }
-                    onSave(amount, catFinale, selectedCurrency, note, isRecurring, recurrenceDay,
-                        subCatFinale, selectedType, customSubCatIdFinale)
+                    onSave(amount, catFinale, selectedCurrency, note, selectedDate,
+                        isRecurring, recurrenceDay, subCatFinale, selectedType, customSubCatIdFinale)
                 },
                 enabled = saveEnabled,
                 modifier = Modifier.fillMaxWidth()
             ) { Text(if (expense == null) "Ajouter" else "Enregistrer les modifications") }
+        }
+    }
+
+    // Sélecteur de date (ouvert via le champ Date)
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            // Material3 DatePicker travaille en millisecondes UTC depuis l'epoch
+            initialSelectedDateMillis = selectedDate.toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = LocalDate.ofEpochDay(millis / 86_400_000L)
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Annuler") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 
