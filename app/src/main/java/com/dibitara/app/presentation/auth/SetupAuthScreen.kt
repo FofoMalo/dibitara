@@ -23,24 +23,20 @@ import androidx.hilt.navigation.compose.hiltViewModel
 
 /**
  * Écran de configuration initiale — affiché une seule fois au premier lancement.
+ * Seul le PIN est configuré ici ; l'email/mot de passe n'a pas sa place sans backend.
  *
- * Étape 1 : créer un PIN à 4 chiffres (obligatoire).
- * Étape 2 : configurer email + mot de passe (optionnel, peut être ignoré).
- *
- * [onSetupComplete] est appelé quand la configuration est terminée.
+ * [onSetupComplete] est appelé dès que le PIN est créé.
  */
 @Composable
 fun SetupAuthScreen(
     onSetupComplete: () -> Unit,
     viewModel: SetupAuthViewModel = hiltViewModel()
 ) {
-    // Étape courante : 1 = PIN, 2 = mot de passe
-    var etape by remember { mutableStateOf(1) }
-
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
             when (event) {
-                is SetupAuthEvent.PinSaved    -> etape = 2
+                // PIN sauvegardé → configuration terminée, pas d'étape 2
+                is SetupAuthEvent.PinSaved      -> viewModel.skipPassword()
                 is SetupAuthEvent.SetupComplete -> onSetupComplete()
             }
         }
@@ -67,30 +63,7 @@ fun SetupAuthScreen(
 
             Spacer(Modifier.height(40.dp))
 
-            // Indicateur de progression (étape 1/2 ou 2/2)
-            LinearProgressIndicator(
-                progress = { if (etape == 1) 0.5f else 1f },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Étape $etape sur 2",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.End
-            )
-
-            Spacer(Modifier.height(32.dp))
-
-            if (etape == 1) {
-                EtapePinSetup(onPinConfirmed = { pin -> viewModel.setupPin(pin) })
-            } else {
-                EtapeMotDePasseSetup(
-                    onPasswordSaved = { email, pwd -> viewModel.setupPassword(email, pwd) },
-                    onSkip = { viewModel.skipPassword() }
-                )
-            }
+            EtapePinSetup(onPinConfirmed = { pin -> viewModel.setupPin(pin) })
         }
     }
 }

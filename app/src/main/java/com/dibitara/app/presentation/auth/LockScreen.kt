@@ -71,7 +71,6 @@ fun LockScreen(
                 onBiometrics               = { viewModel.authenticate(activity) },
                 onPinDigit                 = { viewModel.clearPinError() },
                 onPinComplete              = { pin -> viewModel.verifyPin(pin) },
-                onPasswordSubmit           = { email, pwd -> viewModel.verifyPassword(email, pwd) },
                 onRecuperationViaBiometrie = { viewModel.reinitialiserAccesViaBiometrie(activity) }
             )
 
@@ -97,11 +96,8 @@ private fun IdleContent(
     onBiometrics: () -> Unit,
     onPinDigit: (String) -> Unit,
     onPinComplete: (String) -> Unit,
-    onPasswordSubmit: (String, String) -> Unit,
     onRecuperationViaBiometrie: () -> Unit
 ) {
-    // Mode courant : PIN ou mot de passe
-    var modeMdp by remember { mutableStateOf(false) }
     var showRecoveryDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -121,56 +117,20 @@ private fun IdleContent(
 
         Spacer(Modifier.height(48.dp))
 
-        if (!modeMdp && state.hasPin) {
-            // ── Mode PIN ──────────────────────────────────────────────────────
-            ModePinContent(
-                pinError  = state.pinError,
-                onComplete = onPinComplete
+        ModePinContent(
+            pinError   = state.pinError,
+            onComplete = onPinComplete
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        IconButton(onClick = onBiometrics, modifier = Modifier.size(56.dp)) {
+            Icon(
+                imageVector = Icons.Filled.Fingerprint,
+                contentDescription = "Biométrie",
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
-
-            Spacer(Modifier.height(24.dp))
-
-            // Bouton biométrique
-            IconButton(onClick = onBiometrics, modifier = Modifier.size(56.dp)) {
-                Icon(
-                    imageVector = Icons.Filled.Fingerprint,
-                    contentDescription = "Biométrie",
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            if (state.hasPassword) {
-                Spacer(Modifier.height(8.dp))
-                TextButton(onClick = { modeMdp = true }) {
-                    Text("Utiliser un mot de passe")
-                }
-            }
-        } else {
-            // ── Mode mot de passe ─────────────────────────────────────────────
-            ModeMotDePasseContent(
-                emailPreRempli = state.storedEmail ?: "",
-                passwordError  = state.passwordError,
-                onSubmit       = onPasswordSubmit
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            IconButton(onClick = onBiometrics, modifier = Modifier.size(56.dp)) {
-                Icon(
-                    imageVector = Icons.Filled.Fingerprint,
-                    contentDescription = "Biométrie",
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            if (state.hasPin) {
-                Spacer(Modifier.height(8.dp))
-                TextButton(onClick = { modeMdp = false }) {
-                    Text("Utiliser le PIN")
-                }
-            }
         }
 
         // Lien de récupération — toujours visible en bas
@@ -184,7 +144,6 @@ private fun IdleContent(
         }
     }
 
-    // Dialogue de confirmation avant déclenchement biométrique
     if (showRecoveryDialog) {
         DialogueRecuperationAcces(
             onConfirm = {
