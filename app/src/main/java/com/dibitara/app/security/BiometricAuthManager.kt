@@ -44,12 +44,15 @@ class BiometricAuthManager {
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                // errorCode 10 = USER_CANCELED — pas une vraie erreur, l'utilisateur a annulé
-                if (errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
-                    errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
-                    trySend(AuthResult.Cancelled)
-                } else {
-                    trySend(AuthResult.Error(errString.toString()))
+                when (errorCode) {
+                    // L'utilisateur a explicitement annulé
+                    BiometricPrompt.ERROR_USER_CANCELED,
+                    BiometricPrompt.ERROR_NEGATIVE_BUTTON,
+                    // Matériel absent ou non configuré → retomber silencieusement sur le PIN
+                    BiometricPrompt.ERROR_NO_BIOMETRICS,
+                    BiometricPrompt.ERROR_HW_NOT_PRESENT,
+                    BiometricPrompt.ERROR_HW_UNAVAILABLE -> trySend(AuthResult.Cancelled)
+                    else -> trySend(AuthResult.Error(errString.toString()))
                 }
             }
 

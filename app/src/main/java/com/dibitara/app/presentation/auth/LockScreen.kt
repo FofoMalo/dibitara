@@ -39,6 +39,9 @@ fun LockScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val activity = context as FragmentActivity
+    // Flag local : la biométrie n'est lancée automatiquement qu'une seule fois au démarrage.
+    // Après annulation ou échec, c'est à l'utilisateur d'appuyer sur l'icône empreinte.
+    var biometricAutoLaunched by remember { mutableStateOf(false) }
 
     // Réagir aux changements d'état globaux (navigation)
     LaunchedEffect(uiState) {
@@ -49,9 +52,10 @@ fun LockScreen(
         }
     }
 
-    // Lancer la biométrie automatiquement dès que l'état Idle est prêt
+    // Lancer la biométrie automatiquement au premier Idle — pas après une annulation
     LaunchedEffect(uiState) {
-        if (uiState is AuthUiState.Idle) {
+        if (uiState is AuthUiState.Idle && !biometricAutoLaunched) {
+            biometricAutoLaunched = true
             viewModel.authenticate(activity)
         }
     }
