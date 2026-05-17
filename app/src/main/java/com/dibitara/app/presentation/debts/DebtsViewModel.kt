@@ -40,11 +40,11 @@ class DebtsViewModel @Inject constructor(
         currency: Currency,
         type: DebtType
     ) {
-        val totalCents = totalStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val totalCents = totalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(DebtsEvent.Error("Montant total invalide")) }
             return
         }
-        val monthlyCents = monthlyStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val monthlyCents = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         viewModelScope.launch {
             saveDebt(
                 Debt(

@@ -60,11 +60,11 @@ class SavingsViewModel @Inject constructor(
         currency: Currency,
         childId: Long?
     ) {
-        val balance = balanceStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
             return
         }
-        val contribution = contributionStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         viewModelScope.launch {
             saveSavingsAccount(
                 SavingsAccount(
@@ -91,11 +91,11 @@ class SavingsViewModel @Inject constructor(
         currency: Currency,
         childId: Long?
     ) {
-        val balance = balanceStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
             return
         }
-        val contribution = contributionStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         viewModelScope.launch {
             updateSavingsAccount(
                 account.copy(

@@ -73,7 +73,7 @@ class InvestmentsViewModel @Inject constructor(
     val event: SharedFlow<InvestmentsEvent> = _event.asSharedFlow()
 
     fun addRealEstate(label: String, valueStr: String, currency: Currency) {
-        val cents = valueStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -91,8 +91,8 @@ class InvestmentsViewModel @Inject constructor(
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Nombre de parts invalide")) }
             return
         }
-        val shareValue = shareValueStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        val contribution = contributionStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val shareValue = shareValueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         viewModelScope.launch {
             ucSaveScpi(
                 ScpiInvestment(
@@ -110,7 +110,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun addAirbnbRental(label: String, amountStr: String, date: LocalDate, currency: Currency) {
-        val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -124,7 +124,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun updateRealEstate(asset: RealEstateAsset, label: String, valueStr: String, currency: Currency) {
-        val cents = valueStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -140,8 +140,8 @@ class InvestmentsViewModel @Inject constructor(
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Nombre de parts invalide")) }
             return
         }
-        val shareValue   = shareValueStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        val contribution = contributionStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val shareValue   = shareValueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         viewModelScope.launch {
             ucUpdateScpi(scpi.copy(label = label, sharesCount = shares, shareValueCents = shareValue, monthlyContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
                 .onSuccess { _event.emit(InvestmentsEvent.Saved) }
@@ -150,7 +150,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun updateAirbnbRental(rental: AirbnbRental, label: String, amountStr: String, currency: Currency) {
-        val cents = amountStr.toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }

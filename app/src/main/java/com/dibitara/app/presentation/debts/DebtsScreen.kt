@@ -318,7 +318,7 @@ private fun AddDebtSheet(
 
             Button(
                 onClick = { onSave(label, total, monthly, selectedCurrency, selectedType) },
-                enabled = label.isNotBlank() && total.toDoubleOrNull()?.let { it > 0 } == true,
+                enabled = label.isNotBlank() && total.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
         }

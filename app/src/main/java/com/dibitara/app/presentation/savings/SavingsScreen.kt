@@ -571,7 +571,7 @@ private fun AddSavingsSheet(
 
             Button(
                 onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id) },
-                enabled = label.isNotBlank() && balance.toDoubleOrNull()?.let { it >= 0 } == true,
+                enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter le compte") }
         }
@@ -589,10 +589,10 @@ private fun EditSavingsSheet(
     // Pré-remplissage avec les valeurs actuelles du compte
     var selectedType by remember { mutableStateOf(account.type) }
     var label by remember { mutableStateOf(account.label) }
-    var balance by remember { mutableStateOf("%.2f".format(account.currentBalanceCents / 100.0)) }
+    var balance by remember { mutableStateOf("%.2f".format(account.currentBalanceCents / 100.0).replace(',', '.')) }
     var contribution by remember {
         mutableStateOf(
-            if (account.monthlyContributionCents > 0) "%.2f".format(account.monthlyContributionCents / 100.0) else ""
+            if (account.monthlyContributionCents > 0) "%.2f".format(account.monthlyContributionCents / 100.0).replace(',', '.') else ""
         )
     }
     var selectedCurrency by remember { mutableStateOf(account.currency) }
@@ -695,7 +695,7 @@ private fun EditSavingsSheet(
 
             Button(
                 onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id) },
-                enabled = label.isNotBlank() && balance.toDoubleOrNull()?.let { it >= 0 } == true,
+                enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
         }

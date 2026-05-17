@@ -433,7 +433,7 @@ private fun SetBudgetDialog(
     onDismiss: () -> Unit
 ) {
     var amount by remember {
-        mutableStateOf(currentBudget?.let { "%.2f".format(it.allocatedCents / 100.0) } ?: "")
+        mutableStateOf(currentBudget?.let { "%.2f".format(it.allocatedCents / 100.0).replace(',', '.') } ?: "")
     }
     var selectedCurrency by remember { mutableStateOf(currentBudget?.currency ?: Currency.EUR) }
     var expanded by remember { mutableStateOf(false) }
@@ -445,7 +445,7 @@ private fun SetBudgetDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Si des revenus ont été saisis, on propose une enveloppe à 80 % (règle courante : épargner 20 %)
                 if (revenusCents > 0) {
-                    val suggestion80 = "%.2f".format(revenusCents * 0.8 / 100.0)
+                    val suggestion80 = "%.2f".format(revenusCents * 0.8 / 100.0).replace(',', '.')
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -500,7 +500,7 @@ private fun SetBudgetDialog(
         confirmButton = {
             TextButton(
                 onClick = { onConfirm(amount, selectedCurrency) },
-                enabled = amount.toDoubleOrNull()?.let { it > 0 } == true
+                enabled = amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true
             ) { Text("Valider") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }

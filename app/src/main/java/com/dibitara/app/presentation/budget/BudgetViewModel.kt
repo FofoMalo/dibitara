@@ -84,7 +84,7 @@ class BudgetViewModel @Inject constructor(
     }
 
     fun saveBudget(amountEuros: String, currency: Currency) {
-        val cents = amountEuros.toDoubleOrNull()?.let { (it * 100).toLong() } ?: return
+        val cents = amountEuros.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: return
         val month = _selectedMonth.value
         val year  = _selectedYear.value
         // On récupère le budget existant pour préserver son id Room.

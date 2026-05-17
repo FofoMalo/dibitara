@@ -529,7 +529,7 @@ private fun AddRealEstateSheet(
 
             Button(
                 onClick = { onSave(label, value, selectedCurrency) },
-                enabled = label.isNotBlank() && value.toDoubleOrNull()?.let { it > 0 } == true,
+                enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
         }
@@ -618,7 +618,7 @@ private fun AddScpiSheet(
 
             // Aperçu du total si les champs sont remplis
             val previewTotal = shares.toIntOrNull()?.let { s ->
-                shareValue.toDoubleOrNull()?.let { v -> s * (v * 100).toLong() }
+                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> s * (v * 100).toLong() }
             }
             if (previewTotal != null) {
                 Text(
@@ -706,7 +706,7 @@ private fun AddAirbnbSheet(
 
             Button(
                 onClick = { onSave(label, amount, today, selectedCurrency) },
-                enabled = label.isNotBlank() && amount.toDoubleOrNull()?.let { it > 0 } == true,
+                enabled = label.isNotBlank() && amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
         }
@@ -723,7 +723,7 @@ private fun EditRealEstateSheet(
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(asset.label) }
-    var value by remember { mutableStateOf("%.2f".format(asset.currentValueCents / 100.0)) }
+    var value by remember { mutableStateOf("%.2f".format(asset.currentValueCents / 100.0).replace(',', '.')) }
     var selectedCurrency by remember { mutableStateOf(asset.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
 
@@ -764,7 +764,7 @@ private fun EditRealEstateSheet(
 
             Button(
                 onClick = { onSave(label, value, selectedCurrency) },
-                enabled = label.isNotBlank() && value.toDoubleOrNull()?.let { it > 0 } == true,
+                enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
         }
@@ -780,9 +780,9 @@ private fun EditScpiSheet(
 ) {
     var label by remember { mutableStateOf(scpi.label) }
     var shares by remember { mutableStateOf(scpi.sharesCount.toString()) }
-    var shareValue by remember { mutableStateOf("%.2f".format(scpi.shareValueCents / 100.0)) }
+    var shareValue by remember { mutableStateOf("%.2f".format(scpi.shareValueCents / 100.0).replace(',', '.')) }
     var contribution by remember {
-        mutableStateOf(if (scpi.monthlyContributionCents > 0) "%.2f".format(scpi.monthlyContributionCents / 100.0) else "")
+        mutableStateOf(if (scpi.monthlyContributionCents > 0) "%.2f".format(scpi.monthlyContributionCents / 100.0).replace(',', '.') else "")
     }
     var selectedCurrency by remember { mutableStateOf(scpi.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
@@ -834,7 +834,7 @@ private fun EditScpiSheet(
             }
 
             val previewTotal = shares.toIntOrNull()?.let { s ->
-                shareValue.toDoubleOrNull()?.let { v -> s * (v * 100).toLong() }
+                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> s * (v * 100).toLong() }
             }
             if (previewTotal != null) {
                 Text("Total estimé : ${previewTotal.toCurrencyDisplay(selectedCurrency)}",
@@ -858,7 +858,7 @@ private fun EditAirbnbSheet(
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(rental.propertyLabel) }
-    var amount by remember { mutableStateOf("%.2f".format(rental.amountCents / 100.0)) }
+    var amount by remember { mutableStateOf("%.2f".format(rental.amountCents / 100.0).replace(',', '.')) }
     var selectedCurrency by remember { mutableStateOf(rental.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
     val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH)
@@ -904,7 +904,7 @@ private fun EditAirbnbSheet(
 
             Button(
                 onClick = { onSave(label, amount, selectedCurrency) },
-                enabled = label.isNotBlank() && amount.toDoubleOrNull()?.let { it > 0 } == true,
+                enabled = label.isNotBlank() && amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
         }
