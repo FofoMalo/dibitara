@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.kover)
+    alias(libs.plugins.gpp)
 }
 
 // Lecture des secrets de signature depuis keystore.properties (hors dépôt git).
@@ -102,6 +103,21 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
         unitTests.all { it.useJUnitPlatform() }
+    }
+}
+
+// Publication automatique vers le Play Store via gradle-play-publisher.
+// Prérequis : créer play-service-account.json (voir README) et ne pas le committer.
+val playCredentialsFile = rootProject.file("play-service-account.json")
+if (playCredentialsFile.exists()) {
+    configure<com.github.triplet.gradle.play.PlayPublisherExtension> {
+        serviceAccountCredentials.set(playCredentialsFile)
+        // "internal" = piste de test interne ; changer en "alpha", "beta" ou "production" si besoin
+        track.set("internal")
+        // Envoyer le AAB plutôt que l'APK
+        defaultToAppBundles.set(true)
+        // Ne pas publier automatiquement — laisser la main à la Play Console
+        releaseStatus.set(com.github.triplet.gradle.androidpublisher.ReleaseStatus.DRAFT)
     }
 }
 

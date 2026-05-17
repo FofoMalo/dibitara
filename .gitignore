@@ -13,6 +13,7 @@ local.properties
 *.jks
 *.keystore
 keystore.properties
+play-service-account.json
 
 # Fichiers de logs
 *.log

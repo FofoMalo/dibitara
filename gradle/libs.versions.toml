@@ -18,6 +18,7 @@ security            = "1.1.0-alpha06"
 vico                = "1.15.0"
 zxing               = "3.5.3"
 kover               = "0.8.3"
+gpp                 = "3.11.0"
 junitJupiter        = "5.11.0"
 mockk               = "1.13.12"
 espresso            = "3.6.1"
@@ -90,3 +91,4 @@ kotlin-compose              = { id = "org.jetbrains.kotlin.plugin.compose", vers
 ksp                         = { id = "com.google.devtools.ksp",        version.ref = "ksp" }
 hilt                        = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 kover                       = { id = "org.jetbrains.kotlinx.kover",   version.ref = "kover" }
+gpp                         = { id = "com.github.triplet.play",        version.ref = "gpp" }
