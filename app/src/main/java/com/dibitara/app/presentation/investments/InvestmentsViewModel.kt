@@ -21,6 +21,7 @@ import com.dibitara.app.domain.usecase.SaveScpiUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -44,8 +45,13 @@ class InvestmentsViewModel @Inject constructor(
     private val ucDeleteScpi: DeleteScpiUseCase,
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase,
     private val ucSaveVersement: SaveVersementUseCase,
-    private val ucExisteVersementMois: ExisteVersementMoisUseCase
+    private val ucExisteVersementMois: ExisteVersementMoisUseCase,
+    private val ucGetPreferences: GetUserPreferencesUseCase
 ) : ViewModel() {
+
+    val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
+        .map { it.deviseParDefaut }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
 
     private val currentYear = LocalDate.now().year
 

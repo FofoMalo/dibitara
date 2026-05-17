@@ -7,6 +7,7 @@ import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
 import com.dibitara.app.domain.usecase.DeleteDebtUseCase
 import com.dibitara.app.domain.usecase.GetDebtsUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveDebtUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -18,8 +19,13 @@ import javax.inject.Inject
 class DebtsViewModel @Inject constructor(
     private val getDebts: GetDebtsUseCase,
     private val saveDebt: SaveDebtUseCase,
-    private val deleteDebt: DeleteDebtUseCase
+    private val deleteDebt: DeleteDebtUseCase,
+    private val ucGetPreferences: GetUserPreferencesUseCase
 ) : ViewModel() {
+
+    val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
+        .map { it.deviseParDefaut }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
 
     val uiState: StateFlow<DebtsUiState> = getDebts()
         .map { debts -> DebtsUiState.Success(debts) as DebtsUiState }

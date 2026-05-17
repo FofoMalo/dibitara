@@ -35,6 +35,7 @@ import java.time.format.DateTimeFormatter
 fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val filter by viewModel.filter.collectAsState()
+    val defaultCurrency by viewModel.defaultCurrency.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
@@ -139,6 +140,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     if (showAddSheet) {
         ExpenseSheet(
             expense                  = null,
+            defaultCurrency          = defaultCurrency,
             customSubCategories      = customSubCategories,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
             onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
@@ -157,6 +159,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     editingExpense?.let { expense ->
         ExpenseSheet(
             expense                  = expense,
+            defaultCurrency          = defaultCurrency,
             customSubCategories      = customSubCategories,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
             onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
@@ -401,6 +404,7 @@ private fun EmptyExpenses(modifier: Modifier = Modifier) {
 @Composable
 private fun ExpenseSheet(
     expense: Transaction?,
+    defaultCurrency: Currency = Currency.EUR,
     customSubCategories: List<CustomSubCategory>,
     onCreateCustomSubCategory: (String, Category) -> Unit,
     onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?) -> Unit,
@@ -410,7 +414,7 @@ private fun ExpenseSheet(
     var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0).replace(',', '.') } ?: "") }
     var note by remember { mutableStateOf(expense?.note ?: "") }
     var selectedCategory by remember { mutableStateOf(expense?.category ?: Category.ALIMENTATION) }
-    var selectedCurrency by remember { mutableStateOf(expense?.currency ?: Currency.EUR) }
+    var selectedCurrency by remember { mutableStateOf(expense?.currency ?: defaultCurrency) }
     var selectedDate by remember { mutableStateOf(expense?.date ?: LocalDate.now()) }
     var showDatePicker by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }

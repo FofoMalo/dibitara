@@ -28,7 +28,7 @@ fun BottomNavBar(
     val items = listOf(
         NavItem(Screen.Dashboard,   "Accueil",    Icons.Filled.Home),
         NavItem(Screen.Budget,      "Budget",     Icons.Filled.AccountBalance),
-        NavItem(Screen.Expenses,    "Dépenses",   Icons.Filled.Receipt),
+        NavItem(Screen.Expenses,    "Transactions", Icons.Filled.Receipt),
         NavItem(Screen.Savings,     "Épargne",    Icons.Filled.Savings,
             visible = afficherEpargne),
         NavItem(Screen.Investments, "Placements", Icons.AutoMirrored.Filled.TrendingUp,

@@ -13,6 +13,7 @@ import com.dibitara.app.domain.usecase.DeleteCustomSubCategoryUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,8 +30,13 @@ class ExpensesViewModel @Inject constructor(
     private val ucDelete: DeleteTransactionUseCase,
     private val ucGetCustomSubCategories: GetCustomSubCategoriesUseCase,
     private val ucUpsertCustomSubCategory: UpsertCustomSubCategoryUseCase,
-    private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase
+    private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase,
+    private val ucGetPreferences: GetUserPreferencesUseCase
 ) : ViewModel() {
+
+    val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
+        .map { it.deviseParDefaut }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
 
     private val _filter = MutableStateFlow(ExpensesFilter())
     val filter: StateFlow<ExpensesFilter> = _filter.asStateFlow()

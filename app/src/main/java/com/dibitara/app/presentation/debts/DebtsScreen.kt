@@ -30,6 +30,7 @@ fun DebtsScreen(
     viewModel: DebtsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val defaultCurrency by viewModel.defaultCurrency.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -82,6 +83,7 @@ fun DebtsScreen(
 
     if (showAddSheet) {
         AddDebtSheet(
+            defaultCurrency = defaultCurrency,
             onSave = { label, total, monthly, currency, type ->
                 viewModel.addDebt(label, total, monthly, currency, type)
             },
@@ -229,13 +231,14 @@ private fun DebtTypeChip(type: DebtType) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddDebtSheet(
+    defaultCurrency: Currency = Currency.EUR,
     onSave: (label: String, total: String, monthly: String, currency: Currency, type: DebtType) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf("") }
     var total by remember { mutableStateOf("") }
     var monthly by remember { mutableStateOf("") }
-    var selectedCurrency by remember { mutableStateOf(Currency.EUR) }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var selectedType by remember { mutableStateOf(DebtType.CREDIT_IMMO) }
     var typeExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }

@@ -16,6 +16,7 @@ import com.dibitara.app.domain.usecase.GetSavingsUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateSavingsAccountUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -33,8 +34,13 @@ class SavingsViewModel @Inject constructor(
     private val saveChild: SaveChildUseCase,
     private val deleteChild: DeleteChildUseCase,
     private val saveVersement: SaveVersementUseCase,
-    private val existeVersementMois: ExisteVersementMoisUseCase
+    private val existeVersementMois: ExisteVersementMoisUseCase,
+    private val ucGetPreferences: GetUserPreferencesUseCase
 ) : ViewModel() {
+
+    val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
+        .map { it.deviseParDefaut }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
 
     val uiState: StateFlow<SavingsUiState> = combine(
         getSavings(),

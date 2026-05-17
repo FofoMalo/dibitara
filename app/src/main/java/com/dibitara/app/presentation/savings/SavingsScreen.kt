@@ -31,6 +31,7 @@ import com.dibitara.app.presentation.common.toCurrencyDisplay
 @Composable
 fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val defaultCurrency by viewModel.defaultCurrency.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var showAddChild by remember { mutableStateOf(false) }
     // Compte à modifier : null = pas d'édition en cours
@@ -92,6 +93,7 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
         val children = (uiState as? SavingsUiState.Success)?.children ?: emptyList()
         AddSavingsSheet(
             children = children,
+            defaultCurrency = defaultCurrency,
             onSave = { type, label, balance, contribution, currency, childId ->
                 viewModel.saveAccount(type, label, balance, contribution, currency, childId)
             },
@@ -460,6 +462,7 @@ private fun AssocierComptesDialog(
 @Composable
 private fun AddSavingsSheet(
     children: List<Child>,
+    defaultCurrency: Currency = Currency.EUR,
     onSave: (SavingsType, String, String, String, Currency, Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -467,7 +470,7 @@ private fun AddSavingsSheet(
     var label by remember { mutableStateOf("") }
     var balance by remember { mutableStateOf("") }
     var contribution by remember { mutableStateOf("") }
-    var selectedCurrency by remember { mutableStateOf(Currency.EUR) }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var selectedChild by remember { mutableStateOf<Child?>(null) }
     var typeExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }

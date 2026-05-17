@@ -40,6 +40,7 @@ import java.util.Locale
 @Composable
 fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val defaultCurrency by viewModel.defaultCurrency.collectAsState()
     var showAddRealEstate by remember { mutableStateOf(false) }
     var showAddScpi      by remember { mutableStateOf(false) }
     var showAddAirbnb    by remember { mutableStateOf(false) }
@@ -98,12 +99,14 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
 
     if (showAddRealEstate) {
         AddRealEstateSheet(
+            defaultCurrency = defaultCurrency,
             onSave = { label, value, currency -> viewModel.addRealEstate(label, value, currency) },
             onDismiss = { showAddRealEstate = false }
         )
     }
     if (showAddScpi) {
         AddScpiSheet(
+            defaultCurrency = defaultCurrency,
             onSave = { label, shares, shareValue, contribution, currency ->
                 viewModel.addScpi(label, shares, shareValue, contribution, currency)
             },
@@ -112,6 +115,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     }
     if (showAddAirbnb) {
         AddAirbnbSheet(
+            defaultCurrency = defaultCurrency,
             onSave = { label, amount, date, currency -> viewModel.addAirbnbRental(label, amount, date, currency) },
             onDismiss = { showAddAirbnb = false }
         )
@@ -471,12 +475,13 @@ private fun AirbnbRentalCard(rental: AirbnbRental, onEdit: () -> Unit, onDelete:
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddRealEstateSheet(
+    defaultCurrency: Currency = Currency.EUR,
     onSave: (label: String, value: String, currency: Currency) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf("") }
     var value by remember { mutableStateOf("") }
-    var selectedCurrency by remember { mutableStateOf(Currency.EUR) }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -539,6 +544,7 @@ private fun AddRealEstateSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddScpiSheet(
+    defaultCurrency: Currency = Currency.EUR,
     onSave: (label: String, shares: String, shareValue: String, contribution: String, currency: Currency) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -546,7 +552,7 @@ private fun AddScpiSheet(
     var shares by remember { mutableStateOf("") }
     var shareValue by remember { mutableStateOf("") }
     var contribution by remember { mutableStateOf("") }
-    var selectedCurrency by remember { mutableStateOf(Currency.EUR) }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -640,12 +646,13 @@ private fun AddScpiSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddAirbnbSheet(
+    defaultCurrency: Currency = Currency.EUR,
     onSave: (label: String, amount: String, date: LocalDate, currency: Currency) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
-    var selectedCurrency by remember { mutableStateOf(Currency.EUR) }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
     // Le mois courant est utilisé par défaut — l'utilisateur entre les revenus du mois
     val today = remember { LocalDate.now() }

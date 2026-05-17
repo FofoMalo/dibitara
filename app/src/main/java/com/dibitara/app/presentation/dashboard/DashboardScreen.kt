@@ -163,7 +163,7 @@ private fun SpendingHistoryCard(history: List<MonthlyExpense>, currency: Currenc
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Dépenses — 6 derniers mois", style = MaterialTheme.typography.titleMedium)
+            Text("Transactions — 6 derniers mois", style = MaterialTheme.typography.titleMedium)
             ProvideChartStyle(m3ChartStyle()) {
                 Chart(
                     chart = columnChart(),
