@@ -39,14 +39,14 @@ enum class Category(val displayName: String) {
     LOGEMENT      ("Logement"),
     TRANSPORT     ("Transport"),
     SANTE         ("Santé"),
-    LOISIRS       ("Loisirs"),
+    LOISIRS       ("Loisirs"),         // inclut les vacances
+    ABONNEMENTS   ("Abonnements"),     // téléphonie, streaming, internet, logiciels
     INVESTISSEMENT("Investissement"),
     EPARGNE       ("Épargne"),
     ENFANT        ("Enfant"),
     HABILLEMENT   ("Habillement"),
     IMPOTS_CHARGES("Impôts & charges"),
     ASSURANCES    ("Assurances"),
-    VACANCES      ("Vacances"),
     TRANSFERTS    ("Transferts"),
     AUTRE         ("Autre")            // toujours en dernier — fallback de safeValueOf
 }
@@ -55,8 +55,5 @@ enum class Category(val displayName: String) {
 enum class SubCategory(val displayName: String) {
     CADEAUX        ("Cadeaux"),
     FRAIS_BANCAIRES("Frais bancaires"),
-    ABONNEMENTS    ("Abonnements"),
-    TELEPHONIE     ("Téléphonie"),
-    INFORMATIQUE   ("Informatique"),
     DIVERS         ("Divers")          // toujours en dernier — fallback de safeValueOf
 }

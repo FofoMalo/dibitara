@@ -19,11 +19,14 @@ data class MonthlyReport(
 )
 
 /**
- * Part d'une catégorie dans les dépenses du mois.
+ * Part d'une catégorie (ou sous-catégorie) dans les dépenses du mois.
  * [pourcentage] est entre 0.0 et 100.0.
+ * [displayLabel] remplace [category.displayName] pour les sous-catégories d'AUTRE,
+ * afin d'afficher "Cadeaux" ou "Netflix" au lieu de "Autre".
  */
 data class CategoryExpense(
     val category: Category,
     val totalCents: Long,
-    val pourcentage: Float
+    val pourcentage: Float,
+    val displayLabel: String = category.displayName
 )

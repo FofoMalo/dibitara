@@ -29,7 +29,7 @@ import com.dibitara.app.data.local.entity.MonthlyVersementEntity
         CustomSubCategoryEntity::class,
         MonthlyVersementEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -45,6 +45,18 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun monthlyVersementDao(): MonthlyVersementDao
 
     companion object {
+        // Migration v6 → v7 : restructuration des catégories
+        // VACANCES fusionnée dans LOISIRS ; TELEPHONIE et INFORMATIQUE promues en catégorie ABONNEMENTS
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE transactions SET category = 'LOISIRS' WHERE category = 'VACANCES'")
+                db.execSQL("UPDATE transactions SET category = 'ABONNEMENTS', subCategory = NULL WHERE subCategory = 'TELEPHONIE'")
+                db.execSQL("UPDATE transactions SET category = 'ABONNEMENTS', subCategory = NULL WHERE subCategory = 'INFORMATIQUE'")
+                // Les sous-catégories personnalisées rattachées à VACANCES basculent vers LOISIRS
+                db.execSQL("UPDATE custom_sub_categories SET parentCategory = 'LOISIRS' WHERE parentCategory = 'VACANCES'")
+            }
+        }
+
         // Migration v5 → v6 : nouvelle table monthly_versements pour les versements mensuels
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {

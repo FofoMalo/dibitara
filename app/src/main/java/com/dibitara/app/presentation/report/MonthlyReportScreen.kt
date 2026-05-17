@@ -203,7 +203,7 @@ private fun TopCategoriesCard(report: MonthlyReport) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            catExp.category.displayName,
+                            catExp.displayLabel,
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
