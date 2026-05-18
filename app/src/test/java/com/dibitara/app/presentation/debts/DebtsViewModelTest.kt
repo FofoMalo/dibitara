@@ -3,8 +3,10 @@ package com.dibitara.app.presentation.debts
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
+import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.DeleteDebtUseCase
 import com.dibitara.app.domain.usecase.GetDebtsUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveDebtUseCase
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -26,13 +28,15 @@ class DebtsViewModelTest {
     private val getDebts: GetDebtsUseCase = mockk()
     private val saveDebt: SaveDebtUseCase = mockk()
     private val deleteDebt: DeleteDebtUseCase = mockk()
+    private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
     private lateinit var viewModel: DebtsViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         every { getDebts() } returns flowOf(emptyList())
-        viewModel = DebtsViewModel(getDebts, saveDebt, deleteDebt)
+        every { ucGetPreferences() } returns flowOf(UserPreferences())
+        viewModel = DebtsViewModel(getDebts, saveDebt, deleteDebt, ucGetPreferences)
     }
 
     @AfterEach
@@ -50,7 +54,7 @@ class DebtsViewModelTest {
     fun `liste reflète les dettes retournées par le repository`() = runTest {
         val dettes = listOf(buildDebt("Crédit auto"), buildDebt("Crédit immo"))
         every { getDebts() } returns flowOf(dettes)
-        viewModel = DebtsViewModel(getDebts, saveDebt, deleteDebt)
+        viewModel = DebtsViewModel(getDebts, saveDebt, deleteDebt, ucGetPreferences)
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is DebtsUiState.Success } as DebtsUiState.Success

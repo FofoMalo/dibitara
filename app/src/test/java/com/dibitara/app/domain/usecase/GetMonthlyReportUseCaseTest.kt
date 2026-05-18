@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
@@ -14,7 +15,13 @@ class GetMonthlyReportUseCaseTest {
 
     private val getMonthlyTransactions: GetMonthlyTransactionsUseCase = mockk()
     private val getMonthlyBudget: GetMonthlyBudgetUseCase = mockk()
-    private val useCase = GetMonthlyReportUseCase(getMonthlyTransactions, getMonthlyBudget)
+    private val getCustomSubCategories: GetCustomSubCategoriesUseCase = mockk()
+    private val useCase = GetMonthlyReportUseCase(getMonthlyTransactions, getMonthlyBudget, getCustomSubCategories)
+
+    @BeforeEach
+    fun setUp() {
+        every { getCustomSubCategories() } returns flowOf(emptyList())
+    }
 
     private val mois = 5
     private val annee = 2026
@@ -57,22 +64,24 @@ class GetMonthlyReportUseCaseTest {
     }
 
     @Test
-    fun `top catégories triées par montant décroissant et limitées à 3`() = runTest {
+    fun `top catégories triées par montant décroissant et limitées à 5`() = runTest {
         every { getMonthlyTransactions(mois, annee) } returns flowOf(listOf(
             buildTransaction(TransactionType.EXPENSE, 10_000L, Category.TRANSPORT),
             buildTransaction(TransactionType.EXPENSE, 50_000L, Category.LOGEMENT),
             buildTransaction(TransactionType.EXPENSE, 20_000L, Category.ALIMENTATION),
-            buildTransaction(TransactionType.EXPENSE, 5_000L,  Category.LOISIRS)  // 4e → exclu
+            buildTransaction(TransactionType.EXPENSE,  5_000L, Category.LOISIRS)
         ))
         every { getMonthlyTransactions(4, annee) } returns flowOf(emptyList())
         every { getMonthlyBudget(mois, annee) } returns flowOf(null)
 
         val rapport = useCase(mois, annee).first()
 
-        assertEquals(3, rapport.topCategories.size)
+        // Le UseCase limite à take(5) — les 4 catégories doivent toutes apparaître, triées par montant décroissant
+        assertEquals(4, rapport.topCategories.size)
         assertEquals(Category.LOGEMENT,      rapport.topCategories[0].category)
         assertEquals(Category.ALIMENTATION,  rapport.topCategories[1].category)
         assertEquals(Category.TRANSPORT,     rapport.topCategories[2].category)
+        assertEquals(Category.LOISIRS,       rapport.topCategories[3].category)
     }
 
     @Test

@@ -4,11 +4,13 @@ import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
+import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
@@ -39,6 +41,7 @@ class SavingsViewModelTest {
     private val deleteChild: DeleteChildUseCase = mockk()
     private val saveVersement: SaveVersementUseCase = mockk()
     private val existeVersementMois: ExisteVersementMoisUseCase = mockk()
+    private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
     private lateinit var viewModel: SavingsViewModel
 
     @BeforeEach
@@ -46,10 +49,11 @@ class SavingsViewModelTest {
         Dispatchers.setMain(testDispatcher)
         every { getSavings() } returns flowOf(emptyList())
         every { getChildren() } returns flowOf(emptyList())
+        every { ucGetPreferences() } returns flowOf(UserPreferences())
         viewModel = SavingsViewModel(
             getSavings, saveSavingsAccount, updateSavingsAccount,
             deleteSavingsAccount, getChildren, saveChild, deleteChild,
-            saveVersement, existeVersementMois
+            saveVersement, existeVersementMois, ucGetPreferences
         )
     }
 

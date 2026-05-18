@@ -4,11 +4,13 @@ import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.AddTransactionUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomSubCategoryUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
 import io.mockk.coEvery
@@ -37,6 +39,7 @@ class ExpensesViewModelTest {
     private val ucGetCustomSubCategories: GetCustomSubCategoriesUseCase = mockk()
     private val ucUpsertCustomSubCategory: UpsertCustomSubCategoryUseCase = mockk(relaxed = true)
     private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase = mockk(relaxed = true)
+    private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
     private lateinit var viewModel: ExpensesViewModel
 
     @BeforeEach
@@ -44,8 +47,10 @@ class ExpensesViewModelTest {
         Dispatchers.setMain(testDispatcher)
         every { ucGetAll() } returns flowOf(emptyList())
         every { ucGetCustomSubCategories() } returns flowOf(emptyList())
+        every { ucGetPreferences() } returns flowOf(UserPreferences())
         viewModel = ExpensesViewModel(ucGetAll, ucAdd, ucUpdate, ucDelete,
-            ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory)
+            ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
+            ucGetPreferences)
     }
 
     @AfterEach
@@ -68,7 +73,8 @@ class ExpensesViewModelTest {
         )
         every { ucGetAll() } returns flowOf(transactions)
         viewModel = ExpensesViewModel(ucGetAll, ucAdd, ucUpdate, ucDelete,
-            ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory)
+            ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
+            ucGetPreferences)
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is ExpensesUiState.Success } as ExpensesUiState.Success

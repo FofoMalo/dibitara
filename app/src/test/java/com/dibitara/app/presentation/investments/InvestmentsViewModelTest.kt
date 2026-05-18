@@ -4,6 +4,7 @@ import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
+import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
@@ -11,6 +12,7 @@ import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
@@ -52,6 +54,7 @@ class InvestmentsViewModelTest {
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase = mockk()
     private val ucSaveVersement: SaveVersementUseCase = mockk()
     private val ucExisteVersementMois: ExisteVersementMoisUseCase = mockk()
+    private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
 
     private lateinit var viewModel: InvestmentsViewModel
 
@@ -61,12 +64,13 @@ class InvestmentsViewModelTest {
         every { ucGetRealEstate() } returns flowOf(emptyList())
         every { ucGetScpi() } returns flowOf(emptyList())
         every { ucGetAirbnbByYear(any()) } returns flowOf(emptyList())
+        every { ucGetPreferences() } returns flowOf(UserPreferences())
         viewModel = InvestmentsViewModel(
             ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear,
             ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental,
             ucUpdateRealEstate, ucUpdateScpi, ucUpdateAirbnbRental,
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental,
-            ucSaveVersement, ucExisteVersementMois
+            ucSaveVersement, ucExisteVersementMois, ucGetPreferences
         )
     }
 
