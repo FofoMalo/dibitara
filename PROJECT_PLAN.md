@@ -1,8 +1,8 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 3.1 — 2026-05-15  
-> Statut : **En production** — v3.0.0 prête au déploiement
+> Version du document : 3.2 — 2026-05-18  
+> Statut : **En production** — v3.0.1 publiée (CI vert, Play Store en attente validation)
 
 ---
 
@@ -34,7 +34,7 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 | F4 | Multi-devises : EUR, USD, XOF/XAF | MUST | ⚠️ Partiel — stockage en centimes ✅, taux de change API ❌ |
 | F5 | Projections graphiques | MUST | ✅ Fait (donut, courbe 6 mois, barres investissements) |
 | F6 | Rappels et conseils sur fonds disponibles | SHOULD | ✅ Fait (3 canaux de notifications, Sprint 6) |
-| F7 | Authentification sécurisée | SHOULD | ✅ Fait (PIN 4 chiffres + email/password PBKDF2 + biométrie récupération) |
+| F7 | Authentification sécurisée | SHOULD | ✅ Fait (PIN 4 chiffres + biométrie — email/password retiré UI Sprint 12) |
 | F8 | Export des données (CSV/PDF) | COULD | ❌ Non implémenté — backlog V3 |
 | F9 | Sauvegarde cloud chiffrée | COULD | ❌ Non implémenté — backlog V3 |
 
@@ -68,16 +68,17 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 ```
 app/src/main/java/com/dibitara/app/
 ├── data/
-│   ├── local/        — Room v4, migrations 1→2→3→4
+│   ├── local/        — Room v7, migrations 1→2→3→4→5→6→7
 │   └── repository/   — *RepositoryImpl.kt + UserPreferencesRepositoryImpl (DataStore)
 ├── di/               — DatabaseModule, DataStoreModule, SecurityModule
 ├── domain/
 │   ├── model/        — Transaction, Budget, Debt, SavingsAccount, RealEstateAsset,
 │   │                   ScpiInvestment, AirbnbRental, PatrimonyOverview, Currency,
-│   │                   Category, SubCategory, DebtType, SavingsType, Child,
-│   │                   UserPreferences, MonthlyReport, CategoryExpense
-│   ├── repository/   — 7 interfaces + UserPreferencesRepository
-│   └── usecase/      — 37+ UseCases (1 responsabilité = 1 UseCase)
+│   │                   Category, SubCategory, CustomSubCategory, DebtType, SavingsType,
+│   │                   Child, UserPreferences, MonthlyReport, CategoryExpense,
+│   │                   MonthlyVersement
+│   ├── repository/   — 8 interfaces + UserPreferencesRepository + VersementRepository
+│   └── usecase/      — 40+ UseCases (1 responsabilité = 1 UseCase)
 └── presentation/
     ├── auth/         — LockScreen, AuthViewModel (PIN + email/password + biométrie)
     ├── dashboard/    — graphique 6 mois OU carte rapport selon toggle
@@ -107,7 +108,7 @@ app/src/main/java/com/dibitara/app/
 | Biométrie | BiometricPrompt (récupération accès) | ✅ En production |
 | Taux de change API | Frankfurter | ❌ Non implémenté |
 | Tests UI | Espresso / Compose Test | ❌ Non implémenté |
-| Tests unitaires | JUnit 5 + MockK | ✅ 110 tests |
+| Tests unitaires | JUnit 5 + MockK | ✅ 123 tests |
 | Couverture | Kover | ❌ Non configuré |
 | Firebase Crashlytics | — | ❌ Non intégré |
 
@@ -146,13 +147,18 @@ Le plan initial prévoyait une organisation Agile stricte qui a été adaptée e
 
 | Pratique | Plan initial | Réalité |
 |----------|-------------|---------|
-| Branches git | main / develop / feature/xxx / fix/xxx | Travail sur `main` directement |
+| Branches git | main / develop / feature/xxx / fix/xxx | ✅ Mis en place le 2026-05-18 : `develop` + `feature/xxx` → PR → `main` |
 | Convention commits | Conventional Commits (feat:, fix:) | Style FR : sujet verbe complément |
-| Code review | PR obligatoire | Sessions pair-programming synchrones |
-| Versioning | Semantic Versioning strict | Semantic Versioning suivi (v1.0.0 → v2.5.0) |
+| Code review | PR obligatoire | 0 approbation requise (solo dev) — CI doit passer |
+| Versioning | Semantic Versioning strict | Semantic Versioning suivi (v1.0.0 → v3.0.1) |
 | Suivi des tâches | GitHub Projects | AMELIORATIONS.md local + mémoire sessions |
 
-> **Recommandation :** La méthode actuelle fonctionne pour un binôme. Pour les sprints suivants, envisager des branches `fix/xxx` uniquement pour les corrections non triviales afin de faciliter les retours arrière.
+**Workflow actuel (depuis Sprint 13) :**
+```
+feature/xxx  →  PR  →  develop  →  PR  →  main
+```
+- `main` protégé : PR obligatoire + CI `Lint + Tests + Build` requis + `enforce_admins=false`
+- `develop` : push direct autorisé, point de départ de chaque feature branch
 
 ### 3.3 Compétences junior — Bilan
 | Compétence | Sprint prévu | Réalisé |
@@ -196,8 +202,10 @@ Pyramide de tests (situation actuelle) :
 ### 4.3 CI/CD — État réel
 - Build debug automatisé sur GitHub ✅
 - Signing config conditionnelle (ne bloque pas le CI) ✅
-- Tests unitaires automatisés en CI : ❌ À mettre en place
-- Seuil de couverture minimum : ❌ Kover non configuré
+- Tests unitaires automatisés en CI : ✅ 123 tests lancés à chaque push
+- Rapport de couverture domain/ (seuil 80%) : ✅ Step CI actif
+- Kover — mesure détaillée couverture : ❌ Non configuré (TECH-01)
+- Protection branche `main` : ✅ PR + CI requis depuis 2026-05-18
 
 ### 4.4 Parcours critiques (smoke tests manuels)
 1. Lancement app → écran PIN → tableau de bord ✅ Validé v2.5.0
@@ -256,6 +264,8 @@ Pyramide de tests (situation actuelle) :
 | Sprint 10 | Corrections UX + CRUD Budget + Patrimoine détail + Responsive | ✅ Terminé | v3.0.0 |
 | Sprint 11 | Versement mensuel Épargne & SCPI (migration v5→v6) | ✅ Terminé | v3.0.0 |
 | Sprint 12 | Améliorations pré-déploiement v3.0.0 | ✅ Terminé | v3.0.0 |
+| Sprint 12b | Correctifs CI — tests ViewModel + UseCase | ✅ Terminé | v3.0.1 |
+| Sprint 13 | Qualité technique (Kover, Crashlytics, taux de change) | 🔵 À venir | — |
 
 ---
 
@@ -309,24 +319,34 @@ Pyramide de tests (situation actuelle) :
 
 ---
 
-### 7.3 Sprint 12 — Améliorations pré-déploiement ✅ v3.0.0
+### 7.3 Sprint 12 — Améliorations pré-déploiement ✅ v3.0.0 / v3.0.1
 
 | ID | Fonctionnalité | Statut |
 |----|---------------|--------|
+| SPRINT-12A | Auth simplifiée — email/password retiré de l'UI (PIN + biométrie only) | ✅ Livré |
+| SPRINT-12B | Édition dépenses pré-remplie — tous champs + bouton Enregistrer actif dès ouverture | ✅ Livré |
+| SPRINT-12C | Catégories restructurées : ABONNEMENTS promu, VACANCES→LOISIRS, AUTRE éclaté — migration Room v6→v7 | ✅ Livré |
+| LOCALE-FIX | Parsing montants locale FR (virgule → point) sur tous les écrans | ✅ Livré |
+| BIO-FIX | Biométrie — fallback PIN corrigé sur émulateur (ERROR_NO_BIOMETRICS → Cancelled) | ✅ Livré |
+| DEVISE-DEF | Devise par défaut propagée depuis Paramètres vers 4 formulaires d'ajout | ✅ Livré |
+| RENAME-TX | "Dépenses" → "Transactions" dans nav bar et dashboard | ✅ Livré |
 | FIX-NAV | Navigation Accueil : retour Dashboard fiable depuis n'importe quelle profondeur | ✅ Livré |
 | FIX-NOTIF | Notification "Fonds insuffisants" → deep link vers Paramètres (seuil d'alerte) | ✅ Livré |
 | FIX-DATE | Confirmation versement : affiche la date du jour ("le 15 mai 2026") | ✅ Livré |
 | FIX-ANNEE | Revenus locatifs : titre affiche l'année courante ("Revenus locatifs (2026)") | ✅ Livré |
 | FEAT-ENFANT | Section enfant : associer/désassocier des comptes épargne via dialog multi-sélection | ✅ Livré |
+| CI-FIX | Tests ViewModel (ucGetPreferences) + UseCase (getCustomSubCategories) — 123 tests CI verts | ✅ Livré v3.0.1 |
 
 ---
 
-### 7.4 Sprint 13 — Qualité technique (post v3.0.0)
-| ID | Fonctionnalité | Effort |
-|----|---------------|--------|
-| TECH-01 | Configurer Kover + ajouter tests CI | 4-6h |
-| TECH-02 | Intégrer Firebase Crashlytics (free tier) | 2-3h |
-| FEAT-04 | Taux de change live (API Frankfurter) | 6-8h |
+### 7.4 Sprint 13 — Qualité technique (post v3.0.1) 🔵 À venir
+| ID | Fonctionnalité | Effort | Priorité |
+|----|---------------|--------|----------|
+| TECH-01 | Kover — mesure couverture détaillée + seuil CI | 4-6h | Moyen |
+| TECH-02 | Firebase Crashlytics (free tier) | 2-3h | Moyen |
+| FEAT-04 | Taux de change live (API Frankfurter EUR/USD/XOF) | 6-8h | Moyen |
+
+**Workflow Sprint 13 :** créer `feature/sprint-13-tech` depuis `develop`, PR vers `develop`, puis `develop` → `main`.
 
 ### 7.5 Backlog V4 (long terme)
 | ID | Fonctionnalité | Effort |
@@ -343,7 +363,7 @@ Pyramide de tests (situation actuelle) :
 | Risque | Probabilité | Impact | Mitigation | Statut |
 |--------|------------|--------|------------|--------|
 | Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 4 migrations faites, tests absents |
-| Régression lors d'une 5e migration | Moyen | Élevé | Configurer tests Room In-Memory avant v4→v5 | 🔴 Action requise |
+| Régression lors d'une 8e migration | Moyen | Élevé | Configurer tests Room In-Memory avant v7→v8 | 🟡 Room v7 stable, 7 migrations sans tests d'intégration |
 | Taux de change indisponible | Faible | Moyen | Cache local des derniers taux | 🟡 API pas encore intégrée |
 | Fuite de données sensibles | Faible | Très élevé | Room non chiffrée (SQLCipher absent) | 🟡 Acceptable V1, à traiter V3 |
 | Rejet Play Store | Moyen | Élevé | Politique de confidentialité publiée, assets conformes | ✅ Mitigé |
@@ -360,6 +380,7 @@ Pyramide de tests (situation actuelle) :
 | 2.0 | 2026-05-11 | Florent | Mise à jour complète — état réel v2.5.0, sprints 1-9 terminés, backlog post-deploy, ajustements méthode de travail |
 | 3.0 | 2026-05-15 | Florent | Backlog réorganisé — items post-Sprint 9 marqués livrés, Sprint 10 (8 items P0/P1/P2), Sprint 11 FEAT-12 versement mensuel |
 | 3.1 | 2026-05-15 | Florent | Sprints 10-11-12 marqués terminés, Sprint 12 améliorations pré-déploiement (navigation, notifications deep link, versement date, année locatifs, enfant associer comptes), Sprint 13 qualité technique |
+| 3.2 | 2026-05-18 | Florent | v3.0.1 — CI-FIX tests (123 tests), Sprint 12 chantiers A/B/C documentés, Room v7, workflow git develop+feature branches, protection main GitHub |
 
 ---
 
