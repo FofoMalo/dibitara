@@ -28,6 +28,9 @@ class SetupAuthViewModel @Inject constructor(
     fun setupPin(pin: String) {
         viewModelScope.launch {
             credentialManager.setupPin(pin)
+            // La preuve d'installation marque que ce device a fait son propre setup.
+            // Elle vit dans noBackupFilesDir et ne sera jamais restaurée sur un autre device.
+            credentialManager.createInstallProof()
             _event.emit(SetupAuthEvent.PinSaved)
         }
     }
