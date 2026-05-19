@@ -37,11 +37,12 @@ class AuthViewModelTest {
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        // Par défaut : PIN configuré, pas de mot de passe, pas de TOTP
-        every { credentialManager.isPinSetup()      } returns true
-        every { credentialManager.isPasswordSetup() } returns false
-        every { credentialManager.getStoredEmail()  } returns null
-        every { credentialManager.isTotpSetup()     } returns false
+        // Par défaut : PIN configuré, pas de mot de passe, pas de TOTP, install légitime
+        every { credentialManager.isPinSetup()           } returns true
+        every { credentialManager.isPasswordSetup()      } returns false
+        every { credentialManager.getStoredEmail()       } returns null
+        every { credentialManager.isTotpSetup()          } returns false
+        every { credentialManager.isInstallProofPresent() } returns true
         viewModel = AuthViewModel(biometricAuthManager, credentialManager, totpManager)
     }
 
@@ -53,6 +54,18 @@ class AuthViewModelTest {
         every { credentialManager.isPinSetup()      } returns false
         every { credentialManager.isPasswordSetup() } returns false
         val vm = AuthViewModel(biometricAuthManager, credentialManager, totpManager)
+        assertEquals(AuthUiState.NeedsSetup, vm.uiState.value)
+    }
+
+    @Test
+    fun `credentials sans preuve d'installation → effacement et NeedsSetup`() {
+        // Simule un transfert D2D ou backup : des credentials existent mais le fichier
+        // install_proof est absent (il vit dans noBackupFilesDir, jamais sauvegardé).
+        every { credentialManager.isInstallProofPresent() } returns false
+        every { credentialManager.clearCredentials()      } just Runs
+        val vm = AuthViewModel(biometricAuthManager, credentialManager, totpManager)
+
+        verify { credentialManager.clearCredentials() }
         assertEquals(AuthUiState.NeedsSetup, vm.uiState.value)
     }
 
