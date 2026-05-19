@@ -1,0 +1,49 @@
+{
+  "_comment": "Copier ce fichier en google-services.json et remplacer les valeurs par celles de votre projet Firebase. Créez un projet sur https://console.firebase.google.com et ajoutez les deux apps (debug + release).",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "dibitara-placeholder",
+    "storage_bucket": "dibitara-placeholder.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000001",
+        "android_client_info": {
+          "package_name": "com.dibitara.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "PLACEHOLDER_REMPLACER_PAR_CLE_FIREBASE_REELLE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000002",
+        "android_client_info": {
+          "package_name": "com.dibitara.app.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "PLACEHOLDER_REMPLACER_PAR_CLE_FIREBASE_REELLE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

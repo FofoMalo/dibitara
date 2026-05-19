@@ -2,6 +2,8 @@ package com.dibitara.app.presentation.settings
 
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.model.ExchangeRates
+import com.dibitara.app.domain.usecase.GetExchangeRatesUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherEpargneUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
@@ -11,6 +13,7 @@ import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
 import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
 import com.dibitara.app.security.CredentialManager
 import com.dibitara.app.security.TotpManager
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -28,6 +31,7 @@ class SettingsViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private val ucGet: GetUserPreferencesUseCase = mockk()
+    private val ucRates: GetExchangeRatesUseCase = mockk(relaxed = true)
     private val ucSeuil: UpdateSeuilFondsUseCase = mockk(relaxed = true)
     private val ucDevise: UpdateDeviseParDefautUseCase = mockk(relaxed = true)
     private val ucRapport: UpdateAfficherRapportUseCase = mockk(relaxed = true)
@@ -47,7 +51,9 @@ class SettingsViewModelTest {
         every { credentialManager.isPasswordSetup() } returns false
         every { credentialManager.getStoredEmail()  } returns null
         every { credentialManager.isTotpSetup()     } returns false
-        viewModel = SettingsViewModel(ucGet, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucTwoFactor, credentialManager, totpManager)
+        // ucRates retourne un succès avec des taux fictifs pour ne pas bloquer init()
+        coEvery { ucRates() } returns Result.success(ExchangeRates(1.09, 655.96, 0L))
+        viewModel = SettingsViewModel(ucGet, ucRates, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucTwoFactor, credentialManager, totpManager)
     }
 
     @AfterEach

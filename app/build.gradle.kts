@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.kover)
     alias(libs.plugins.gpp)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 // Lecture des secrets de signature depuis keystore.properties (hors dépôt git).
@@ -30,6 +32,15 @@ android {
         versionName = "3.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Activé uniquement si google-services.json est présent (Firebase configuré)
+        val googleServicesFile = rootProject.file("app/google-services.json")
+        buildConfigField("boolean", "CRASHLYTICS_ENABLED", googleServicesFile.exists().toString())
+    }
+
+    buildFeatures {
+        buildConfig = true
+        compose     = true
     }
 
     if (keystoreFile.exists()) {
@@ -70,30 +81,6 @@ android {
         jvmTarget = "17"
     }
 
-    buildFeatures {
-        compose = true
-    }
-
-    // Rapports de couverture Kover
-    kover {
-        reports {
-            filters {
-                includes {
-                    // Mesurer uniquement la couche domain (UseCases + modèles métier)
-                    classes("com.dibitara.app.domain.*")
-                }
-                excludes {
-                    // Exclure les classes générées automatiquement
-                    classes("*_Factory*", "*_HiltModules*", "*_Impl*", "Hilt_*")
-                }
-            }
-            verify {
-                // Le CI échoue si la couverture sur domain/ tombe sous 80%
-                rule { minBound(80) }
-            }
-        }
-    }
-
     // Emplacement des schémas Room exportés — nécessaire pour les migrations vérifiables
     ksp {
         arg("room.schemaLocation", "$projectDir/schemas")
@@ -103,6 +90,33 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
         unitTests.all { it.useJUnitPlatform() }
+    }
+}
+
+// Couverture de code — filtre domain/ et impose un seuil 80% en CI.
+// Le bloc est au niveau projet (pas dans android {}) — c'est requis par Kover 0.8.x.
+kover {
+    reports {
+        filters {
+            includes {
+                // Mesurer uniquement la couche métier (UseCases + modèles)
+                classes("com.dibitara.app.domain.*")
+            }
+            excludes {
+                // Ignorer les classes générées par Hilt, KSP, Room
+                classes("*_Factory*", "*_HiltModules*", "*_Impl*", "Hilt_*")
+            }
+        }
+        total {
+            // Rapport HTML généré manuellement (./gradlew koverHtmlReport) — pas à chaque build
+            html { onCheck = false }
+        }
+        verify {
+            rule {
+                // Le CI échoue si la couverture tombe sous 80%
+                bound { minValue = 80 }
+            }
+        }
     }
 }
 
@@ -164,6 +178,15 @@ dependencies {
     implementation(libs.vico.compose)
     implementation(libs.vico.compose.m3)
     implementation(libs.zxing.core)
+
+    // Firebase — suivi des crashs en production (Crashlytics)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
+
+    // Réseau — taux de change (API Frankfurter)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.gson)
+    implementation(libs.okhttp.logging)
 
     // Tests unitaires
     testImplementation(libs.junit.jupiter.api)
