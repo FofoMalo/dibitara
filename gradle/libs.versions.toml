@@ -19,6 +19,11 @@ vico                = "1.15.0"
 zxing               = "3.5.3"
 kover               = "0.8.3"
 gpp                 = "3.11.0"
+googleServices      = "4.4.2"
+firebaseBom         = "33.6.0"
+firebaseCrashlytics = "3.0.2"
+retrofit            = "2.11.0"
+okhttp              = "4.12.0"
 junitJupiter        = "5.11.0"
 mockk               = "1.13.12"
 espresso            = "3.6.1"
@@ -84,6 +89,15 @@ mockk                       = { group = "io.mockk",                   name = "mo
 # Tests instrumentés
 espresso-core               = { group = "androidx.test.espresso",     name = "espresso-core",                     version.ref = "espresso" }
 
+# Firebase
+firebase-bom                = { group = "com.google.firebase",        name = "firebase-bom",                      version.ref = "firebaseBom" }
+firebase-crashlytics        = { group = "com.google.firebase",        name = "firebase-crashlytics" }
+
+# Réseau (taux de change Frankfurter)
+retrofit                    = { group = "com.squareup.retrofit2",     name = "retrofit",                          version.ref = "retrofit" }
+retrofit-gson               = { group = "com.squareup.retrofit2",     name = "converter-gson",                    version.ref = "retrofit" }
+okhttp-logging              = { group = "com.squareup.okhttp3",       name = "logging-interceptor",               version.ref = "okhttp" }
+
 [plugins]
 android-application         = { id = "com.android.application",       version.ref = "agp" }
 kotlin-android              = { id = "org.jetbrains.kotlin.android",  version.ref = "kotlin" }
@@ -92,3 +106,5 @@ ksp                         = { id = "com.google.devtools.ksp",        version.r
 hilt                        = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 kover                       = { id = "org.jetbrains.kotlinx.kover",   version.ref = "kover" }
 gpp                         = { id = "com.github.triplet.play",        version.ref = "gpp" }
+google-services             = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics        = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlytics" }

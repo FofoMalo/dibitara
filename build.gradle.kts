@@ -8,4 +8,6 @@ plugins {
     alias(libs.plugins.hilt)                 apply false
     alias(libs.plugins.kover)                apply false
     alias(libs.plugins.gpp)                  apply false
+    alias(libs.plugins.google.services)      apply false
+    alias(libs.plugins.firebase.crashlytics) apply false
 }

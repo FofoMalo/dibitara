@@ -3,7 +3,9 @@ package com.dibitara.app.presentation.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.usecase.GetExchangeRatesUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherEpargneUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
@@ -27,6 +29,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val ucGetPreferences: GetUserPreferencesUseCase,
+    private val ucGetExchangeRates: GetExchangeRatesUseCase,
     private val ucUpdateSeuil: UpdateSeuilFondsUseCase,
     private val ucUpdateDevise: UpdateDeviseParDefautUseCase,
     private val ucUpdateAfficherRapport: UpdateAfficherRapportUseCase,
@@ -44,6 +47,22 @@ class SettingsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = UserPreferences()
         )
+
+    // ─── Taux de change ───────────────────────────────────────────────────────
+
+    /** null = chargement en cours, Failure = erreur réseau, Success = taux disponibles */
+    private val _tauxDeChange = MutableStateFlow<Result<ExchangeRates>?>(null)
+    val tauxDeChange: StateFlow<Result<ExchangeRates>?> = _tauxDeChange.asStateFlow()
+
+    init {
+        rafraichirTauxDeChange()
+    }
+
+    fun rafraichirTauxDeChange() {
+        viewModelScope.launch {
+            _tauxDeChange.value = ucGetExchangeRates()
+        }
+    }
 
     // ─── État de sécurité ─────────────────────────────────────────────────────
 
