@@ -40,8 +40,16 @@ class AuthViewModel @Inject constructor(
             // Les lectures EncryptedSharedPreferences sont en mémoire après init
             val hasPin      = credentialManager.isPinSetup()
             val hasPassword = credentialManager.isPasswordSetup()
-            val email       = credentialManager.getStoredEmail()
 
+            // Des credentials sans preuve d'installation = transfert illégitime (backup D2D,
+            // ADB, migration d'appareil…). On efface tout pour forcer un nouveau setup.
+            if ((hasPin || hasPassword) && !credentialManager.isInstallProofPresent()) {
+                credentialManager.clearCredentials()
+                _uiState.value = AuthUiState.NeedsSetup
+                return@launch
+            }
+
+            val email = credentialManager.getStoredEmail()
             _uiState.value = if (!hasPin && !hasPassword) {
                 AuthUiState.NeedsSetup
             } else {

@@ -354,7 +354,8 @@ Pyramide de tests (situation actuelle) :
 |----|---------------|--------|----------|--------|
 | UX-02 | Clavier de saisie — couverture IME complète sur tous les écrans | 2-3h | Moyen | ✅ Livré |
 | ANALYSE-01 | Étude RecurringExpenseTracker (DennisBauer) — go/no-go intégration | 1-2h | Analyse | ✅ NO-GO — voir ci-dessous |
-| FEAT-BUDGET-INT | Budget — donut interactif : Autres→sous-catégories + onclick → transactions filtrées + revenus cliquables | 8-12h | Moyen | 🔵 À faire |
+| FEAT-BUDGET-INT | Budget — donut interactif : Autres→sous-catégories + onclick → transactions filtrées + revenus cliquables | 8-12h | Moyen | ✅ Livré |
+| BUG-AUTH | Restauration du PIN développeur sur nouveau device (transfert D2D / backup) | 1h | Critique | ✅ Livré |
 
 #### ANALYSE-01 — Résultat de l'étude (2026-05-19)
 
@@ -408,6 +409,7 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 | 3.2 | 2026-05-18 | Florent | v3.0.1 — CI-FIX tests (123 tests), Sprint 12 chantiers A/B/C documentés, Room v7, workflow git develop+feature branches, protection main GitHub |
 | 3.3 | 2026-05-19 | Florent | Sprint 14 backlog : UX-02 (IME), ANALYSE-01 (RecurringExpenseTracker), FEAT-BUDGET-INT (donut interactif) ; note convention versioning v3→v4 |
 | 3.4 | 2026-05-19 | Florent | Sprint 14 : UX-02 livré, ANALYSE-01 terminé (NO-GO GPL-3.0 + KMP incompatible), backlog v4 enrichi FEAT-RECUR |
+| 3.5 | 2026-05-19 | Florent | BUG-AUTH livré (preuve d'installation noBackupFilesDir), FEAT-BUDGET-INT marqué livré, Sprint 13 marqué terminé |
 
 ---
 
