@@ -6,6 +6,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.DeleteBudgetUseCase
+import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyBudgetUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
 import com.dibitara.app.domain.usecase.SetBudgetUseCase
@@ -32,6 +33,7 @@ class BudgetViewModelTest {
     private val getMonthlyTransactions: GetMonthlyTransactionsUseCase = mockk()
     private val setBudget: SetBudgetUseCase = mockk()
     private val deleteBudget: DeleteBudgetUseCase = mockk()
+    private val getCustomSubCategories: GetCustomSubCategoriesUseCase = mockk()
     private lateinit var viewModel: BudgetViewModel
 
     private val now = LocalDate.now()
@@ -41,7 +43,8 @@ class BudgetViewModelTest {
         Dispatchers.setMain(testDispatcher)
         every { getMonthlyBudget(any(), any()) } returns flowOf(null)
         every { getMonthlyTransactions(any(), any()) } returns flowOf(emptyList())
-        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget)
+        every { getCustomSubCategories() } returns flowOf(emptyList())
+        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget, getCustomSubCategories)
     }
 
     @AfterEach
@@ -84,7 +87,7 @@ class BudgetViewModelTest {
         )
         every { getMonthlyBudget(any(), any()) } returns flowOf(budget)
         every { getMonthlyTransactions(any(), any()) } returns flowOf(depenses)
-        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget)
+        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget, getCustomSubCategories)
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success
@@ -110,7 +113,7 @@ class BudgetViewModelTest {
         )
         every { getMonthlyBudget(any(), any()) } returns flowOf(null)
         every { getMonthlyTransactions(any(), any()) } returns flowOf(transactions)
-        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget)
+        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget, getCustomSubCategories)
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success
@@ -132,7 +135,7 @@ class BudgetViewModelTest {
                 date = LocalDate.now())
         )
         every { getMonthlyTransactions(any(), any()) } returns flowOf(transactions)
-        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget)
+        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget, getCustomSubCategories)
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success

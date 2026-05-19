@@ -1,16 +1,18 @@
 package com.dibitara.app.presentation.budget
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -20,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -27,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import java.time.Month
@@ -34,7 +38,11 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun BudgetScreen(viewModel: BudgetViewModel = hiltViewModel()) {
+fun BudgetScreen(
+    // category et type sont les noms d'enum (String) pour traverser la couche navigation sans import
+    onNavigateToExpenses: (category: String?, type: String?) -> Unit = { _, _ -> },
+    viewModel: BudgetViewModel = hiltViewModel()
+) {
     val uiState by viewModel.uiState.collectAsState()
     var showEditDialog   by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -55,11 +63,12 @@ fun BudgetScreen(viewModel: BudgetViewModel = hiltViewModel()) {
                         modifier = Modifier.align(Alignment.Center))
                 is BudgetUiState.Success ->
                     BudgetContent(
-                        state = state,
-                        onPreviousMonth  = viewModel::previousMonth,
-                        onNextMonth      = viewModel::nextMonth,
-                        onEditBudget     = { showEditDialog = true },
-                        onDeleteBudget   = { showDeleteDialog = true }
+                        state                = state,
+                        onPreviousMonth      = viewModel::previousMonth,
+                        onNextMonth          = viewModel::nextMonth,
+                        onEditBudget         = { showEditDialog = true },
+                        onDeleteBudget       = { showDeleteDialog = true },
+                        onNavigateToExpenses = onNavigateToExpenses
                     )
             }
         }
@@ -105,7 +114,8 @@ private fun BudgetContent(
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onEditBudget: () -> Unit,
-    onDeleteBudget: () -> Unit
+    onDeleteBudget: () -> Unit,
+    onNavigateToExpenses: (category: String?, type: String?) -> Unit
 ) {
     val monthName = Month.of(state.month).getDisplayName(TextStyle.FULL, Locale.FRENCH)
         .replaceFirstChar { it.uppercase() }
@@ -157,26 +167,42 @@ private fun BudgetContent(
             }
         }
 
-        // Section revenus — visible s'il y a des transactions INCOME
+        // Section revenus — cliquable → Expenses filtré par INCOME
         val revenus = state.transactions.filter { it.type == TransactionType.INCOME }
         if (revenus.isNotEmpty()) {
             item {
-                Text(
-                    "Revenus du mois",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Revenus du mois", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name) }) {
+                        Text("Voir tout")
+                    }
+                }
             }
             items(revenus.sortedByDescending { it.amountCents }) { tx ->
-                RevenuRow(transaction = tx, currency = currency)
+                RevenuRow(
+                    transaction = tx,
+                    currency = currency,
+                    onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name) }
+                )
             }
         }
 
-        // Section dépenses — donut + répartition par catégorie
+        // Section dépenses — donut interactif + répartition par catégorie cliquable
         val depenses = state.transactions.filter { it.type == TransactionType.EXPENSE }
         if (depenses.isNotEmpty()) {
             item {
-                CategoryDonutChart(transactions = depenses, currency = currency)
+                CategoryDonutChart(
+                    transactions        = depenses,
+                    customSubCategories = state.customSubCategories,
+                    currency            = currency,
+                    onCategoryClick     = { cat ->
+                        onNavigateToExpenses(cat.name, TransactionType.EXPENSE.name)
+                    }
+                )
             }
             item {
                 Text(
@@ -186,7 +212,12 @@ private fun BudgetContent(
                 )
             }
             items(categoryBreakdown(depenses)) { (category, cents) ->
-                CategoryRow(category = category, amountCents = cents, currency = currency)
+                CategoryRow(
+                    category    = category,
+                    amountCents = cents,
+                    currency    = currency,
+                    onClick     = { onNavigateToExpenses(category.name, TransactionType.EXPENSE.name) }
+                )
             }
         }
     }
@@ -382,10 +413,11 @@ private fun BudgetObjectifCard(budget: Budget, revenusCents: Long, onDelete: () 
 // ─── Ligne revenu individuelle ────────────────────────────────────────────────
 
 @Composable
-private fun RevenuRow(transaction: Transaction, currency: Currency) {
+private fun RevenuRow(transaction: Transaction, currency: Currency, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -419,10 +451,16 @@ private fun NoBudgetCard(onSetBudget: () -> Unit) {
 }
 
 @Composable
-private fun CategoryRow(category: Category, amountCents: Long, currency: Currency) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(category.displayName, style = MaterialTheme.typography.bodyMedium)
+private fun CategoryRow(category: Category, amountCents: Long, currency: Currency, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(category.displayName, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Text(amountCents.toCurrencyDisplay(currency), style = MaterialTheme.typography.bodyMedium)
     }
 }
@@ -512,70 +550,163 @@ private fun SetBudgetDialog(
     )
 }
 
+// Palette de couleurs partagée par les deux vues du donut (principale et drill-down)
+private val DONUT_COULEURS = listOf(
+    Color(0xFF1DB954), Color(0xFF2196F3), Color(0xFFFF9800),
+    Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF00BCD4),
+    Color(0xFF4CAF50), Color(0xFFFF5722), Color(0xFF607D8B)
+)
+
+/**
+ * Donut interactif des dépenses par catégorie.
+ *
+ * - Clic sur un segment de légende → [onCategoryClick] pour naviguer vers les transactions filtrées.
+ * - Clic sur "Autre" → drill-down : le donut affiche la répartition des sous-catégories de AUTRE.
+ * - Un bouton "← Retour" permet de revenir à la vue principale depuis le drill-down.
+ */
 @Composable
-private fun CategoryDonutChart(transactions: List<Transaction>, currency: Currency) {
+private fun CategoryDonutChart(
+    transactions: List<Transaction>,
+    customSubCategories: List<CustomSubCategory>,
+    currency: Currency,
+    onCategoryClick: (Category) -> Unit
+) {
+    // null = vue principale ; Category.AUTRE = drill-down sous-catégories
+    var drillDown by remember { mutableStateOf(false) }
+
     val total = transactions.sumOf { it.amountCents }.toFloat()
-    val groupes = transactions
+    val groupesPrincipaux = transactions
         .groupBy { it.category }
         .map { (cat, txs) -> cat to txs.sumOf { it.amountCents } }
         .sortedByDescending { it.second }
-
-    // Une couleur distincte par catégorie
-    val couleurs = listOf(
-        Color(0xFF1DB954), Color(0xFF2196F3), Color(0xFFFF9800),
-        Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF00BCD4),
-        Color(0xFF4CAF50), Color(0xFFFF5722), Color(0xFF607D8B)
-    )
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Répartition des dépenses", style = MaterialTheme.typography.titleMedium)
+            // En-tête : titre + bouton retour si drill-down actif
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Cercle donut dessiné avec Canvas
-                Canvas(modifier = Modifier.size(110.dp)) {
-                    var angleDepart = -90f
-                    groupes.forEachIndexed { i, (_, cents) ->
-                        val balayage = (cents.toFloat() / total) * 360f
-                        drawArc(
-                            color = couleurs[i % couleurs.size],
-                            startAngle = angleDepart,
-                            sweepAngle = balayage,
-                            useCenter = false,
-                            style = Stroke(width = 28.dp.toPx(), cap = StrokeCap.Butt)
-                        )
-                        angleDepart += balayage
+                if (drillDown) {
+                    IconButton(onClick = { drillDown = false }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Retour aux catégories")
                     }
+                    Text("Détail — Autre", style = MaterialTheme.typography.titleMedium)
+                } else {
+                    Text("Répartition des dépenses", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(48.dp)) // équilibre la mise en page quand pas de bouton retour
                 }
-                // Légende associée
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    groupes.forEachIndexed { i, (categorie, cents) ->
-                        val pct = (cents.toFloat() / total * 100).toInt()
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .then(Modifier) // placeholder pour la couleur
-                            ) {
-                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                    drawCircle(color = couleurs[i % couleurs.size])
-                                }
-                            }
-                            Text(
-                                "${categorie.displayName} $pct%",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
+            }
+
+            if (drillDown) {
+                // ── Vue drill-down : répartition des sous-catégories de AUTRE ──
+                val autreTxs = transactions.filter { it.category == Category.AUTRE }
+                val subGroupes = autreTxs
+                    .groupBy { tx ->
+                        // Résolution du libellé : CustomSubCategory > SubCategory enum > "Non classé"
+                        tx.customSubCategoryId
+                            ?.let { id -> customSubCategories.find { it.id == id }?.name }
+                            ?: tx.subCategory?.displayName
+                            ?: "Non classé"
                     }
+                    .map { (label, txs) -> label to txs.sumOf { it.amountCents } }
+                    .sortedByDescending { it.second }
+                val totalAutre = autreTxs.sumOf { it.amountCents }.toFloat()
+
+                DonutAvecLegende(
+                    groupes  = subGroupes,
+                    total    = totalAutre,
+                    currency = currency,
+                    // Depuis le drill-down, cliquer navigue vers Autres (filtre catégorie = AUTRE)
+                    onItemClick = { onCategoryClick(Category.AUTRE) }
+                )
+            } else {
+                // ── Vue principale : répartition par catégorie ──
+                DonutAvecLegende(
+                    groupes  = groupesPrincipaux.map { (cat, cents) -> cat.displayName to cents },
+                    total    = total,
+                    currency = currency,
+                    onItemClick = { label ->
+                        val cat = groupesPrincipaux.firstOrNull { it.first.displayName == label }?.first
+                        if (cat == Category.AUTRE) {
+                            drillDown = true  // ouvre le drill-down au lieu de naviguer
+                        } else if (cat != null) {
+                            onCategoryClick(cat)
+                        }
+                    },
+                    // Indicateur visuel sur AUTRE : "▶" pour signaler le drill-down disponible
+                    trailingLabel = { label ->
+                        if (label == Category.AUTRE.displayName) " ▶" else ""
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Composant réutilisable : cercle donut Canvas + légende cliquable.
+ *
+ * [groupes] : liste de (libellé, montant en centimes).
+ * [onItemClick] : appelé avec le libellé du segment cliqué.
+ * [trailingLabel] : suffixe optionnel ajouté au libellé (ex. "▶" pour le drill-down).
+ */
+@Composable
+private fun DonutAvecLegende(
+    groupes: List<Pair<String, Long>>,
+    total: Float,
+    currency: Currency,
+    onItemClick: (String) -> Unit,
+    trailingLabel: (String) -> String = { "" }
+) {
+    if (total == 0f || groupes.isEmpty()) return
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Cercle donut dessiné avec Canvas (purement visuel, les clics sont sur la légende)
+        Canvas(modifier = Modifier.size(110.dp)) {
+            var angleDepart = -90f
+            groupes.forEachIndexed { i, (_, cents) ->
+                val balayage = (cents.toFloat() / total) * 360f
+                drawArc(
+                    color      = DONUT_COULEURS[i % DONUT_COULEURS.size],
+                    startAngle = angleDepart,
+                    sweepAngle = balayage,
+                    useCenter  = false,
+                    style      = Stroke(width = 28.dp.toPx(), cap = StrokeCap.Butt)
+                )
+                angleDepart += balayage
+            }
+        }
+
+        // Légende : chaque ligne est cliquable
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
+            groupes.forEachIndexed { i, (label, cents) ->
+                val pct = (cents.toFloat() / total * 100).toInt()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button) { onItemClick(label) }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Point de couleur
+                    Canvas(modifier = Modifier.size(10.dp)) {
+                        drawCircle(color = DONUT_COULEURS[i % DONUT_COULEURS.size])
+                    }
+                    Text(
+                        text  = "$label$pct% · ${cents.toCurrencyDisplay(currency)}${trailingLabel(label)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }

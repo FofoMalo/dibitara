@@ -16,6 +16,7 @@ import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
+import androidx.lifecycle.SavedStateHandle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -31,14 +32,24 @@ class ExpensesViewModel @Inject constructor(
     private val ucGetCustomSubCategories: GetCustomSubCategoriesUseCase,
     private val ucUpsertCustomSubCategory: UpsertCustomSubCategoryUseCase,
     private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase,
-    private val ucGetPreferences: GetUserPreferencesUseCase
+    private val ucGetPreferences: GetUserPreferencesUseCase,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
         .map { it.deviseParDefaut }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
 
-    private val _filter = MutableStateFlow(ExpensesFilter())
+    // Filtre initial : pré-rempli si on arrive depuis BudgetScreen via navigation avec args
+    private val _filter = MutableStateFlow(
+        ExpensesFilter(
+            category = savedStateHandle.get<String>("category")
+                ?.let { runCatching { Category.valueOf(it) }.getOrNull() },
+            transactionType = savedStateHandle.get<String>("type")
+                ?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
+                ?: TransactionType.EXPENSE
+        )
+    )
     val filter: StateFlow<ExpensesFilter> = _filter.asStateFlow()
 
     val uiState: StateFlow<ExpensesUiState> = combine(
