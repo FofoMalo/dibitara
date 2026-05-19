@@ -2,8 +2,12 @@ package com.dibitara.app.presentation.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
@@ -35,6 +39,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     var seuilEuros by remember(prefs.seuilFondsCents) {
         mutableStateOf((prefs.seuilFondsCents / 100).toString())
     }
+    val focusManager = LocalFocusManager.current
 
     // Dialogues de sécurité
     var showChangerPin        by remember { mutableStateOf(false) }
@@ -83,7 +88,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         onValueChange = { seuilEuros = it },
                         label = { Text("Seuil (€)") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                         modifier = Modifier.weight(1f)
                     )
                     Button(
@@ -477,6 +483,7 @@ private fun DialogueChangerMotDePasse(
     var mdp        by remember { mutableStateOf("") }
     var visible    by remember { mutableStateOf(false) }
     var emailErr   by remember { mutableStateOf<String?>(null) }
+    val focusManager = LocalFocusManager.current
 
     val criteres    = passwordCriteria(mdp)
     val toutValide  = email.contains("@") && criteres.all { it.second }
@@ -485,7 +492,7 @@ private fun DialogueChangerMotDePasse(
         onDismissRequest = onDismiss,
         title = { Text("Mot de passe") },
         text = {
-            Column {
+            Column(modifier = Modifier.imePadding()) {
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it; emailErr = null },
@@ -493,7 +500,8 @@ private fun DialogueChangerMotDePasse(
                     isError = emailErr != null,
                     supportingText = emailErr?.let { { Text(it) } },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(8.dp))
@@ -503,7 +511,8 @@ private fun DialogueChangerMotDePasse(
                     label = { Text("Nouveau mot de passe") },
                     singleLine = true,
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                     trailingIcon = {
                         IconButton(onClick = { visible = !visible }) {
                             Icon(

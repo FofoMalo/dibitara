@@ -13,6 +13,7 @@ import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
+import androidx.lifecycle.SavedStateHandle
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -50,7 +51,7 @@ class ExpensesViewModelTest {
         every { ucGetPreferences() } returns flowOf(UserPreferences())
         viewModel = ExpensesViewModel(ucGetAll, ucAdd, ucUpdate, ucDelete,
             ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
-            ucGetPreferences)
+            ucGetPreferences, SavedStateHandle())
     }
 
     @AfterEach
@@ -74,7 +75,7 @@ class ExpensesViewModelTest {
         every { ucGetAll() } returns flowOf(transactions)
         viewModel = ExpensesViewModel(ucGetAll, ucAdd, ucUpdate, ucDelete,
             ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
-            ucGetPreferences)
+            ucGetPreferences, SavedStateHandle())
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is ExpensesUiState.Success } as ExpensesUiState.Success
