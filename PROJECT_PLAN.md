@@ -350,25 +350,11 @@ Pyramide de tests (situation actuelle) :
 **Workflow Sprint 13 :** créer `feature/sprint-13-tech` depuis `develop`, PR vers `develop`, puis `develop` → `main`.
 
 ### 7.5 Sprint 14 — Idées & Analyses (backlog identifié 2026-05-19)
-| ID | Fonctionnalité | Effort | Priorité | Statut |
-|----|---------------|--------|----------|--------|
-| UX-02 | Clavier de saisie — couverture IME complète sur tous les écrans | 2-3h | Moyen | ✅ Livré |
-| ANALYSE-01 | Étude RecurringExpenseTracker (DennisBauer) — go/no-go intégration | 1-2h | Analyse | ✅ NO-GO — voir ci-dessous |
-| FEAT-BUDGET-INT | Budget — donut interactif : Autres→sous-catégories + onclick → transactions filtrées + revenus cliquables | 8-12h | Moyen | 🔵 À faire |
-
-#### ANALYSE-01 — Résultat de l'étude (2026-05-19)
-
-**Verdict : NO-GO pour l'intégration directe.**
-
-Deux blocages rédhibitoires :
-1. **Licence GPL-3.0** — toute réutilisation de code obligerait Dibitara à passer sous GPL, incompatible avec une app bancaire personnelle.
-2. **Stack incompatible** — KMP + Koin + kotlinx-datetime vs Android-natif + Hilt + java.time ; migrer l'architecture entière serait disproportionné.
-
-Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
-- Récurrences enrichies : Daily / Weekly / Yearly + `everyXRecurrence` (actuellement : mensuel uniquement)
-- `firstPayment` + `endDate` sur les dépenses récurrentes
-- Vue "Prochains paiements" — timeline des échéances à venir (**haute valeur, à intégrer au futur FEAT-BUDGET-INT**)
-- Calcul d'équivalent mensuel (yearly/weekly → mensuel)
+| ID | Fonctionnalité | Effort | Priorité |
+|----|---------------|--------|----------|
+| UX-02 | Clavier de saisie — couverture IME complète sur tous les écrans (FEAT-10 partiel) | 2-3h | Moyen |
+| ANALYSE-01 | Étude RecurringExpenseTracker (DennisBauer) — go/no-go intégration | 1-2h | Analyse |
+| FEAT-BUDGET-INT | Budget — donut interactif : Autres→sous-catégories + onclick → transactions filtrées + revenus cliquables | 8-12h | Moyen |
 
 **Note versioning :** v3.0.1 est la référence stable. Patch = correctif mineur, Mineur = sprint fonctionnel, **Majeur (v4) = rupture schéma/architecture → validation requise avant incrément.**
 
@@ -407,7 +393,6 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 | 3.1 | 2026-05-15 | Florent | Sprints 10-11-12 marqués terminés, Sprint 12 améliorations pré-déploiement (navigation, notifications deep link, versement date, année locatifs, enfant associer comptes), Sprint 13 qualité technique |
 | 3.2 | 2026-05-18 | Florent | v3.0.1 — CI-FIX tests (123 tests), Sprint 12 chantiers A/B/C documentés, Room v7, workflow git develop+feature branches, protection main GitHub |
 | 3.3 | 2026-05-19 | Florent | Sprint 14 backlog : UX-02 (IME), ANALYSE-01 (RecurringExpenseTracker), FEAT-BUDGET-INT (donut interactif) ; note convention versioning v3→v4 |
-| 3.4 | 2026-05-19 | Florent | Sprint 14 : UX-02 livré, ANALYSE-01 terminé (NO-GO GPL-3.0 + KMP incompatible), backlog v4 enrichi FEAT-RECUR |
 
 ---
 
