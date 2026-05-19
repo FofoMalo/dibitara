@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -28,6 +29,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val prefs by viewModel.preferences.collectAsState()
     val security by viewModel.securityState.collectAsState()
     val totpSetupState by viewModel.totpSetupState.collectAsState()
+    val tauxDeChange by viewModel.tauxDeChange.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var seuilEuros by remember(prefs.seuilFondsCents) {
@@ -162,6 +164,44 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                             onClick  = { viewModel.mettreAJourDevise(devise) },
                             label    = { Text("${devise.symbol} ${devise.isoCode}") }
                         )
+                    }
+                }
+            }
+
+            // ─── Section taux de change ───────────────────────────────────────
+            SectionCard(titre = "Taux de change") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Source : Frankfurter (BCE)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    IconButton(onClick = { viewModel.rafraichirTauxDeChange() }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Actualiser les taux")
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                when {
+                    tauxDeChange == null -> {
+                        // Chargement initial
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    }
+                    tauxDeChange!!.isFailure -> {
+                        Text(
+                            "Taux indisponibles — vérifiez votre connexion",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    else -> {
+                        val taux = tauxDeChange!!.getOrNull()!!
+                        // "%.4f" utilise la locale système → virgule sur téléphone français (correct)
+                        Text("1 € = ${"%.4f".format(taux.usdParEur)} $", style = MaterialTheme.typography.bodyMedium)
+                        Text("1 € = ${"%.2f".format(taux.xofParEur)} FCFA", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }

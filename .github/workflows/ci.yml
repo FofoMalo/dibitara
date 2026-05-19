@@ -26,6 +26,13 @@ jobs:
       - name: Permissions Gradle
         run: chmod +x gradlew
 
+      # Crashlytics : utilise le fichier exemple si le vrai n'est pas injecté via secret
+      - name: Préparer google-services.json
+        run: |
+          if [ ! -f app/google-services.json ]; then
+            cp app/google-services.json.example app/google-services.json
+          fi
+
       - name: Lint
         run: ./gradlew lint
 
@@ -34,6 +41,17 @@ jobs:
 
       - name: Rapport de couverture (seuil 80% sur domain/)
         run: ./gradlew koverVerify
+
+      - name: Rapport de couverture HTML
+        run: ./gradlew koverHtmlReport
+
+      - name: Upload rapport couverture
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kover-html-${{ github.sha }}
+          path: app/build/reports/kover/html/
+          retention-days: 14
 
       - name: Build debug
         run: ./gradlew assembleDebug

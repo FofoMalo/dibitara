@@ -1,7 +1,7 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 3.2 — 2026-05-18  
+> Version du document : 3.3 — 2026-05-19  
 > Statut : **En production** — v3.0.1 publiée (CI vert, Play Store en attente validation)
 
 ---
@@ -266,6 +266,7 @@ Pyramide de tests (situation actuelle) :
 | Sprint 12 | Améliorations pré-déploiement v3.0.0 | ✅ Terminé | v3.0.0 |
 | Sprint 12b | Correctifs CI — tests ViewModel + UseCase | ✅ Terminé | v3.0.1 |
 | Sprint 13 | Qualité technique (Kover, Crashlytics, taux de change) | 🔵 À venir | — |
+| Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | 🔵 Backlog | — |
 
 ---
 
@@ -348,7 +349,16 @@ Pyramide de tests (situation actuelle) :
 
 **Workflow Sprint 13 :** créer `feature/sprint-13-tech` depuis `develop`, PR vers `develop`, puis `develop` → `main`.
 
-### 7.5 Backlog V4 (long terme)
+### 7.5 Sprint 14 — Idées & Analyses (backlog identifié 2026-05-19)
+| ID | Fonctionnalité | Effort | Priorité |
+|----|---------------|--------|----------|
+| UX-02 | Clavier de saisie — couverture IME complète sur tous les écrans (FEAT-10 partiel) | 2-3h | Moyen |
+| ANALYSE-01 | Étude RecurringExpenseTracker (DennisBauer) — go/no-go intégration | 1-2h | Analyse |
+| FEAT-BUDGET-INT | Budget — donut interactif : Autres→sous-catégories + onclick → transactions filtrées + revenus cliquables | 8-12h | Moyen |
+
+**Note versioning :** v3.0.1 est la référence stable. Patch = correctif mineur, Mineur = sprint fonctionnel, **Majeur (v4) = rupture schéma/architecture → validation requise avant incrément.**
+
+### 7.6 Backlog V4 (long terme)
 | ID | Fonctionnalité | Effort |
 |----|---------------|--------|
 | F8 | Export CSV des transactions | 8-12h |
@@ -381,6 +391,7 @@ Pyramide de tests (situation actuelle) :
 | 3.0 | 2026-05-15 | Florent | Backlog réorganisé — items post-Sprint 9 marqués livrés, Sprint 10 (8 items P0/P1/P2), Sprint 11 FEAT-12 versement mensuel |
 | 3.1 | 2026-05-15 | Florent | Sprints 10-11-12 marqués terminés, Sprint 12 améliorations pré-déploiement (navigation, notifications deep link, versement date, année locatifs, enfant associer comptes), Sprint 13 qualité technique |
 | 3.2 | 2026-05-18 | Florent | v3.0.1 — CI-FIX tests (123 tests), Sprint 12 chantiers A/B/C documentés, Room v7, workflow git develop+feature branches, protection main GitHub |
+| 3.3 | 2026-05-19 | Florent | Sprint 14 backlog : UX-02 (IME), ANALYSE-01 (RecurringExpenseTracker), FEAT-BUDGET-INT (donut interactif) ; note convention versioning v3→v4 |
 
 ---
 
