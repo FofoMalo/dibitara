@@ -6,7 +6,9 @@ import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.security.SecureRandom
+import java.util.UUID
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.inject.Inject
@@ -37,6 +39,11 @@ class CredentialManager @Inject constructor(
         private const val KEY_EMAIL      = "email"
         private const val KEY_TOTP_SECRET = "totp_secret"
 
+        // Fichier stocké dans noBackupFilesDir — jamais sauvegardé ni transféré,
+        // quelle que soit la configuration de backup (y compris les transferts D2D Android 12+).
+        // Son absence au démarrage trahit des credentials issus d'un transfert illégitime.
+        private const val INSTALL_PROOF_FILE = "install_proof"
+
         // Paramètres PBKDF2 conformes aux recommandations OWASP 2024
         private const val ITERATIONS_PIN = 100_000
         private const val ITERATIONS_PWD = 310_000
@@ -57,6 +64,25 @@ class CredentialManager @Inject constructor(
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
+    }
+
+    // ─── Preuve d'installation ────────────────────────────────────────────────
+
+    /**
+     * Retourne true si ce device a bien effectué son propre setup.
+     * Le fichier vit dans noBackupFilesDir : Android ne le sauvegarde jamais,
+     * ni en cloud ni en transfert D2D, ce qui le rend infalsifiable par restauration.
+     */
+    fun isInstallProofPresent(): Boolean =
+        File(context.noBackupFilesDir, INSTALL_PROOF_FILE).exists()
+
+    /**
+     * Crée la preuve d'installation lors du premier setup de l'utilisateur.
+     * À appeler dès que le PIN est enregistré avec succès.
+     */
+    fun createInstallProof() {
+        File(context.noBackupFilesDir, INSTALL_PROOF_FILE)
+            .writeText(UUID.randomUUID().toString())
     }
 
     // ─── PIN ──────────────────────────────────────────────────────────────────

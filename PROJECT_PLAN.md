@@ -365,6 +365,7 @@ Pyramide de tests (situation actuelle) :
 | F9 | Sauvegarde cloud chiffrée | 15-20h |
 | SEC-01 | SQLCipher — chiffrement Room | 8-12h |
 | PERF-01 | Tests d'intégration Room | 10-15h |
+| FEAT-RECUR | Récurrences enrichies : weekly/yearly + firstPayment + endDate + vue "Prochains paiements" | 10-15h |
 
 ---
 

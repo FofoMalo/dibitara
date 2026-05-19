@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.DeleteBudgetUseCase
+import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyBudgetUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
 import com.dibitara.app.domain.usecase.SetBudgetUseCase
@@ -21,7 +23,8 @@ class BudgetViewModel @Inject constructor(
     private val getMonthlyBudget: GetMonthlyBudgetUseCase,
     private val getMonthlyTransactions: GetMonthlyTransactionsUseCase,
     private val setBudget: SetBudgetUseCase,
-    private val deleteBudget: DeleteBudgetUseCase
+    private val deleteBudget: DeleteBudgetUseCase,
+    private val getCustomSubCategories: GetCustomSubCategoriesUseCase
 ) : ViewModel() {
 
     private val now = LocalDate.now()
@@ -40,8 +43,9 @@ class BudgetViewModel @Inject constructor(
         .flatMapLatest { (month, year) ->
             combine(
                 getMonthlyBudget(month, year),
-                getMonthlyTransactions(month, year)
-            ) { budget, transactions ->
+                getMonthlyTransactions(month, year),
+                getCustomSubCategories()
+            ) { budget, transactions, customSubCats ->
                 val depensesCents = transactions
                     .filter { it.type == TransactionType.EXPENSE }
                     .sumOf { it.amountCents }
@@ -49,13 +53,14 @@ class BudgetViewModel @Inject constructor(
                     .filter { it.type == TransactionType.INCOME }
                     .sumOf { it.amountCents }
                 BudgetUiState.Success(
-                    budget        = budget?.copy(spentCents = depensesCents),
-                    transactions  = transactions,
-                    month         = month,
-                    year          = year,
-                    revenusCents  = revenusCents,
-                    depensesCents = depensesCents,
-                    soldeCents    = revenusCents - depensesCents
+                    budget              = budget?.copy(spentCents = depensesCents),
+                    transactions        = transactions,
+                    customSubCategories = customSubCats,
+                    month               = month,
+                    year                = year,
+                    revenusCents        = revenusCents,
+                    depensesCents       = depensesCents,
+                    soldeCents          = revenusCents - depensesCents
                 ) as BudgetUiState
             }
         }
@@ -108,16 +113,17 @@ class BudgetViewModel @Inject constructor(
 sealed class BudgetUiState {
     data object Loading : BudgetUiState()
     data class Success(
-        val budget        : Budget?,
-        val transactions  : List<Transaction>,
-        val month         : Int,
-        val year          : Int,
+        val budget              : Budget?,
+        val transactions        : List<Transaction>,
+        val customSubCategories : List<CustomSubCategory> = emptyList(),
+        val month               : Int,
+        val year                : Int,
         /** Somme des transactions INCOME du mois. */
-        val revenusCents  : Long = 0L,
+        val revenusCents        : Long = 0L,
         /** Somme des transactions EXPENSE du mois. */
-        val depensesCents : Long = 0L,
+        val depensesCents       : Long = 0L,
         /** revenusCents − depensesCents — peut être négatif. */
-        val soldeCents    : Long = 0L
+        val soldeCents          : Long = 0L
     ) : BudgetUiState()
     data class Error(val message: String) : BudgetUiState()
 }

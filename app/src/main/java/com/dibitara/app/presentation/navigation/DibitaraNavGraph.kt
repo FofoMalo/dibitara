@@ -6,10 +6,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.dibitara.app.presentation.auth.LockScreen
 import com.dibitara.app.presentation.auth.SetupAuthScreen
@@ -30,7 +32,19 @@ sealed class Screen(val route: String) {
     data object SetupAuth  : Screen("setup_auth")
     data object Dashboard  : Screen("dashboard")
     data object Budget     : Screen("budget")
-    data object Expenses   : Screen("expenses")
+    // category et type sont des args optionnels pour pré-filtrer depuis BudgetScreen
+    data object Expenses   : Screen("expenses?category={category}&type={type}") {
+        fun withFilter(category: String? = null, type: String? = null): String {
+            val args = buildString {
+                if (category != null) append("category=$category")
+                if (type != null) {
+                    if (isNotEmpty()) append("&")
+                    append("type=$type")
+                }
+            }
+            return if (args.isNotEmpty()) "expenses?$args" else "expenses"
+        }
+    }
     data object Savings    : Screen("savings")
     data object Investments: Screen("investments")
     data object Debts      : Screen("debts")
@@ -111,8 +125,20 @@ fun DibitaraNavGraph(
                     onNavigateToPatrimoine   = { navController.navigate(Screen.PatrimoineDetail.route) }
                 )
             }
-            composable(Screen.Budget.route)      { BudgetScreen() }
-            composable(Screen.Expenses.route)    { ExpensesScreen() }
+            composable(Screen.Budget.route) {
+                BudgetScreen(
+                    onNavigateToExpenses = { category, type ->
+                        navController.navigate(Screen.Expenses.withFilter(category, type))
+                    }
+                )
+            }
+            composable(
+                route = Screen.Expenses.route,
+                arguments = listOf(
+                    navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("type")     { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
+            ) { ExpensesScreen() }
             composable(Screen.Savings.route)     { SavingsScreen() }
             composable(Screen.Investments.route) { InvestmentsScreen() }
             composable(Screen.Debts.route) {

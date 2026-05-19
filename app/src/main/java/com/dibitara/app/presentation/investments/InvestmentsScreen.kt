@@ -5,7 +5,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -483,6 +487,7 @@ private fun AddRealEstateSheet(
     var value by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -500,6 +505,8 @@ private fun AddRealEstateSheet(
                 value = label,
                 onValueChange = { label = it },
                 label = { Text("Libellé (ex. Appartement Lyon)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -508,7 +515,8 @@ private fun AddRealEstateSheet(
                 value = value,
                 onValueChange = { value = it },
                 label = { Text("Valeur actuelle") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -554,6 +562,7 @@ private fun AddScpiSheet(
     var contribution by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -571,6 +580,8 @@ private fun AddScpiSheet(
                 value = label,
                 onValueChange = { label = it },
                 label = { Text("Nom de la SCPI") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -580,7 +591,8 @@ private fun AddScpiSheet(
                     value = shares,
                     onValueChange = { shares = it },
                     label = { Text("Nb de parts") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -588,7 +600,8 @@ private fun AddScpiSheet(
                     value = shareValue,
                     onValueChange = { shareValue = it },
                     label = { Text("Valeur / part") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -598,7 +611,8 @@ private fun AddScpiSheet(
                 value = contribution,
                 onValueChange = { contribution = it },
                 label = { Text("Versement mensuel (optionnel)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -657,6 +671,7 @@ private fun AddAirbnbSheet(
     // Le mois courant est utilisé par défaut — l'utilisateur entre les revenus du mois
     val today = remember { LocalDate.now() }
     val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH)
+    val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -679,6 +694,8 @@ private fun AddAirbnbSheet(
                 value = label,
                 onValueChange = { label = it },
                 label = { Text("Source (ex. Airbnb, Appartement Lyon...)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -687,7 +704,8 @@ private fun AddAirbnbSheet(
                 value = amount,
                 onValueChange = { amount = it },
                 label = { Text("Revenu du mois") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -733,6 +751,7 @@ private fun EditRealEstateSheet(
     var value by remember { mutableStateOf("%.2f".format(asset.currentValueCents / 100.0).replace(',', '.')) }
     var selectedCurrency by remember { mutableStateOf(asset.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -747,11 +766,15 @@ private fun EditRealEstateSheet(
             Text("Modifier le bien immobilier", style = MaterialTheme.typography.titleLarge)
 
             OutlinedTextField(value = label, onValueChange = { label = it },
-                label = { Text("Libellé") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text("Libellé") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
 
             OutlinedTextField(value = value, onValueChange = { value = it },
                 label = { Text("Valeur actuelle") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
@@ -793,6 +816,7 @@ private fun EditScpiSheet(
     }
     var selectedCurrency by remember { mutableStateOf(scpi.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -807,22 +831,28 @@ private fun EditScpiSheet(
             Text("Modifier la SCPI", style = MaterialTheme.typography.titleLarge)
 
             OutlinedTextField(value = label, onValueChange = { label = it },
-                label = { Text("Nom de la SCPI") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text("Nom de la SCPI") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = shares, onValueChange = { shares = it },
                     label = { Text("Nb de parts") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                     singleLine = true, modifier = Modifier.weight(1f))
                 OutlinedTextField(value = shareValue, onValueChange = { shareValue = it },
                     label = { Text("Valeur / part") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     singleLine = true, modifier = Modifier.weight(1f))
             }
 
             OutlinedTextField(value = contribution, onValueChange = { contribution = it },
                 label = { Text("Versement mensuel (optionnel)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
@@ -869,6 +899,7 @@ private fun EditAirbnbSheet(
     var selectedCurrency by remember { mutableStateOf(rental.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
     val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH)
+    val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -887,11 +918,15 @@ private fun EditAirbnbSheet(
             )
 
             OutlinedTextField(value = label, onValueChange = { label = it },
-                label = { Text("Source (ex. Airbnb, Appartement)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text("Source (ex. Airbnb, Appartement)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
 
             OutlinedTextField(value = amount, onValueChange = { amount = it },
                 label = { Text("Revenu du mois") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {

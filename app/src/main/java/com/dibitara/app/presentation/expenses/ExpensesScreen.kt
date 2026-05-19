@@ -6,7 +6,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
@@ -43,6 +49,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
 
     // Sous-catégories personnalisées — disponibles dès que le state est chargé
     val customSubCategories = (uiState as? ExpensesUiState.Success)?.customSubCategories ?: emptyList()
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
@@ -76,6 +83,8 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                     onValueChange = { viewModel.updateFilter(filter.copy(query = it)) },
                     placeholder = { Text("Rechercher…") },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -430,6 +439,10 @@ private fun ExpenseSheet(
     var showCreateSubCatDialog by remember { mutableStateOf(false) }
     // Dépense par défaut ; on relit le type si on édite une transaction existante
     var selectedType by remember { mutableStateOf(expense?.type ?: TransactionType.EXPENSE) }
+    val focusManager = LocalFocusManager.current
+    // FocusRequester pour sauter les champs readOnly (date, catégorie, devise) lors de la navigation IME
+    val noteFocusRequester = remember { FocusRequester() }
+    val dayFocusRequester = remember { FocusRequester() }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -473,7 +486,8 @@ private fun ExpenseSheet(
             OutlinedTextField(
                 value = amount, onValueChange = { amount = it },
                 label = { Text("Montant") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { noteFocusRequester.requestFocus() }),
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
@@ -608,7 +622,13 @@ private fun ExpenseSheet(
             OutlinedTextField(
                 value = note, onValueChange = { note = it },
                 label = { Text(if (selectedType == TransactionType.INCOME) "Libellé (ex: Salaire)" else "Note (optionnel)") },
-                singleLine = true, modifier = Modifier.fillMaxWidth()
+                keyboardOptions = KeyboardOptions(imeAction = if (isRecurring) ImeAction.Next else ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onNext = { dayFocusRequester.requestFocus() },
+                    onDone = { focusManager.clearFocus() }
+                ),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().focusRequester(noteFocusRequester)
             )
 
             Row(
@@ -636,9 +656,10 @@ private fun ExpenseSheet(
                         recurrenceDayStr = if (n.toIntOrNull()?.let { it > 28 } == true) "28" else n
                     },
                     label = { Text("Jour du mois (1-28)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().focusRequester(dayFocusRequester)
                 )
             }
 
@@ -714,6 +735,7 @@ private fun DialogueCreerSousCategorie(
     onDismiss: () -> Unit
 ) {
     var nom by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -729,6 +751,8 @@ private fun DialogueCreerSousCategorie(
                     value = nom,
                     onValueChange = { nom = it },
                     label = { Text("Nom") },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
