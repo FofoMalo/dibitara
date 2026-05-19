@@ -28,8 +28,8 @@ android {
         applicationId = "com.dibitara.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "3.0.1"
+        versionCode = 10
+        versionName = "3.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
