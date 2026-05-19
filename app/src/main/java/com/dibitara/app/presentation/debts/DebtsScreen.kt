@@ -5,7 +5,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -242,6 +246,7 @@ private fun AddDebtSheet(
     var selectedType by remember { mutableStateOf(DebtType.CREDIT_IMMO) }
     var typeExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -278,6 +283,8 @@ private fun AddDebtSheet(
                 value = label,
                 onValueChange = { label = it },
                 label = { Text("Libellé (ex. Crédit immobilier résidence)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -286,7 +293,8 @@ private fun AddDebtSheet(
                 value = total,
                 onValueChange = { total = it },
                 label = { Text("Capital restant dû") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -295,7 +303,8 @@ private fun AddDebtSheet(
                 value = monthly,
                 onValueChange = { monthly = it },
                 label = { Text("Mensualité (optionnel)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )

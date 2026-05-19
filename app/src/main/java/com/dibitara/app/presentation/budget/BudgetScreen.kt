@@ -4,7 +4,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -437,12 +440,13 @@ private fun SetBudgetDialog(
     }
     var selectedCurrency by remember { mutableStateOf(currentBudget?.currency ?: Currency.EUR) }
     var expanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (currentBudget != null) "Modifier le budget" else "Définir le budget mensuel") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.imePadding()) {
                 // Si des revenus ont été saisis, on propose une enveloppe à 80 % (règle courante : épargner 20 %)
                 if (revenusCents > 0) {
                     val suggestion80 = "%.2f".format(revenusCents * 0.8 / 100.0).replace(',', '.')
@@ -473,7 +477,8 @@ private fun SetBudgetDialog(
                     value = amount,
                     onValueChange = { amount = it },
                     label = { Text("Montant") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

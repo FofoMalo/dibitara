@@ -5,7 +5,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -475,6 +479,7 @@ private fun AddSavingsSheet(
     var typeExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
     var childExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -524,18 +529,22 @@ private fun AddSavingsSheet(
                 supportingText = if (selectedType == SavingsType.AUTRE && label.isBlank()) {
                     { Text("Le nom du type est obligatoire") }
                 } else null,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
             OutlinedTextField(value = balance, onValueChange = { balance = it },
                 label = { Text("Solde actuel") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
             OutlinedTextField(value = contribution, onValueChange = { contribution = it },
                 label = { Text("Versement mensuel (optionnel)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
@@ -603,6 +612,7 @@ private fun EditSavingsSheet(
     var typeExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
     var childExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -648,18 +658,22 @@ private fun EditSavingsSheet(
                 supportingText = if (selectedType == SavingsType.AUTRE && label.isBlank()) {
                     { Text("Le nom du type est obligatoire") }
                 } else null,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
             OutlinedTextField(value = balance, onValueChange = { balance = it },
                 label = { Text("Solde actuel") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
             OutlinedTextField(value = contribution, onValueChange = { contribution = it },
                 label = { Text("Versement mensuel (optionnel)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
@@ -708,6 +722,7 @@ private fun EditSavingsSheet(
 @Composable
 private fun AddChildDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -715,7 +730,10 @@ private fun AddChildDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
         text = {
             OutlinedTextField(
                 value = name, onValueChange = { name = it },
-                label = { Text("Prénom") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                label = { Text("Prénom") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true, modifier = Modifier.fillMaxWidth()
             )
         },
         confirmButton = {
