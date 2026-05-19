@@ -16,7 +16,7 @@ interface TransactionRepository {
     fun getByType(type: TransactionType): Flow<List<Transaction>>
     fun getByDateRange(from: LocalDate, to: LocalDate): Flow<List<Transaction>>
     fun getRecurring(): Flow<List<Transaction>>
-    suspend fun hasRecurringOccurrenceThisMonth(recurringId: Long, month: Int, year: Int): Boolean
+    suspend fun hasRecurringOccurrenceInRange(recurringId: Long, from: LocalDate, to: LocalDate): Boolean
     suspend fun insert(transaction: Transaction): Long
     suspend fun update(transaction: Transaction)
     suspend fun delete(transaction: Transaction)
