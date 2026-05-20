@@ -1,8 +1,8 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 3.8 — 2026-05-20  
-> Statut : **En production** — v3.1.0 publiée (CI vert, Play Store en attente validation)
+> Version du document : 3.9 — 2026-05-20  
+> Statut : **En développement actif** — v4.0.0 sur develop (rupture schéma Room v7→v8)
 
 ---
 
@@ -68,7 +68,7 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 ```
 app/src/main/java/com/dibitara/app/
 ├── data/
-│   ├── local/        — Room v7, migrations 1→2→3→4→5→6→7
+│   ├── local/        — Room v8, migrations 1→2→3→4→5→6→7→8
 │   └── repository/   — *RepositoryImpl.kt + UserPreferencesRepositoryImpl (DataStore)
 ├── di/               — DatabaseModule, DataStoreModule, SecurityModule
 ├── domain/
@@ -76,9 +76,10 @@ app/src/main/java/com/dibitara/app/
 │   │                   ScpiInvestment, AirbnbRental, PatrimonyOverview, Currency,
 │   │                   Category, SubCategory, CustomSubCategory, DebtType, SavingsType,
 │   │                   Child, UserPreferences, MonthlyReport, CategoryExpense,
-│   │                   MonthlyVersement
+│   │                   MonthlyVersement, RecurrenceFrequency, UpcomingPayment,
+│   │                   TransactionSuggestion
 │   ├── repository/   — 8 interfaces + UserPreferencesRepository + VersementRepository
-│   └── usecase/      — 40+ UseCases (1 responsabilité = 1 UseCase)
+│   └── usecase/      — 43+ UseCases (1 responsabilité = 1 UseCase)
 └── presentation/
     ├── auth/         — LockScreen, AuthViewModel (PIN + email/password + biométrie)
     ├── dashboard/    — graphique 6 mois OU carte rapport selon toggle
@@ -99,7 +100,7 @@ app/src/main/java/com/dibitara/app/
 | UI | Jetpack Compose | ✅ En production |
 | Navigation | Navigation Component | ✅ En production |
 | Architecture | ViewModel + StateFlow | ✅ En production |
-| Base de données locale | Room v7 | ✅ En production |
+| Base de données locale | Room v8 | ✅ En production |
 | Injection de dépendances | Hilt | ✅ En production |
 | Async | Coroutines + Flow | ✅ En production |
 | Graphiques | Vico (ou MPAndroidChart) | ✅ En production |
@@ -268,6 +269,7 @@ Pyramide de tests (situation actuelle) :
 | Sprint 13 | Qualité technique (Kover, Crashlytics, taux de change) | ✅ Terminé | v3.1.0 |
 | Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | ✅ Terminé | v3.1.0 |
 | Sprint 15 | Suggestions de saisie rapide basées sur l'historique récent | ✅ Terminé | v3.2.0 |
+| Sprint 16 | Récurrences enrichies (hebdo/annuelles) + vue prochains paiements — Room v8 | ✅ Terminé | v4.0.0 |
 
 ---
 
@@ -377,7 +379,7 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 ### 7.7 Sprint 15 — Suggestions de saisie rapide ✅ v3.2.0
 | ID | Fonctionnalité | Effort | Priorité | Statut |
 |----|---------------|--------|----------|--------|
-| FEAT-SUGGEST | Suggestions de saisie rapide basées sur l'historique récent | 5-8h | Moyen | 🔵 À faire |
+| FEAT-SUGGEST | Suggestions de saisie rapide basées sur l'historique récent | 5-8h | Moyen | ✅ Livré |
 
 **Contexte :** Quand l'utilisateur tape dans le champ libellé du formulaire d'ajout de transaction, l'app suggère les transactions fréquentes des 30 derniers jours qui correspondent. Un tap pré-remplit libellé + montant + catégorie d'un coup — sans setup manuel, l'app apprend de l'historique existant.
 
@@ -392,7 +394,29 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 
 **Pas de migration Room — version cible : v3.2.0**
 
-**Workflow Sprint 15 :** `feature/sprint-15-suggest` → PR → `develop` → PR → `main`.
+**Workflow Sprint 15 :** `feature/sprint-15-suggest` → PR #7 → `develop` → PR → `main`. ✅ Exécuté.
+
+### 7.8 Sprint 16 — Récurrences enrichies ✅ v4.0.0
+| ID | Fonctionnalité | Effort | Priorité | Statut |
+|----|---------------|--------|----------|--------|
+| FEAT-RECUR | Récurrences enrichies : WEEKLY/MONTHLY/YEARLY + firstPaymentDate + endDate + vue "Prochains paiements" | 10-15h | Élevé | ✅ Livré |
+
+**Changements Room v7→v8 :**
+- 3 nouvelles colonnes sur `transactions` : `recurrence_frequency TEXT`, `first_payment_date TEXT`, `end_date TEXT`
+- Fichier de migration : `8.json`
+- `GenerateMonthlyRecurringUseCase` remplacé par `GenerateRecurringUseCase` (3 fréquences + date de fin)
+
+**Nouveaux composants :**
+- `RecurrenceFrequency` — enum `WEEKLY / MONTHLY / YEARLY`
+- `UpcomingPayment` — data class domain (label, montant, devise, date, fréquence)
+- `GenerateRecurringUseCase` — génère les occurrences selon la fréquence + date de fin
+- `GetUpcomingPaymentsUseCase` — retourne les N prochains paiements récurrents triés par date
+- Dashboard — carte « Prochains paiements » dans `DashboardScreen`
+- Formulaire dépenses — sélecteur de fréquence (dropdown) + sélecteur date de fin ; coexiste avec chips Sprint 15
+
+**Version cible : v4.0.0** (rupture schéma Room → convention versioning majeur)
+
+**Workflow Sprint 16 :** `feature/sprint-15-feat-recur` → PR #8 → `develop`. ✅ Exécuté.
 
 ### 7.6 Backlog V4 (long terme)
 | ID | Fonctionnalité | Effort |
@@ -400,8 +424,7 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 | F8 | Export CSV des transactions | 8-12h |
 | F9 | Sauvegarde cloud chiffrée | 15-20h |
 | SEC-01 | SQLCipher — chiffrement Room | 8-12h |
-| PERF-01 | Tests d'intégration Room | 10-15h |
-| FEAT-RECUR | Récurrences enrichies : weekly/yearly + firstPayment + endDate + vue "Prochains paiements" | 10-15h |
+| PERF-01 | Tests d'intégration Room (in-memory, avant prochaine migration) | 10-15h |
 
 ---
 
@@ -409,8 +432,8 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 
 | Risque | Probabilité | Impact | Mitigation | Statut |
 |--------|------------|--------|------------|--------|
-| Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 4 migrations faites, tests absents |
-| Régression lors d'une 8e migration | Moyen | Élevé | Configurer tests Room In-Memory avant v7→v8 | 🟡 Room v7 stable, 7 migrations sans tests d'intégration |
+| Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 8 migrations faites, tests d'intégration Room absents |
+| Régression lors d'une 9e migration | Moyen | Élevé | Configurer tests Room In-Memory (backlog PERF-01) | 🟡 Room v8 stable — migration v7→v8 livrée Sprint 16 |
 | Taux de change indisponible | Faible | Moyen | Cache local des derniers taux | 🟡 API pas encore intégrée |
 | Fuite de données sensibles | Faible | Très élevé | Room non chiffrée (SQLCipher absent) | 🟡 Acceptable V1, à traiter V3 |
 | Rejet Play Store | Moyen | Élevé | Politique de confidentialité publiée, assets conformes | ✅ Mitigé |
@@ -434,6 +457,7 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 | 3.6 | 2026-05-20 | Florent | Mise à jour état réel — Sprints 13 + 14 marqués terminés, stack technique corrigée (Kover/Crashlytics/Frankfurter ✅), version 3.1.0, F8/F9 backlog V4 |
 | 3.7 | 2026-05-20 | Florent | Sprint 15 défini — FEAT-SUGGEST suggestions de saisie rapide (5-8h, v3.2.0, sans migration Room) |
 | 3.8 | 2026-05-20 | Florent | Sprint 15 marqué terminé — PR #7 mergée, v3.2.0 |
+| 3.9 | 2026-05-20 | Florent | Sprint 16 FEAT-RECUR livré — Room v7→v8, récurrences enrichies, vue prochains paiements, v4.0.0 |
 
 ---
 
