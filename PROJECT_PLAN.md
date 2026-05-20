@@ -1,8 +1,8 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 3.3 — 2026-05-19  
-> Statut : **En production** — v3.0.1 publiée (CI vert, Play Store en attente validation)
+> Version du document : 3.6 — 2026-05-20  
+> Statut : **En production** — v3.1.0 publiée (CI vert, Play Store en attente validation)
 
 ---
 
@@ -31,12 +31,12 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 | F1 | Saisie et suivi du budget mensuel | MUST | ✅ Fait |
 | F2 | Suivi des dépenses par catégorie | MUST | ✅ Fait (+ recherche, filtres, sous-catégories) |
 | F3 | Suivi des investissements | MUST | ✅ Fait (SCPI, immobilier, Airbnb, épargne) |
-| F4 | Multi-devises : EUR, USD, XOF/XAF | MUST | ⚠️ Partiel — stockage en centimes ✅, taux de change API ❌ |
+| F4 | Multi-devises : EUR, USD, XOF/XAF | MUST | ✅ Fait — stockage en centimes + taux de change Frankfurter en temps réel |
 | F5 | Projections graphiques | MUST | ✅ Fait (donut, courbe 6 mois, barres investissements) |
 | F6 | Rappels et conseils sur fonds disponibles | SHOULD | ✅ Fait (3 canaux de notifications, Sprint 6) |
 | F7 | Authentification sécurisée | SHOULD | ✅ Fait (PIN 4 chiffres + biométrie — email/password retiré UI Sprint 12) |
-| F8 | Export des données (CSV/PDF) | COULD | ❌ Non implémenté — backlog V3 |
-| F9 | Sauvegarde cloud chiffrée | COULD | ❌ Non implémenté — backlog V3 |
+| F8 | Export des données (CSV/PDF) | COULD | ❌ Non implémenté — backlog V4 |
+| F9 | Sauvegarde cloud chiffrée | COULD | ❌ Non implémenté — backlog V4 |
 
 ### Fonctionnalités réalisées au-delà du périmètre initial
 - **Rapport mensuel** — Module complet avec bilan, top catégories, variation M/M-1 (Sprint 8)
@@ -99,18 +99,18 @@ app/src/main/java/com/dibitara/app/
 | UI | Jetpack Compose | ✅ En production |
 | Navigation | Navigation Component | ✅ En production |
 | Architecture | ViewModel + StateFlow | ✅ En production |
-| Base de données locale | Room v4 | ✅ En production |
+| Base de données locale | Room v7 | ✅ En production |
 | Injection de dépendances | Hilt | ✅ En production |
 | Async | Coroutines + Flow | ✅ En production |
 | Graphiques | Vico (ou MPAndroidChart) | ✅ En production |
 | Préférences | DataStore | ✅ En production |
 | Sécurité auth | EncryptedSharedPreferences + PBKDF2 | ✅ En production |
 | Biométrie | BiometricPrompt (récupération accès) | ✅ En production |
-| Taux de change API | Frankfurter | ❌ Non implémenté |
+| Taux de change API | Frankfurter | ✅ En production |
 | Tests UI | Espresso / Compose Test | ❌ Non implémenté |
 | Tests unitaires | JUnit 5 + MockK | ✅ 123 tests |
-| Couverture | Kover | ❌ Non configuré |
-| Firebase Crashlytics | — | ❌ Non intégré |
+| Couverture | Kover | ✅ Configuré — seuil 80% domain/, CI actif |
+| Firebase Crashlytics | — | ✅ En production |
 
 ### 2.3 Cibles Android
 | Paramètre | Valeur |
@@ -186,11 +186,11 @@ Pyramide de tests (situation actuelle) :
 
 | Niveau | Outil | Cible | Réel |
 |--------|-------|-------|------|
-| Unitaires | JUnit + MockK | ≥ 80% sur `domain/` | 110 tests, couverture non mesurée |
+| Unitaires | JUnit + MockK | ≥ 80% sur `domain/` | 25 fichiers (123+ tests), Kover actif |
 | Intégration | Room In-Memory | Repositories | ❌ Non implémenté |
 | UI / E2E | Espresso + Compose Test | Parcours critiques | ❌ Non implémenté |
 
-> **Recommandation :** Configurer Kover avant le Sprint suivant pour mesurer la couverture réelle. Priorité aux tests d'intégration Room avant d'ajouter une 5e migration.
+> **Note :** Kover configuré — seuil 80% domain/ actif en CI (Sprint 13). Priorité aux tests d'intégration Room avant la prochaine migration.
 
 ### 4.2 Appareils de test
 | Type | Détail | Statut |
@@ -204,7 +204,7 @@ Pyramide de tests (situation actuelle) :
 - Signing config conditionnelle (ne bloque pas le CI) ✅
 - Tests unitaires automatisés en CI : ✅ 123 tests lancés à chaque push
 - Rapport de couverture domain/ (seuil 80%) : ✅ Step CI actif
-- Kover — mesure détaillée couverture : ❌ Non configuré (TECH-01)
+- Kover — mesure détaillée couverture : ✅ Configuré, seuil 80% domain/ (TECH-01 livré Sprint 13)
 - Protection branche `main` : ✅ PR + CI requis depuis 2026-05-18
 
 ### 4.4 Parcours critiques (smoke tests manuels)
@@ -213,7 +213,7 @@ Pyramide de tests (situation actuelle) :
 3. Modification d'un budget → valeur mise à jour ✅ Validé (BUG-02 corrigé)
 4. Consultation graphiques dashboard + rapport mensuel ✅ Validé v2.5.0
 5. CRUD Épargne et Investissements (édition + suppression) ✅ Validé (BUG-03/04 corrigés)
-6. Changement de devise EUR → USD → XOF ⚠️ Stockage OK, conversion API non implémentée
+6. Changement de devise EUR → USD → XOF ✅ Stockage + taux de change Frankfurter en temps réel
 7. Sauvegarde et restauration des données ❌ Non couvert (pas de backup cloud)
 
 ---
@@ -226,8 +226,8 @@ Pyramide de tests (situation actuelle) :
 | Google Play Store | 25 € | Une fois | ✅ Payé |
 | Figma | 0 € | — | Non utilisé |
 | GitHub | 0 € | — | ✅ Actif |
-| Firebase Crashlytics | 0 € | — | ❌ Non intégré |
-| API Frankfurter | 0 € | — | ❌ Non implémenté |
+| Firebase Crashlytics | 0 € | — | ✅ Actif en production |
+| API Frankfurter | 0 € | — | ✅ En production |
 
 > **Total coûts directs V1 : 25 € (réalisé)**
 
@@ -265,8 +265,8 @@ Pyramide de tests (situation actuelle) :
 | Sprint 11 | Versement mensuel Épargne & SCPI (migration v5→v6) | ✅ Terminé | v3.0.0 |
 | Sprint 12 | Améliorations pré-déploiement v3.0.0 | ✅ Terminé | v3.0.0 |
 | Sprint 12b | Correctifs CI — tests ViewModel + UseCase | ✅ Terminé | v3.0.1 |
-| Sprint 13 | Qualité technique (Kover, Crashlytics, taux de change) | 🔵 À venir | — |
-| Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | 🔵 Backlog | — |
+| Sprint 13 | Qualité technique (Kover, Crashlytics, taux de change) | ✅ Terminé | v3.1.0 |
+| Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | ✅ Terminé | v3.1.0 |
 
 ---
 
@@ -340,14 +340,14 @@ Pyramide de tests (situation actuelle) :
 
 ---
 
-### 7.4 Sprint 13 — Qualité technique (post v3.0.1) 🔵 À venir
-| ID | Fonctionnalité | Effort | Priorité |
-|----|---------------|--------|----------|
-| TECH-01 | Kover — mesure couverture détaillée + seuil CI | 4-6h | Moyen |
-| TECH-02 | Firebase Crashlytics (free tier) | 2-3h | Moyen |
-| FEAT-04 | Taux de change live (API Frankfurter EUR/USD/XOF) | 6-8h | Moyen |
+### 7.4 Sprint 13 — Qualité technique ✅ v3.1.0
+| ID | Fonctionnalité | Effort | Priorité | Statut |
+|----|---------------|--------|----------|--------|
+| TECH-01 | Kover — mesure couverture détaillée + seuil CI | 4-6h | Moyen | ✅ Livré |
+| TECH-02 | Firebase Crashlytics (free tier) | 2-3h | Moyen | ✅ Livré |
+| FEAT-04 | Taux de change live (API Frankfurter EUR/USD/XOF) | 6-8h | Moyen | ✅ Livré |
 
-**Workflow Sprint 13 :** créer `feature/sprint-13-tech` depuis `develop`, PR vers `develop`, puis `develop` → `main`.
+**Workflow Sprint 13 :** `feature/sprint-13-tech` → PR → `develop` → PR → `main` — ✅ Exécuté.
 
 ### 7.5 Sprint 14 — Idées & Analyses (backlog identifié 2026-05-19)
 | ID | Fonctionnalité | Effort | Priorité | Statut |
@@ -410,6 +410,7 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 | 3.3 | 2026-05-19 | Florent | Sprint 14 backlog : UX-02 (IME), ANALYSE-01 (RecurringExpenseTracker), FEAT-BUDGET-INT (donut interactif) ; note convention versioning v3→v4 |
 | 3.4 | 2026-05-19 | Florent | Sprint 14 : UX-02 livré, ANALYSE-01 terminé (NO-GO GPL-3.0 + KMP incompatible), backlog v4 enrichi FEAT-RECUR |
 | 3.5 | 2026-05-19 | Florent | BUG-AUTH livré (preuve d'installation noBackupFilesDir), FEAT-BUDGET-INT marqué livré, Sprint 13 marqué terminé |
+| 3.6 | 2026-05-20 | Florent | Mise à jour état réel — Sprints 13 + 14 marqués terminés, stack technique corrigée (Kover/Crashlytics/Frankfurter ✅), version 3.1.0, F8/F9 backlog V4 |
 
 ---
 
