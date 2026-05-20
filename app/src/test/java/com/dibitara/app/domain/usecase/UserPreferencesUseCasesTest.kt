@@ -56,4 +56,13 @@ class UserPreferencesUseCasesTest {
 
         coVerify { repository.updateDevise(Currency.XOF) }
     }
+
+    // ─── UpdateAfficherProchainsPaiementsUseCase ──────────────────────────────
+
+    @Test
+    fun `UpdateAfficherProchainsPaiements délègue la mise à jour au repository`() = runTest {
+        UpdateAfficherProchainsPaiementsUseCase(repository)(false)
+
+        coVerify { repository.updateAfficherProchainsPaiements(false) }
+    }
 }

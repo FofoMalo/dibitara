@@ -39,7 +39,7 @@ class DashboardViewModel @Inject constructor(
             spendingHistory = history,
             upcomingPayments = upcoming,
             // null si la fonctionnalité est désactivée — le Dashboard affiche alors le graphique
-            rapportMensuel  = if (prefs.afficherRapportMensuel) rapport else null
+            rapportMensuel   = if (prefs.afficherRapportMensuel) rapport else null
         ) as DashboardUiState
     }
         .catch { emit(DashboardUiState.Error(it.message ?: "Erreur inconnue")) }

@@ -12,5 +12,6 @@ interface UserPreferencesRepository {
     suspend fun updateAfficherRapport(afficher: Boolean)
     suspend fun updateAfficherEpargne(afficher: Boolean)
     suspend fun updateAfficherInvestissements(afficher: Boolean)
+    suspend fun updateAfficherProchainsPaiements(afficher: Boolean)
     suspend fun updateTwoFactorEnabled(enabled: Boolean)
 }
