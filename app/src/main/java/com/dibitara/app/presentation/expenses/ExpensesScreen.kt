@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
@@ -33,6 +34,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TransactionSuggestion
 import com.dibitara.app.domain.model.TransactionType
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -42,6 +44,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val filter by viewModel.filter.collectAsState()
     val defaultCurrency by viewModel.defaultCurrency.collectAsState()
+    val suggestions by viewModel.suggestions.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
@@ -151,14 +154,17 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             expense                  = null,
             defaultCurrency          = defaultCurrency,
             customSubCategories      = customSubCategories,
+            suggestions              = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
-            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
+            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate ->
                 viewModel.addExpense(amount, category, currency, note,
                     date = date,
                     type = type,
                     isRecurring = isRecurring, recurrenceDay = recurrenceDay,
                     subCategory = subCategory,
-                    customSubCategoryId = customSubCategoryId)
+                    customSubCategoryId = customSubCategoryId,
+                    recurrenceFrequency = freq,
+                    endDate = endDate)
             },
             onDismiss = { showAddSheet = false }
         )
@@ -170,14 +176,17 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             expense                  = expense,
             defaultCurrency          = defaultCurrency,
             customSubCategories      = customSubCategories,
+            suggestions              = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
-            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
+            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate ->
                 viewModel.updateExpense(expense, amount, category, currency, note,
                     date = date,
                     type = type,
                     isRecurring = isRecurring, recurrenceDay = recurrenceDay,
                     subCategory = subCategory,
-                    customSubCategoryId = customSubCategoryId)
+                    customSubCategoryId = customSubCategoryId,
+                    recurrenceFrequency = freq,
+                    endDate = endDate)
             },
             onDismiss = { editingExpense = null }
         )
@@ -415,8 +424,9 @@ private fun ExpenseSheet(
     expense: Transaction?,
     defaultCurrency: Currency = Currency.EUR,
     customSubCategories: List<CustomSubCategory>,
+    suggestions: List<TransactionSuggestion> = emptyList(),
     onCreateCustomSubCategory: (String, Category) -> Unit,
-    onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?) -> Unit,
+    onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?, com.dibitara.app.domain.model.RecurrenceFrequency?, LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
     // Toujours formater avec un point — "%.2f" utilise la locale système (virgule sur FR)
@@ -430,6 +440,12 @@ private fun ExpenseSheet(
     var currencyExpanded by remember { mutableStateOf(false) }
     var isRecurring by remember { mutableStateOf(expense?.isRecurring ?: false) }
     var recurrenceDayStr by remember { mutableStateOf(expense?.recurrenceDay?.toString() ?: "") }
+    var selectedFrequency by remember {
+        mutableStateOf(expense?.recurrenceFrequency ?: com.dibitara.app.domain.model.RecurrenceFrequency.MONTHLY)
+    }
+    var frequencyExpanded by remember { mutableStateOf(false) }
+    var endDate by remember { mutableStateOf(expense?.endDate) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
     var selectedSubCategory by remember { mutableStateOf(expense?.subCategory) }
     // Sous-catégorie personnalisée sélectionnée (cherchée par id à l'ouverture)
     var selectedCustomSubCategory by remember {
@@ -631,6 +647,38 @@ private fun ExpenseSheet(
                 modifier = Modifier.fillMaxWidth().focusRequester(noteFocusRequester)
             )
 
+            // Chips de suggestion — filtrées sur ce que l'utilisateur a tapé dans la note
+            val suggestionsFiltrées = remember(note, suggestions) {
+                if (note.isBlank()) emptyList()
+                else suggestions.filter { it.label.contains(note.trim(), ignoreCase = true) }
+            }
+            if (suggestionsFiltrées.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(suggestionsFiltrées) { suggestion ->
+                        SuggestionChip(
+                            onClick = {
+                                // Pré-remplit tous les champs en un seul tap
+                                note = suggestion.label
+                                amount = "%.2f".format(suggestion.amountCents / 100.0).replace(',', '.')
+                                selectedCategory = suggestion.category
+                                selectedCurrency = suggestion.currency
+                                selectedType = suggestion.type
+                                selectedSubCategory = suggestion.subCategory
+                                selectedCustomSubCategory = suggestion.customSubCategoryId
+                                    ?.let { id -> customSubCategories.find { it.id == id } }
+                            },
+                            label = {
+                                Text(
+                                    "${suggestion.label}  " +
+                                    "${"%.2f".format(suggestion.amountCents / 100.0)} " +
+                                    suggestion.currency.symbol
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -641,31 +689,91 @@ private fun ExpenseSheet(
                     isRecurring = it
                     if (!it) {
                         recurrenceDayStr = ""
+                        endDate = null
                     } else if (recurrenceDayStr.isEmpty()) {
-                        // Pré-remplir avec le jour de la transaction (max 28 pour éviter les mois courts)
                         recurrenceDayStr = selectedDate.dayOfMonth.coerceAtMost(28).toString()
                     }
                 })
             }
 
             if (isRecurring) {
+                // Sélecteur de fréquence : Mensuelle / Hebdomadaire / Annuelle
+                ExposedDropdownMenuBox(
+                    expanded = frequencyExpanded,
+                    onExpandedChange = { frequencyExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedFrequency.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Fréquence") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(frequencyExpanded) },
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = frequencyExpanded,
+                        onDismissRequest = { frequencyExpanded = false }
+                    ) {
+                        com.dibitara.app.domain.model.RecurrenceFrequency.entries.forEach { freq ->
+                            DropdownMenuItem(
+                                text = { Text(freq.displayName) },
+                                onClick = {
+                                    selectedFrequency = freq
+                                    frequencyExpanded = false
+                                    // Réinitialise le champ jour si on quitte MONTHLY
+                                    if (freq != com.dibitara.app.domain.model.RecurrenceFrequency.MONTHLY) {
+                                        recurrenceDayStr = ""
+                                    } else if (recurrenceDayStr.isEmpty()) {
+                                        recurrenceDayStr = selectedDate.dayOfMonth.coerceAtMost(28).toString()
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Champ "Jour du mois" uniquement pour MONTHLY
+                if (selectedFrequency == com.dibitara.app.domain.model.RecurrenceFrequency.MONTHLY) {
+                    OutlinedTextField(
+                        value = recurrenceDayStr,
+                        onValueChange = { v ->
+                            val n = v.filter { it.isDigit() }.take(2)
+                            recurrenceDayStr = if (n.toIntOrNull()?.let { it > 28 } == true) "28" else n
+                        },
+                        label = { Text("Jour du mois (1-28)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().focusRequester(dayFocusRequester)
+                    )
+                }
+
+                // Date de fin optionnelle
                 OutlinedTextField(
-                    value = recurrenceDayStr,
-                    onValueChange = { v ->
-                        val n = v.filter { it.isDigit() }.take(2)
-                        recurrenceDayStr = if (n.toIntOrNull()?.let { it > 28 } == true) "28" else n
+                    value = endDate?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) ?: "Indéfiniment",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Date de fin (optionnel)") },
+                    trailingIcon = {
+                        Row {
+                            if (endDate != null) {
+                                IconButton(onClick = { endDate = null }) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Supprimer la date de fin")
+                                }
+                            }
+                            IconButton(onClick = { showEndDatePicker = true }) {
+                                Icon(Icons.Filled.CalendarToday, contentDescription = "Choisir une date de fin")
+                            }
+                        }
                     },
-                    label = { Text("Jour du mois (1-28)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().focusRequester(dayFocusRequester)
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
             val recurrenceDay = recurrenceDayStr.toIntOrNull()
+            val monthlyValid = selectedFrequency != com.dibitara.app.domain.model.RecurrenceFrequency.MONTHLY || recurrenceDay != null
             val saveEnabled = amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true
-                    && (!isRecurring || recurrenceDay != null)
+                    && (!isRecurring || monthlyValid)
 
             Button(
                 onClick = {
@@ -680,8 +788,10 @@ private fun ExpenseSheet(
                     val customSubCatIdFinale = selectedCustomSubCategory?.id.takeIf {
                         selectedType == TransactionType.EXPENSE
                     }
+                    val freqFinale = if (isRecurring) selectedFrequency else null
                     onSave(amount, catFinale, selectedCurrency, note, selectedDate,
-                        isRecurring, recurrenceDay, subCatFinale, selectedType, customSubCatIdFinale)
+                        isRecurring, recurrenceDay, subCatFinale, selectedType, customSubCatIdFinale,
+                        freqFinale, endDate)
                 },
                 enabled = saveEnabled,
                 modifier = Modifier.fillMaxWidth()
@@ -710,6 +820,29 @@ private fun ExpenseSheet(
             }
         ) {
             DatePicker(state = datePickerState)
+        }
+    }
+
+    // Sélecteur de date de fin de récurrence
+    if (showEndDatePicker) {
+        val endDatePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (endDate ?: LocalDate.now().plusMonths(1)).toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    endDatePickerState.selectedDateMillis?.let { millis ->
+                        endDate = LocalDate.ofEpochDay(millis / 86_400_000L)
+                    }
+                    showEndDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndDatePicker = false }) { Text("Annuler") }
+            }
+        ) {
+            DatePicker(state = endDatePickerState)
         }
     }
 

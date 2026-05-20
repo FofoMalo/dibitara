@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.usecase.CheckAvailableFundsUseCase
 import com.dibitara.app.domain.usecase.CheckBudgetNotificationUseCase
 import com.dibitara.app.domain.usecase.CheckDebtRemindersUseCase
-import com.dibitara.app.domain.usecase.GenerateMonthlyRecurringUseCase
+import com.dibitara.app.domain.usecase.GenerateRecurringUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.presentation.common.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,7 +22,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class AppViewModel @Inject constructor(
-    private val generateMonthlyRecurring: GenerateMonthlyRecurringUseCase,
+    private val generateRecurring: GenerateRecurringUseCase,
     private val checkBudget: CheckBudgetNotificationUseCase,
     private val checkDebtReminders: CheckDebtRemindersUseCase,
     private val checkAvailableFunds: CheckAvailableFundsUseCase,
@@ -32,7 +32,7 @@ class AppViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            generateMonthlyRecurring()
+            generateRecurring()
             verifierNotifications()
         }
     }

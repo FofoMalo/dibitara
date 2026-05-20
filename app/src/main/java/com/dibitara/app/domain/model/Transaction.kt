@@ -17,12 +17,15 @@ data class Transaction(
     val type: TransactionType,
     val date: LocalDate,
     val note: String = "",
-    val childId: Long? = null,          // Identifiant de l'enfant associé (null si pas d'enfant)
-    val isRecurring: Boolean = false,   // true = cette transaction est un modèle récurrent mensuel
-    val recurrenceDay: Int? = null,     // Jour du mois (1-28) auquel l'occurrence est générée
-    val sourceRecurringId: Long? = null,// ID du modèle qui a généré cette occurrence (null si saisie manuelle)
-    val subCategory: SubCategory? = null,       // Non-null uniquement si category == AUTRE (enum fixe)
-    val customSubCategoryId: Long? = null       // Référence à une CustomSubCategory créée par l'utilisateur
+    val childId: Long? = null,                      // Identifiant de l'enfant associé (null si pas d'enfant)
+    val isRecurring: Boolean = false,               // true = cette transaction est un modèle récurrent
+    val recurrenceDay: Int? = null,                 // Jour du mois (1-28) — utilisé pour MONTHLY uniquement
+    val sourceRecurringId: Long? = null,            // ID du modèle qui a généré cette occurrence
+    val subCategory: SubCategory? = null,           // Non-null uniquement si category == AUTRE (enum fixe)
+    val customSubCategoryId: Long? = null,          // Référence à une CustomSubCategory créée par l'utilisateur
+    val recurrenceFrequency: RecurrenceFrequency? = null, // null si non-récurrent ou MONTHLY (rétrocompat)
+    val firstPaymentDate: LocalDate? = null,        // Date de la première occurrence (détermine le jour pour WEEKLY/YEARLY)
+    val endDate: LocalDate? = null                  // Date de fin de récurrence (null = indéfini)
 )
 
 enum class TransactionType { EXPENSE, INCOME, INVESTMENT }

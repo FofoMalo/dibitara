@@ -5,14 +5,17 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
+import com.dibitara.app.domain.model.RecurrenceFrequency
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TransactionSuggestion
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.AddTransactionUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomSubCategoryUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
+import com.dibitara.app.domain.usecase.GetTransactionSuggestionsUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
@@ -33,12 +36,18 @@ class ExpensesViewModel @Inject constructor(
     private val ucUpsertCustomSubCategory: UpsertCustomSubCategoryUseCase,
     private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase,
     private val ucGetPreferences: GetUserPreferencesUseCase,
+    private val ucGetSuggestions: GetTransactionSuggestionsUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
         .map { it.deviseParDefaut }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
+
+    // Suggestions de saisie rapide — issues des 30 derniers jours, fréquence ≥ 2
+    val suggestions: StateFlow<List<TransactionSuggestion>> = ucGetSuggestions()
+        .catch { emit(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // Filtre initial : pré-rempli si on arrive depuis BudgetScreen via navigation avec args
     private val _filter = MutableStateFlow(
@@ -85,7 +94,9 @@ class ExpensesViewModel @Inject constructor(
         isRecurring: Boolean = false,
         recurrenceDay: Int? = null,
         subCategory: SubCategory? = null,
-        customSubCategoryId: Long? = null
+        customSubCategoryId: Long? = null,
+        recurrenceFrequency: RecurrenceFrequency? = null,
+        endDate: LocalDate? = null
     ) {
         val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -104,7 +115,10 @@ class ExpensesViewModel @Inject constructor(
                     isRecurring = isRecurring,
                     recurrenceDay = recurrenceDay,
                     subCategory = subCategory,
-                    customSubCategoryId = customSubCategoryId
+                    customSubCategoryId = customSubCategoryId,
+                    recurrenceFrequency = recurrenceFrequency,
+                    firstPaymentDate = if (isRecurring) date else null,
+                    endDate = endDate
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }
@@ -124,7 +138,9 @@ class ExpensesViewModel @Inject constructor(
         isRecurring: Boolean = false,
         recurrenceDay: Int? = null,
         subCategory: SubCategory? = null,
-        customSubCategoryId: Long? = null
+        customSubCategoryId: Long? = null,
+        recurrenceFrequency: RecurrenceFrequency? = null,
+        endDate: LocalDate? = null
     ) {
         val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -143,7 +159,10 @@ class ExpensesViewModel @Inject constructor(
                     isRecurring = isRecurring,
                     recurrenceDay = recurrenceDay,
                     subCategory = subCategory,
-                    customSubCategoryId = customSubCategoryId
+                    customSubCategoryId = customSubCategoryId,
+                    recurrenceFrequency = recurrenceFrequency,
+                    firstPaymentDate = original.firstPaymentDate ?: if (isRecurring) date else null,
+                    endDate = endDate
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }

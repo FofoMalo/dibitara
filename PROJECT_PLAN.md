@@ -1,8 +1,8 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 3.3 — 2026-05-19  
-> Statut : **En production** — v3.0.1 publiée (CI vert, Play Store en attente validation)
+> Version du document : 3.9 — 2026-05-20  
+> Statut : **En développement actif** — v4.0.0 sur develop (rupture schéma Room v7→v8)
 
 ---
 
@@ -31,12 +31,12 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 | F1 | Saisie et suivi du budget mensuel | MUST | ✅ Fait |
 | F2 | Suivi des dépenses par catégorie | MUST | ✅ Fait (+ recherche, filtres, sous-catégories) |
 | F3 | Suivi des investissements | MUST | ✅ Fait (SCPI, immobilier, Airbnb, épargne) |
-| F4 | Multi-devises : EUR, USD, XOF/XAF | MUST | ⚠️ Partiel — stockage en centimes ✅, taux de change API ❌ |
+| F4 | Multi-devises : EUR, USD, XOF/XAF | MUST | ✅ Fait — stockage en centimes + taux de change Frankfurter en temps réel |
 | F5 | Projections graphiques | MUST | ✅ Fait (donut, courbe 6 mois, barres investissements) |
 | F6 | Rappels et conseils sur fonds disponibles | SHOULD | ✅ Fait (3 canaux de notifications, Sprint 6) |
 | F7 | Authentification sécurisée | SHOULD | ✅ Fait (PIN 4 chiffres + biométrie — email/password retiré UI Sprint 12) |
-| F8 | Export des données (CSV/PDF) | COULD | ❌ Non implémenté — backlog V3 |
-| F9 | Sauvegarde cloud chiffrée | COULD | ❌ Non implémenté — backlog V3 |
+| F8 | Export des données (CSV/PDF) | COULD | ❌ Non implémenté — backlog V4 |
+| F9 | Sauvegarde cloud chiffrée | COULD | ❌ Non implémenté — backlog V4 |
 
 ### Fonctionnalités réalisées au-delà du périmètre initial
 - **Rapport mensuel** — Module complet avec bilan, top catégories, variation M/M-1 (Sprint 8)
@@ -68,7 +68,7 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 ```
 app/src/main/java/com/dibitara/app/
 ├── data/
-│   ├── local/        — Room v7, migrations 1→2→3→4→5→6→7
+│   ├── local/        — Room v8, migrations 1→2→3→4→5→6→7→8
 │   └── repository/   — *RepositoryImpl.kt + UserPreferencesRepositoryImpl (DataStore)
 ├── di/               — DatabaseModule, DataStoreModule, SecurityModule
 ├── domain/
@@ -76,9 +76,10 @@ app/src/main/java/com/dibitara/app/
 │   │                   ScpiInvestment, AirbnbRental, PatrimonyOverview, Currency,
 │   │                   Category, SubCategory, CustomSubCategory, DebtType, SavingsType,
 │   │                   Child, UserPreferences, MonthlyReport, CategoryExpense,
-│   │                   MonthlyVersement
+│   │                   MonthlyVersement, RecurrenceFrequency, UpcomingPayment,
+│   │                   TransactionSuggestion
 │   ├── repository/   — 8 interfaces + UserPreferencesRepository + VersementRepository
-│   └── usecase/      — 40+ UseCases (1 responsabilité = 1 UseCase)
+│   └── usecase/      — 43+ UseCases (1 responsabilité = 1 UseCase)
 └── presentation/
     ├── auth/         — LockScreen, AuthViewModel (PIN + email/password + biométrie)
     ├── dashboard/    — graphique 6 mois OU carte rapport selon toggle
@@ -99,18 +100,18 @@ app/src/main/java/com/dibitara/app/
 | UI | Jetpack Compose | ✅ En production |
 | Navigation | Navigation Component | ✅ En production |
 | Architecture | ViewModel + StateFlow | ✅ En production |
-| Base de données locale | Room v4 | ✅ En production |
+| Base de données locale | Room v8 | ✅ En production |
 | Injection de dépendances | Hilt | ✅ En production |
 | Async | Coroutines + Flow | ✅ En production |
 | Graphiques | Vico (ou MPAndroidChart) | ✅ En production |
 | Préférences | DataStore | ✅ En production |
 | Sécurité auth | EncryptedSharedPreferences + PBKDF2 | ✅ En production |
 | Biométrie | BiometricPrompt (récupération accès) | ✅ En production |
-| Taux de change API | Frankfurter | ❌ Non implémenté |
+| Taux de change API | Frankfurter | ✅ En production |
 | Tests UI | Espresso / Compose Test | ❌ Non implémenté |
 | Tests unitaires | JUnit 5 + MockK | ✅ 123 tests |
-| Couverture | Kover | ❌ Non configuré |
-| Firebase Crashlytics | — | ❌ Non intégré |
+| Couverture | Kover | ✅ Configuré — seuil 80% domain/, CI actif |
+| Firebase Crashlytics | — | ✅ En production |
 
 ### 2.3 Cibles Android
 | Paramètre | Valeur |
@@ -186,11 +187,11 @@ Pyramide de tests (situation actuelle) :
 
 | Niveau | Outil | Cible | Réel |
 |--------|-------|-------|------|
-| Unitaires | JUnit + MockK | ≥ 80% sur `domain/` | 110 tests, couverture non mesurée |
+| Unitaires | JUnit + MockK | ≥ 80% sur `domain/` | 25 fichiers (123+ tests), Kover actif |
 | Intégration | Room In-Memory | Repositories | ❌ Non implémenté |
 | UI / E2E | Espresso + Compose Test | Parcours critiques | ❌ Non implémenté |
 
-> **Recommandation :** Configurer Kover avant le Sprint suivant pour mesurer la couverture réelle. Priorité aux tests d'intégration Room avant d'ajouter une 5e migration.
+> **Note :** Kover configuré — seuil 80% domain/ actif en CI (Sprint 13). Priorité aux tests d'intégration Room avant la prochaine migration.
 
 ### 4.2 Appareils de test
 | Type | Détail | Statut |
@@ -204,7 +205,7 @@ Pyramide de tests (situation actuelle) :
 - Signing config conditionnelle (ne bloque pas le CI) ✅
 - Tests unitaires automatisés en CI : ✅ 123 tests lancés à chaque push
 - Rapport de couverture domain/ (seuil 80%) : ✅ Step CI actif
-- Kover — mesure détaillée couverture : ❌ Non configuré (TECH-01)
+- Kover — mesure détaillée couverture : ✅ Configuré, seuil 80% domain/ (TECH-01 livré Sprint 13)
 - Protection branche `main` : ✅ PR + CI requis depuis 2026-05-18
 
 ### 4.4 Parcours critiques (smoke tests manuels)
@@ -213,7 +214,7 @@ Pyramide de tests (situation actuelle) :
 3. Modification d'un budget → valeur mise à jour ✅ Validé (BUG-02 corrigé)
 4. Consultation graphiques dashboard + rapport mensuel ✅ Validé v2.5.0
 5. CRUD Épargne et Investissements (édition + suppression) ✅ Validé (BUG-03/04 corrigés)
-6. Changement de devise EUR → USD → XOF ⚠️ Stockage OK, conversion API non implémentée
+6. Changement de devise EUR → USD → XOF ✅ Stockage + taux de change Frankfurter en temps réel
 7. Sauvegarde et restauration des données ❌ Non couvert (pas de backup cloud)
 
 ---
@@ -226,8 +227,8 @@ Pyramide de tests (situation actuelle) :
 | Google Play Store | 25 € | Une fois | ✅ Payé |
 | Figma | 0 € | — | Non utilisé |
 | GitHub | 0 € | — | ✅ Actif |
-| Firebase Crashlytics | 0 € | — | ❌ Non intégré |
-| API Frankfurter | 0 € | — | ❌ Non implémenté |
+| Firebase Crashlytics | 0 € | — | ✅ Actif en production |
+| API Frankfurter | 0 € | — | ✅ En production |
 
 > **Total coûts directs V1 : 25 € (réalisé)**
 
@@ -265,8 +266,10 @@ Pyramide de tests (situation actuelle) :
 | Sprint 11 | Versement mensuel Épargne & SCPI (migration v5→v6) | ✅ Terminé | v3.0.0 |
 | Sprint 12 | Améliorations pré-déploiement v3.0.0 | ✅ Terminé | v3.0.0 |
 | Sprint 12b | Correctifs CI — tests ViewModel + UseCase | ✅ Terminé | v3.0.1 |
-| Sprint 13 | Qualité technique (Kover, Crashlytics, taux de change) | 🔵 À venir | — |
-| Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | 🔵 Backlog | — |
+| Sprint 13 | Qualité technique (Kover, Crashlytics, taux de change) | ✅ Terminé | v3.1.0 |
+| Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | ✅ Terminé | v3.1.0 |
+| Sprint 15 | Suggestions de saisie rapide basées sur l'historique récent | ✅ Terminé | v3.2.0 |
+| Sprint 16 | Récurrences enrichies (hebdo/annuelles) + vue prochains paiements — Room v8 | ✅ Terminé | v4.0.0 |
 
 ---
 
@@ -340,23 +343,80 @@ Pyramide de tests (situation actuelle) :
 
 ---
 
-### 7.4 Sprint 13 — Qualité technique (post v3.0.1) 🔵 À venir
-| ID | Fonctionnalité | Effort | Priorité |
-|----|---------------|--------|----------|
-| TECH-01 | Kover — mesure couverture détaillée + seuil CI | 4-6h | Moyen |
-| TECH-02 | Firebase Crashlytics (free tier) | 2-3h | Moyen |
-| FEAT-04 | Taux de change live (API Frankfurter EUR/USD/XOF) | 6-8h | Moyen |
+### 7.4 Sprint 13 — Qualité technique ✅ v3.1.0
+| ID | Fonctionnalité | Effort | Priorité | Statut |
+|----|---------------|--------|----------|--------|
+| TECH-01 | Kover — mesure couverture détaillée + seuil CI | 4-6h | Moyen | ✅ Livré |
+| TECH-02 | Firebase Crashlytics (free tier) | 2-3h | Moyen | ✅ Livré |
+| FEAT-04 | Taux de change live (API Frankfurter EUR/USD/XOF) | 6-8h | Moyen | ✅ Livré |
 
-**Workflow Sprint 13 :** créer `feature/sprint-13-tech` depuis `develop`, PR vers `develop`, puis `develop` → `main`.
+**Workflow Sprint 13 :** `feature/sprint-13-tech` → PR → `develop` → PR → `main` — ✅ Exécuté.
 
 ### 7.5 Sprint 14 — Idées & Analyses (backlog identifié 2026-05-19)
-| ID | Fonctionnalité | Effort | Priorité |
-|----|---------------|--------|----------|
-| UX-02 | Clavier de saisie — couverture IME complète sur tous les écrans (FEAT-10 partiel) | 2-3h | Moyen |
-| ANALYSE-01 | Étude RecurringExpenseTracker (DennisBauer) — go/no-go intégration | 1-2h | Analyse |
-| FEAT-BUDGET-INT | Budget — donut interactif : Autres→sous-catégories + onclick → transactions filtrées + revenus cliquables | 8-12h | Moyen |
+| ID | Fonctionnalité | Effort | Priorité | Statut |
+|----|---------------|--------|----------|--------|
+| UX-02 | Clavier de saisie — couverture IME complète sur tous les écrans | 2-3h | Moyen | ✅ Livré |
+| ANALYSE-01 | Étude RecurringExpenseTracker (DennisBauer) — go/no-go intégration | 1-2h | Analyse | ✅ NO-GO — voir ci-dessous |
+| FEAT-BUDGET-INT | Budget — donut interactif : Autres→sous-catégories + onclick → transactions filtrées + revenus cliquables | 8-12h | Moyen | ✅ Livré |
+| BUG-AUTH | Restauration du PIN développeur sur nouveau device (transfert D2D / backup) | 1h | Critique | ✅ Livré |
+
+#### ANALYSE-01 — Résultat de l'étude (2026-05-19)
+
+**Verdict : NO-GO pour l'intégration directe.**
+
+Deux blocages rédhibitoires :
+1. **Licence GPL-3.0** — toute réutilisation de code obligerait Dibitara à passer sous GPL, incompatible avec une app bancaire personnelle.
+2. **Stack incompatible** — KMP + Koin + kotlinx-datetime vs Android-natif + Hilt + java.time ; migrer l'architecture entière serait disproportionné.
+
+Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
+- Récurrences enrichies : Daily / Weekly / Yearly + `everyXRecurrence` (actuellement : mensuel uniquement)
+- `firstPayment` + `endDate` sur les dépenses récurrentes
+- Vue "Prochains paiements" — timeline des échéances à venir (**haute valeur, à intégrer au futur FEAT-BUDGET-INT**)
+- Calcul d'équivalent mensuel (yearly/weekly → mensuel)
 
 **Note versioning :** v3.0.1 est la référence stable. Patch = correctif mineur, Mineur = sprint fonctionnel, **Majeur (v4) = rupture schéma/architecture → validation requise avant incrément.**
+
+### 7.7 Sprint 15 — Suggestions de saisie rapide ✅ v3.2.0
+| ID | Fonctionnalité | Effort | Priorité | Statut |
+|----|---------------|--------|----------|--------|
+| FEAT-SUGGEST | Suggestions de saisie rapide basées sur l'historique récent | 5-8h | Moyen | ✅ Livré |
+
+**Contexte :** Quand l'utilisateur tape dans le champ libellé du formulaire d'ajout de transaction, l'app suggère les transactions fréquentes des 30 derniers jours qui correspondent. Un tap pré-remplit libellé + montant + catégorie d'un coup — sans setup manuel, l'app apprend de l'historique existant.
+
+**Périmètre technique :**
+- `TransactionSuggestion` — data class domain `(label, montantCents, devise, categorie, sousCategorie?)`
+- `GetTransactionSuggestionsUseCase` — requête Room sur les 30 derniers jours, groupé par `(label normalisé, montant, catégorie)`, seuil ≥ 2 occurrences, trié par fréquence décroissante
+- `ExpensesViewModel` — expose `StateFlow<List<TransactionSuggestion>>` réactif à la saisie du libellé
+- UI — chips horizontaux sous le champ libellé dans `AddTransactionSheet` ; tap → pré-remplit tous les champs ; limite : top 5 suggestions
+
+**Tests :**
+- `GetTransactionSuggestionsUseCaseTest` — cas : 0 occurrence, 1 occurrence (sous le seuil → absent), ≥ 2 (présent), tri par fréquence
+
+**Pas de migration Room — version cible : v3.2.0**
+
+**Workflow Sprint 15 :** `feature/sprint-15-suggest` → PR #7 → `develop` → PR → `main`. ✅ Exécuté.
+
+### 7.8 Sprint 16 — Récurrences enrichies ✅ v4.0.0
+| ID | Fonctionnalité | Effort | Priorité | Statut |
+|----|---------------|--------|----------|--------|
+| FEAT-RECUR | Récurrences enrichies : WEEKLY/MONTHLY/YEARLY + firstPaymentDate + endDate + vue "Prochains paiements" | 10-15h | Élevé | ✅ Livré |
+
+**Changements Room v7→v8 :**
+- 3 nouvelles colonnes sur `transactions` : `recurrence_frequency TEXT`, `first_payment_date TEXT`, `end_date TEXT`
+- Fichier de migration : `8.json`
+- `GenerateMonthlyRecurringUseCase` remplacé par `GenerateRecurringUseCase` (3 fréquences + date de fin)
+
+**Nouveaux composants :**
+- `RecurrenceFrequency` — enum `WEEKLY / MONTHLY / YEARLY`
+- `UpcomingPayment` — data class domain (label, montant, devise, date, fréquence)
+- `GenerateRecurringUseCase` — génère les occurrences selon la fréquence + date de fin
+- `GetUpcomingPaymentsUseCase` — retourne les N prochains paiements récurrents triés par date
+- Dashboard — carte « Prochains paiements » dans `DashboardScreen`
+- Formulaire dépenses — sélecteur de fréquence (dropdown) + sélecteur date de fin ; coexiste avec chips Sprint 15
+
+**Version cible : v4.0.0** (rupture schéma Room → convention versioning majeur)
+
+**Workflow Sprint 16 :** `feature/sprint-15-feat-recur` → PR #8 → `develop`. ✅ Exécuté.
 
 ### 7.6 Backlog V4 (long terme)
 | ID | Fonctionnalité | Effort |
@@ -364,8 +424,7 @@ Pyramide de tests (situation actuelle) :
 | F8 | Export CSV des transactions | 8-12h |
 | F9 | Sauvegarde cloud chiffrée | 15-20h |
 | SEC-01 | SQLCipher — chiffrement Room | 8-12h |
-| PERF-01 | Tests d'intégration Room | 10-15h |
-| FEAT-RECUR | Récurrences enrichies : weekly/yearly + firstPayment + endDate + vue "Prochains paiements" | 10-15h |
+| PERF-01 | Tests d'intégration Room (in-memory, avant prochaine migration) | 10-15h |
 
 ---
 
@@ -373,8 +432,8 @@ Pyramide de tests (situation actuelle) :
 
 | Risque | Probabilité | Impact | Mitigation | Statut |
 |--------|------------|--------|------------|--------|
-| Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 4 migrations faites, tests absents |
-| Régression lors d'une 8e migration | Moyen | Élevé | Configurer tests Room In-Memory avant v7→v8 | 🟡 Room v7 stable, 7 migrations sans tests d'intégration |
+| Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 8 migrations faites, tests d'intégration Room absents |
+| Régression lors d'une 9e migration | Moyen | Élevé | Configurer tests Room In-Memory (backlog PERF-01) | 🟡 Room v8 stable — migration v7→v8 livrée Sprint 16 |
 | Taux de change indisponible | Faible | Moyen | Cache local des derniers taux | 🟡 API pas encore intégrée |
 | Fuite de données sensibles | Faible | Très élevé | Room non chiffrée (SQLCipher absent) | 🟡 Acceptable V1, à traiter V3 |
 | Rejet Play Store | Moyen | Élevé | Politique de confidentialité publiée, assets conformes | ✅ Mitigé |
@@ -393,6 +452,12 @@ Pyramide de tests (situation actuelle) :
 | 3.1 | 2026-05-15 | Florent | Sprints 10-11-12 marqués terminés, Sprint 12 améliorations pré-déploiement (navigation, notifications deep link, versement date, année locatifs, enfant associer comptes), Sprint 13 qualité technique |
 | 3.2 | 2026-05-18 | Florent | v3.0.1 — CI-FIX tests (123 tests), Sprint 12 chantiers A/B/C documentés, Room v7, workflow git develop+feature branches, protection main GitHub |
 | 3.3 | 2026-05-19 | Florent | Sprint 14 backlog : UX-02 (IME), ANALYSE-01 (RecurringExpenseTracker), FEAT-BUDGET-INT (donut interactif) ; note convention versioning v3→v4 |
+| 3.4 | 2026-05-19 | Florent | Sprint 14 : UX-02 livré, ANALYSE-01 terminé (NO-GO GPL-3.0 + KMP incompatible), backlog v4 enrichi FEAT-RECUR |
+| 3.5 | 2026-05-19 | Florent | BUG-AUTH livré (preuve d'installation noBackupFilesDir), FEAT-BUDGET-INT marqué livré, Sprint 13 marqué terminé |
+| 3.6 | 2026-05-20 | Florent | Mise à jour état réel — Sprints 13 + 14 marqués terminés, stack technique corrigée (Kover/Crashlytics/Frankfurter ✅), version 3.1.0, F8/F9 backlog V4 |
+| 3.7 | 2026-05-20 | Florent | Sprint 15 défini — FEAT-SUGGEST suggestions de saisie rapide (5-8h, v3.2.0, sans migration Room) |
+| 3.8 | 2026-05-20 | Florent | Sprint 15 marqué terminé — PR #7 mergée, v3.2.0 |
+| 3.9 | 2026-05-20 | Florent | Sprint 16 FEAT-RECUR livré — Room v7→v8, récurrences enrichies, vue prochains paiements, v4.0.0 |
 
 ---
 

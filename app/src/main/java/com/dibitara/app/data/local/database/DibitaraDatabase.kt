@@ -29,7 +29,7 @@ import com.dibitara.app.data.local.entity.MonthlyVersementEntity
         CustomSubCategoryEntity::class,
         MonthlyVersementEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -45,6 +45,17 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun monthlyVersementDao(): MonthlyVersementDao
 
     companion object {
+        // Migration v7 → v8 : récurrences enrichies (fréquence, firstPaymentDate, endDate)
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN recurrenceFrequency TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN firstPaymentDateEpochDay INTEGER")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN endDateEpochDay INTEGER")
+                // Les modèles mensuels existants basculent vers MONTHLY + firstPaymentDate = date du modèle
+                db.execSQL("UPDATE transactions SET recurrenceFrequency = 'MONTHLY', firstPaymentDateEpochDay = dateEpochDay WHERE isRecurring = 1")
+            }
+        }
+
         // Migration v6 → v7 : restructuration des catégories
         // VACANCES fusionnée dans LOISIRS ; TELEPHONIE et INFORMATIQUE promues en catégorie ABONNEMENTS
         val MIGRATION_6_7 = object : Migration(6, 7) {
