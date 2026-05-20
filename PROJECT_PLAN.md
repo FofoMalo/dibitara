@@ -267,6 +267,7 @@ Pyramide de tests (situation actuelle) :
 | Sprint 12b | Correctifs CI — tests ViewModel + UseCase | ✅ Terminé | v3.0.1 |
 | Sprint 13 | Qualité technique (Kover, Crashlytics, taux de change) | ✅ Terminé | v3.1.0 |
 | Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | ✅ Terminé | v3.1.0 |
+| Sprint 15 | Suggestions de saisie rapide basées sur l'historique récent | 🔵 À faire | v3.2.0 |
 
 ---
 
@@ -373,6 +374,26 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 
 **Note versioning :** v3.0.1 est la référence stable. Patch = correctif mineur, Mineur = sprint fonctionnel, **Majeur (v4) = rupture schéma/architecture → validation requise avant incrément.**
 
+### 7.7 Sprint 15 — Suggestions de saisie rapide 🔵 À faire
+| ID | Fonctionnalité | Effort | Priorité | Statut |
+|----|---------------|--------|----------|--------|
+| FEAT-SUGGEST | Suggestions de saisie rapide basées sur l'historique récent | 5-8h | Moyen | 🔵 À faire |
+
+**Contexte :** Quand l'utilisateur tape dans le champ libellé du formulaire d'ajout de transaction, l'app suggère les transactions fréquentes des 30 derniers jours qui correspondent. Un tap pré-remplit libellé + montant + catégorie d'un coup — sans setup manuel, l'app apprend de l'historique existant.
+
+**Périmètre technique :**
+- `TransactionSuggestion` — data class domain `(label, montantCents, devise, categorie, sousCategorie?)`
+- `GetTransactionSuggestionsUseCase` — requête Room sur les 30 derniers jours, groupé par `(label normalisé, montant, catégorie)`, seuil ≥ 2 occurrences, trié par fréquence décroissante
+- `ExpensesViewModel` — expose `StateFlow<List<TransactionSuggestion>>` réactif à la saisie du libellé
+- UI — chips horizontaux sous le champ libellé dans `AddTransactionSheet` ; tap → pré-remplit tous les champs ; limite : top 5 suggestions
+
+**Tests :**
+- `GetTransactionSuggestionsUseCaseTest` — cas : 0 occurrence, 1 occurrence (sous le seuil → absent), ≥ 2 (présent), tri par fréquence
+
+**Pas de migration Room — version cible : v3.2.0**
+
+**Workflow Sprint 15 :** `feature/sprint-15-suggest` → PR → `develop` → PR → `main`.
+
 ### 7.6 Backlog V4 (long terme)
 | ID | Fonctionnalité | Effort |
 |----|---------------|--------|
@@ -411,6 +432,7 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 | 3.4 | 2026-05-19 | Florent | Sprint 14 : UX-02 livré, ANALYSE-01 terminé (NO-GO GPL-3.0 + KMP incompatible), backlog v4 enrichi FEAT-RECUR |
 | 3.5 | 2026-05-19 | Florent | BUG-AUTH livré (preuve d'installation noBackupFilesDir), FEAT-BUDGET-INT marqué livré, Sprint 13 marqué terminé |
 | 3.6 | 2026-05-20 | Florent | Mise à jour état réel — Sprints 13 + 14 marqués terminés, stack technique corrigée (Kover/Crashlytics/Frankfurter ✅), version 3.1.0, F8/F9 backlog V4 |
+| 3.7 | 2026-05-20 | Florent | Sprint 15 défini — FEAT-SUGGEST suggestions de saisie rapide (5-8h, v3.2.0, sans migration Room) |
 
 ---
 
