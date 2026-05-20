@@ -1,7 +1,7 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 3.6 — 2026-05-20  
+> Version du document : 3.8 — 2026-05-20  
 > Statut : **En production** — v3.1.0 publiée (CI vert, Play Store en attente validation)
 
 ---
@@ -267,7 +267,7 @@ Pyramide de tests (situation actuelle) :
 | Sprint 12b | Correctifs CI — tests ViewModel + UseCase | ✅ Terminé | v3.0.1 |
 | Sprint 13 | Qualité technique (Kover, Crashlytics, taux de change) | ✅ Terminé | v3.1.0 |
 | Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | ✅ Terminé | v3.1.0 |
-| Sprint 15 | Suggestions de saisie rapide basées sur l'historique récent | 🔵 À faire | v3.2.0 |
+| Sprint 15 | Suggestions de saisie rapide basées sur l'historique récent | ✅ Terminé | v3.2.0 |
 
 ---
 
@@ -374,7 +374,7 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 
 **Note versioning :** v3.0.1 est la référence stable. Patch = correctif mineur, Mineur = sprint fonctionnel, **Majeur (v4) = rupture schéma/architecture → validation requise avant incrément.**
 
-### 7.7 Sprint 15 — Suggestions de saisie rapide 🔵 À faire
+### 7.7 Sprint 15 — Suggestions de saisie rapide ✅ v3.2.0
 | ID | Fonctionnalité | Effort | Priorité | Statut |
 |----|---------------|--------|----------|--------|
 | FEAT-SUGGEST | Suggestions de saisie rapide basées sur l'historique récent | 5-8h | Moyen | 🔵 À faire |
@@ -433,6 +433,7 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 | 3.5 | 2026-05-19 | Florent | BUG-AUTH livré (preuve d'installation noBackupFilesDir), FEAT-BUDGET-INT marqué livré, Sprint 13 marqué terminé |
 | 3.6 | 2026-05-20 | Florent | Mise à jour état réel — Sprints 13 + 14 marqués terminés, stack technique corrigée (Kover/Crashlytics/Frankfurter ✅), version 3.1.0, F8/F9 backlog V4 |
 | 3.7 | 2026-05-20 | Florent | Sprint 15 défini — FEAT-SUGGEST suggestions de saisie rapide (5-8h, v3.2.0, sans migration Room) |
+| 3.8 | 2026-05-20 | Florent | Sprint 15 marqué terminé — PR #7 mergée, v3.2.0 |
 
 ---
 
