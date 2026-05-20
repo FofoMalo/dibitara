@@ -14,7 +14,10 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.MonthlyExpense
 import com.dibitara.app.domain.model.MonthlyReport
 import com.dibitara.app.domain.model.PatrimonyOverview
+import com.dibitara.app.domain.model.RecurrenceFrequency
+import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.presentation.common.toCurrencyDisplay
+import java.time.format.DateTimeFormatter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
@@ -56,6 +59,7 @@ fun DashboardScreen(
                 DashboardContent(
                     overview                = state.overview,
                     spendingHistory         = state.spendingHistory,
+                    upcomingPayments        = state.upcomingPayments,
                     onNavigateToDebts       = onNavigateToDebts,
                     onNavigateToReport      = onNavigateToReport,
                     onNavigateToBudget      = onNavigateToBudget,
@@ -72,6 +76,7 @@ fun DashboardScreen(
 private fun DashboardContent(
     overview                : PatrimonyOverview,
     spendingHistory         : List<MonthlyExpense>,
+    upcomingPayments        : List<com.dibitara.app.domain.model.UpcomingPayment> = emptyList(),
     onNavigateToDebts       : () -> Unit,
     onNavigateToReport      : () -> Unit,
     onNavigateToBudget      : () -> Unit,
@@ -139,6 +144,10 @@ private fun DashboardContent(
             RapportSyntheseCard(rapport = rapportMensuel, onVoirDetail = onNavigateToReport)
         } else if (spendingHistory.any { it.totalCents > 0 }) {
             SpendingHistoryCard(history = spendingHistory, currency = overview.currency)
+        }
+
+        if (upcomingPayments.isNotEmpty()) {
+            UpcomingPaymentsCard(payments = upcomingPayments)
         }
     }
 }
@@ -397,6 +406,75 @@ private fun moisComplet(month: Int): String = when (month) {
     1 -> "Janvier"; 2 -> "Février"; 3 -> "Mars"; 4 -> "Avril"
     5 -> "Mai"; 6 -> "Juin"; 7 -> "Juillet"; 8 -> "Août"
     9 -> "Septembre"; 10 -> "Octobre"; 11 -> "Novembre"; else -> "Décembre"
+}
+
+// ─── Carte "Prochains paiements" ──────────────────────────────────────────────
+
+@Composable
+private fun UpcomingPaymentsCard(payments: List<UpcomingPayment>) {
+    val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "Prochains paiements",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            payments.forEach { upcoming ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = upcoming.template.note.ifBlank { upcoming.template.category.displayName },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "${frequenceLabel(upcoming.template.recurrenceFrequency)} · ${upcoming.nextDate.format(dateFmt)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = upcoming.template.amountCents.toCurrencyDisplay(upcoming.template.currency),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        val label = when {
+                            upcoming.daysUntil == 0L -> "Aujourd'hui"
+                            upcoming.daysUntil == 1L -> "Demain"
+                            else                     -> "Dans ${upcoming.daysUntil}j"
+                        }
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (upcoming.daysUntil <= 3)
+                                MaterialTheme.colorScheme.error
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (upcoming != payments.last()) HorizontalDivider()
+            }
+        }
+    }
+}
+
+private fun frequenceLabel(freq: RecurrenceFrequency?): String = when (freq) {
+    RecurrenceFrequency.WEEKLY  -> "Hebdo"
+    RecurrenceFrequency.YEARLY  -> "Annuel"
+    else                        -> "Mensuel"
 }
 
 /** Convertit un numéro de mois (1–12) en abréviation française à 3 lettres. */

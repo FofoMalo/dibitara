@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
+import com.dibitara.app.domain.model.RecurrenceFrequency
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionSuggestion
@@ -93,7 +94,9 @@ class ExpensesViewModel @Inject constructor(
         isRecurring: Boolean = false,
         recurrenceDay: Int? = null,
         subCategory: SubCategory? = null,
-        customSubCategoryId: Long? = null
+        customSubCategoryId: Long? = null,
+        recurrenceFrequency: RecurrenceFrequency? = null,
+        endDate: LocalDate? = null
     ) {
         val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -112,7 +115,10 @@ class ExpensesViewModel @Inject constructor(
                     isRecurring = isRecurring,
                     recurrenceDay = recurrenceDay,
                     subCategory = subCategory,
-                    customSubCategoryId = customSubCategoryId
+                    customSubCategoryId = customSubCategoryId,
+                    recurrenceFrequency = recurrenceFrequency,
+                    firstPaymentDate = if (isRecurring) date else null,
+                    endDate = endDate
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }
@@ -132,7 +138,9 @@ class ExpensesViewModel @Inject constructor(
         isRecurring: Boolean = false,
         recurrenceDay: Int? = null,
         subCategory: SubCategory? = null,
-        customSubCategoryId: Long? = null
+        customSubCategoryId: Long? = null,
+        recurrenceFrequency: RecurrenceFrequency? = null,
+        endDate: LocalDate? = null
     ) {
         val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -151,7 +159,10 @@ class ExpensesViewModel @Inject constructor(
                     isRecurring = isRecurring,
                     recurrenceDay = recurrenceDay,
                     subCategory = subCategory,
-                    customSubCategoryId = customSubCategoryId
+                    customSubCategoryId = customSubCategoryId,
+                    recurrenceFrequency = recurrenceFrequency,
+                    firstPaymentDate = original.firstPaymentDate ?: if (isRecurring) date else null,
+                    endDate = endDate
                 )
             )
                 .onSuccess { _event.emit(ExpensesEvent.Saved) }

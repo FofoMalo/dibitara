@@ -24,9 +24,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE isRecurring = 1 ORDER BY dateEpochDay DESC")
     fun getRecurring(): Flow<List<TransactionEntity>>
 
-    // Compte les occurrences déjà générées ce mois-ci pour un modèle donné
+    // Compte les occurrences déjà générées dans une plage de dates pour un modèle donné
     @Query("SELECT COUNT(*) FROM transactions WHERE sourceRecurringId = :recurringId AND dateEpochDay >= :fromEpoch AND dateEpochDay <= :toEpoch")
-    suspend fun countBySourceAndMonth(recurringId: Long, fromEpoch: Long, toEpoch: Long): Int
+    suspend fun countBySourceAndRange(recurringId: Long, fromEpoch: Long, toEpoch: Long): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transaction: TransactionEntity): Long
