@@ -440,13 +440,48 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 
 | Risque | Probabilité | Impact | Mitigation | Statut |
 |--------|------------|--------|------------|--------|
-| Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 8 migrations faites, tests d'intégration Room absents |
+| Complexité des migrations Room | Moyen | Élevé | Checklist pré-migration obligatoire (voir §8.1) | ⚠️ 8 migrations faites, tests d'intégration Room absents |
 | Régression lors d'une 9e migration | Moyen | Élevé | Configurer tests Room In-Memory (backlog PERF-01) | 🟡 Room v8 stable — migration v7→v8 livrée Sprint 16 |
+| **Perte de données utilisateur** | **Faible** | **Très élevé** | Protocole anti-perte (voir §8.1) — alerte systématique avant tout sprint Room | 🟡 Risque présent à chaque migration — aucune perte réelle à ce jour |
 | Taux de change indisponible | Faible | Moyen | Cache local des derniers taux | 🟡 API pas encore intégrée |
 | Fuite de données sensibles | Faible | Très élevé | Room non chiffrée (SQLCipher absent) | 🟡 Acceptable V1, à traiter V3 |
 | Rejet Play Store | Moyen | Élevé | Politique de confidentialité publiée, assets conformes | ✅ Mitigé |
 | Dérive des délais | Moyen | Moyen | Backlog priorisé, scope V1 tenu | ✅ 2 semaines de dépassement acceptable |
 | Drift du junior sur l'architecture | Faible | Moyen | Sessions pair-programming régulières | ✅ Architecture respectée |
+
+### 8.1 Protocole de protection des données utilisateur (migrations Room)
+
+> **Contexte :** Une mise à jour Play Store exécute la migration Room et conserve toutes les données. Une désinstallation les efface définitivement. Tout sprint qui modifie le schéma Room doit suivre ce protocole.
+
+#### Ce qui NE supprime PAS les données
+- Mise à jour normale de l'APK (Play Store, `adb install -r`, Android Studio "Run") → Room exécute la migration → données préservées
+- `fallbackToDestructiveMigrationOnDowngrade` → ne s'active qu'en cas de retour à une version antérieure (usage dev uniquement)
+
+#### Ce qui supprime DÉFINITIVEMENT les données
+- Désinstallation de l'app (base SQLite supprimée avec l'app)
+- `fallbackToDestructiveMigration()` dans le builder Room → **INTERDIT en production**
+- `DROP TABLE` dans un script de migration sans recréation → **INTERDIT sans export préalable**
+- Modification d'un `@Entity` sans migration correspondante (Room détecte le décalage et crashe)
+
+#### Checklist obligatoire avant tout sprint avec migration Room
+
+Avant de proposer ou d'implémenter une migration, je dois vérifier et signaler explicitement :
+
+- [ ] **Noms de colonnes SQL == noms de champs `@Entity`** — Room est sensible à la casse et aux underscores
+- [ ] **Type SQLite correct** — `TEXT` pour String/Enum, `INTEGER` pour Long/Int/Boolean, `REAL` pour Double
+- [ ] **Valeur par défaut** pour les colonnes `NOT NULL` sur les lignes existantes (sinon crash à la migration)
+- [ ] **`addMigrations(MIGRATION_X_Y)`** bien déclaré dans `DatabaseModule`
+- [ ] **`versionCode` de la base incrémenté** dans `@Database(version = N)`
+- [ ] **Fichier `N.json`** exporté et commité (validation du schéma Room)
+- [ ] **Aucun `fallbackToDestructiveMigration()`** dans le builder Room
+- [ ] **`adb install -r`** utilisé pendant les tests dev (jamais désinstaller/réinstaller pour tester une migration)
+
+#### Alertes — je dois stopper et consulter avant de procéder si
+
+- Un sprint nécessite de **renommer une colonne existante** (Room ne supporte pas `RENAME COLUMN` avant SQLite 3.25 / API 30 — il faut créer une table intermédiaire)
+- Un sprint nécessite de **supprimer une colonne** (même contrainte — table intermédiaire requise)
+- Un sprint fait passer le **versionCode de base de plus de 1** (migrations intermédiaires manquantes)
+- La migration concerne une **table avec plusieurs millions de lignes** (UPDATE massif peut bloquer l'UI au démarrage)
 
 ---
 
@@ -467,6 +502,7 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 | 3.8 | 2026-05-20 | Florent | Sprint 15 marqué terminé — PR #7 mergée, v3.2.0 |
 | 3.9 | 2026-05-20 | Florent | Sprint 16 FEAT-RECUR livré — Room v7→v8, récurrences enrichies, vue prochains paiements, v4.0.0 |
 | 4.0 | 2026-05-20 | Florent | Corrections pré-déploiement — toggle Prochains paiements dans Paramètres |
+| 4.1 | 2026-05-20 | Florent | Gouvernance données — protocole anti-perte Room (§8.1), risque ajouté au tableau |
 
 ---
 
