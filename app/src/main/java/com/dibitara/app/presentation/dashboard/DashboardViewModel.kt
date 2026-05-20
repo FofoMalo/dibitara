@@ -35,10 +35,9 @@ class DashboardViewModel @Inject constructor(
         getPreferences()
     ) { overview, history, rapport, upcoming, prefs ->
         DashboardUiState.Success(
-            overview         = overview,
-            spendingHistory  = history,
-            // liste vide si désactivé dans les paramètres — la carte disparaît du Dashboard
-            upcomingPayments = if (prefs.afficherProchainsPaiements) upcoming else emptyList(),
+            overview        = overview,
+            spendingHistory = history,
+            upcomingPayments = upcoming,
             // null si la fonctionnalité est désactivée — le Dashboard affiche alors le graphique
             rapportMensuel   = if (prefs.afficherRapportMensuel) rapport else null
         ) as DashboardUiState

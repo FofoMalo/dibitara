@@ -1,8 +1,8 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 4.0 — 2026-05-20  
-> Statut : **En développement actif** — v4.0.0 sur develop, tests pré-déploiement en cours
+> Version du document : 3.9 — 2026-05-20  
+> Statut : **En développement actif** — v4.0.0 sur develop (rupture schéma Room v7→v8)
 
 ---
 
@@ -270,7 +270,6 @@ Pyramide de tests (situation actuelle) :
 | Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | ✅ Terminé | v3.1.0 |
 | Sprint 15 | Suggestions de saisie rapide basées sur l'historique récent | ✅ Terminé | v3.2.0 |
 | Sprint 16 | Récurrences enrichies (hebdo/annuelles) + vue prochains paiements — Room v8 | ✅ Terminé | v4.0.0 |
-| Corrections pré-deploy | Toggle Paramètres — afficher/masquer carte Prochains paiements | ✅ Terminé | v4.0.0 |
 
 ---
 
@@ -419,13 +418,6 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 
 **Workflow Sprint 16 :** `feature/sprint-15-feat-recur` → PR #8 → `develop`. ✅ Exécuté.
 
-### Corrections pré-déploiement v4.0.0 ✅
-| ID | Fonctionnalité | Effort | Statut |
-|----|---------------|--------|--------|
-| UX-TOGGLE-PP | Toggle Paramètres — afficher/masquer la carte Prochains paiements | 1h | ✅ Livré |
-
-**Détail :** `UserPreferences.afficherProchainsPaiements` (DataStore) + `UpdateAfficherProchainsPaiementsUseCase` + toggle dans la section "Tableau de bord" de `SettingsScreen`, même pattern que le toggle Rapport mensuel.
-
 ### 7.6 Backlog V4 (long terme)
 | ID | Fonctionnalité | Effort |
 |----|---------------|--------|
@@ -440,9 +432,8 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 
 | Risque | Probabilité | Impact | Mitigation | Statut |
 |--------|------------|--------|------------|--------|
-| Complexité des migrations Room | Moyen | Élevé | Checklist pré-migration obligatoire (voir §8.1) | ⚠️ 8 migrations faites, tests d'intégration Room absents |
+| Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 8 migrations faites, tests d'intégration Room absents |
 | Régression lors d'une 9e migration | Moyen | Élevé | Configurer tests Room In-Memory (backlog PERF-01) | 🟡 Room v8 stable — migration v7→v8 livrée Sprint 16 |
-| **Perte de données utilisateur** | **Faible** | **Très élevé** | Protocole anti-perte (voir §8.1) — alerte systématique avant tout sprint Room | 🟡 Risque présent à chaque migration — aucune perte réelle à ce jour |
 | Taux de change indisponible | Faible | Moyen | Cache local des derniers taux | 🟡 API pas encore intégrée |
 | Fuite de données sensibles | Faible | Très élevé | Room non chiffrée (SQLCipher absent) | 🟡 Acceptable V1, à traiter V3 |
 | Rejet Play Store | Moyen | Élevé | Politique de confidentialité publiée, assets conformes | ✅ Mitigé |
@@ -501,8 +492,6 @@ Avant de proposer ou d'implémenter une migration, je dois vérifier et signaler
 | 3.7 | 2026-05-20 | Florent | Sprint 15 défini — FEAT-SUGGEST suggestions de saisie rapide (5-8h, v3.2.0, sans migration Room) |
 | 3.8 | 2026-05-20 | Florent | Sprint 15 marqué terminé — PR #7 mergée, v3.2.0 |
 | 3.9 | 2026-05-20 | Florent | Sprint 16 FEAT-RECUR livré — Room v7→v8, récurrences enrichies, vue prochains paiements, v4.0.0 |
-| 4.0 | 2026-05-20 | Florent | Corrections pré-déploiement — toggle Prochains paiements dans Paramètres |
-| 4.1 | 2026-05-20 | Florent | Gouvernance données — protocole anti-perte Room (§8.1), risque ajouté au tableau |
 
 ---
 
