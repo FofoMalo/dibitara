@@ -33,6 +33,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TransactionSuggestion
 import com.dibitara.app.domain.model.TransactionType
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -42,6 +43,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val filter by viewModel.filter.collectAsState()
     val defaultCurrency by viewModel.defaultCurrency.collectAsState()
+    val suggestions by viewModel.suggestions.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
@@ -151,6 +153,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             expense                  = null,
             defaultCurrency          = defaultCurrency,
             customSubCategories      = customSubCategories,
+            suggestions              = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
             onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
                 viewModel.addExpense(amount, category, currency, note,
@@ -170,6 +173,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             expense                  = expense,
             defaultCurrency          = defaultCurrency,
             customSubCategories      = customSubCategories,
+            suggestions              = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
             onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId ->
                 viewModel.updateExpense(expense, amount, category, currency, note,
@@ -415,6 +419,7 @@ private fun ExpenseSheet(
     expense: Transaction?,
     defaultCurrency: Currency = Currency.EUR,
     customSubCategories: List<CustomSubCategory>,
+    suggestions: List<TransactionSuggestion> = emptyList(),
     onCreateCustomSubCategory: (String, Category) -> Unit,
     onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?) -> Unit,
     onDismiss: () -> Unit
@@ -630,6 +635,38 @@ private fun ExpenseSheet(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().focusRequester(noteFocusRequester)
             )
+
+            // Chips de suggestion — filtrées sur ce que l'utilisateur a tapé dans la note
+            val suggestionsFiltrées = remember(note, suggestions) {
+                if (note.isBlank()) emptyList()
+                else suggestions.filter { it.label.contains(note.trim(), ignoreCase = true) }
+            }
+            if (suggestionsFiltrées.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(suggestionsFiltrées) { suggestion ->
+                        SuggestionChip(
+                            onClick = {
+                                // Pré-remplit tous les champs en un seul tap
+                                note = suggestion.label
+                                amount = "%.2f".format(suggestion.amountCents / 100.0).replace(',', '.')
+                                selectedCategory = suggestion.category
+                                selectedCurrency = suggestion.currency
+                                selectedType = suggestion.type
+                                selectedSubCategory = suggestion.subCategory
+                                selectedCustomSubCategory = suggestion.customSubCategoryId
+                                    ?.let { id -> customSubCategories.find { it.id == id } }
+                            },
+                            label = {
+                                Text(
+                                    "${suggestion.label}  " +
+                                    "${"%.2f".format(suggestion.amountCents / 100.0)} " +
+                                    suggestion.currency.symbol
+                                )
+                            }
+                        )
+                    }
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
