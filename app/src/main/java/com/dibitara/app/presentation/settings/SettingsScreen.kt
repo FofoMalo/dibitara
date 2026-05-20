@@ -119,6 +119,25 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         onCheckedChange = { viewModel.mettreAJourAfficherRapport(it) }
                     )
                 }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Prochains paiements", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Affiche les prochaines échéances récurrentes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = prefs.afficherProchainsPaiements,
+                        onCheckedChange = { viewModel.mettreAJourAfficherProchainsPaiements(it) }
+                    )
+                }
             }
 
             // ─── Section navigation ───────────────────────────────────────────

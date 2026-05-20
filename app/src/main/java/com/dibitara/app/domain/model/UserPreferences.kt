@@ -11,5 +11,6 @@ data class UserPreferences(
     val afficherRapportMensuel: Boolean = false,
     val afficherEpargne: Boolean = true,          // onglet "Épargne" visible dans la nav bar
     val afficherInvestissements: Boolean = true,  // onglet "Placements" visible dans la nav bar
-    val twoFactorEnabled: Boolean = false         // TOTP requis après PIN ou mot de passe
+    val twoFactorEnabled: Boolean = false,        // TOTP requis après PIN ou mot de passe
+    val afficherProchainsPaiements: Boolean = true   // carte "Prochains paiements" sur le Dashboard
 )

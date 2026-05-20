@@ -9,6 +9,7 @@ import com.dibitara.app.domain.usecase.GetExchangeRatesUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherEpargneUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
+import com.dibitara.app.domain.usecase.UpdateAfficherProchainsPaiementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
@@ -35,6 +36,7 @@ class SettingsViewModel @Inject constructor(
     private val ucUpdateAfficherRapport: UpdateAfficherRapportUseCase,
     private val ucUpdateAfficherEpargne: UpdateAfficherEpargneUseCase,
     private val ucUpdateAfficherInvestissements: UpdateAfficherInvestissementsUseCase,
+    private val ucUpdateAfficherProchainsPaiements: UpdateAfficherProchainsPaiementsUseCase,
     private val ucUpdateTwoFactorEnabled: UpdateTwoFactorEnabledUseCase,
     private val credentialManager: CredentialManager,
     private val totpManager: TotpManager
@@ -109,6 +111,10 @@ class SettingsViewModel @Inject constructor(
 
     fun mettreAJourAfficherInvestissements(afficher: Boolean) {
         viewModelScope.launch { ucUpdateAfficherInvestissements(afficher) }
+    }
+
+    fun mettreAJourAfficherProchainsPaiements(afficher: Boolean) {
+        viewModelScope.launch { ucUpdateAfficherProchainsPaiements(afficher) }
     }
 
     // ─── Sécurité ─────────────────────────────────────────────────────────────
