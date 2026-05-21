@@ -32,7 +32,8 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_4_5,
                 DibitaraDatabase.MIGRATION_5_6,
                 DibitaraDatabase.MIGRATION_6_7,
-                DibitaraDatabase.MIGRATION_7_8
+                DibitaraDatabase.MIGRATION_7_8,
+                DibitaraDatabase.MIGRATION_8_9
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()

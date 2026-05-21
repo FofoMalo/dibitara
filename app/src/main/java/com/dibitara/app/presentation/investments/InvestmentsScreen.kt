@@ -358,7 +358,7 @@ private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> U
                 Column(modifier = Modifier.weight(1f)) {
                     Text(scpi.label, style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "${scpi.sharesCount} parts × ${scpi.shareValueCents.toCurrencyDisplay(scpi.currency)}",
+                        "${if (scpi.sharesCount % 1.0 == 0.0) scpi.sharesCount.toInt().toString() else scpi.sharesCount.toString()} parts × ${scpi.shareValueCents.toCurrencyDisplay(scpi.currency)}",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
@@ -591,7 +591,7 @@ private fun AddScpiSheet(
                     value = shares,
                     onValueChange = { shares = it },
                     label = { Text("Nb de parts") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
@@ -637,8 +637,8 @@ private fun AddScpiSheet(
             }
 
             // Aperçu du total si les champs sont remplis
-            val previewTotal = shares.toIntOrNull()?.let { s ->
-                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> s * (v * 100).toLong() }
+            val previewTotal = shares.replace(',', '.').toDoubleOrNull()?.let { s ->
+                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).toLong() }
             }
             if (previewTotal != null) {
                 Text(
@@ -650,7 +650,7 @@ private fun AddScpiSheet(
 
             Button(
                 onClick = { onSave(label, shares, shareValue, contribution, selectedCurrency) },
-                enabled = label.isNotBlank() && shares.toIntOrNull()?.let { it > 0 } == true,
+                enabled = label.isNotBlank() && shares.replace(',', '.').toDoubleOrNull()?.let { it > 0.0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
         }
@@ -809,7 +809,8 @@ private fun EditScpiSheet(
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(scpi.label) }
-    var shares by remember { mutableStateOf(scpi.sharesCount.toString()) }
+    // Affiche "2" pour 2.0 parts, "2.2" pour 2.2 parts
+    var shares by remember { mutableStateOf(if (scpi.sharesCount % 1.0 == 0.0) scpi.sharesCount.toInt().toString() else scpi.sharesCount.toString()) }
     var shareValue by remember { mutableStateOf("%.2f".format(scpi.shareValueCents / 100.0).replace(',', '.')) }
     var contribution by remember {
         mutableStateOf(if (scpi.monthlyContributionCents > 0) "%.2f".format(scpi.monthlyContributionCents / 100.0).replace(',', '.') else "")
@@ -839,7 +840,7 @@ private fun EditScpiSheet(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = shares, onValueChange = { shares = it },
                     label = { Text("Nb de parts") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                     singleLine = true, modifier = Modifier.weight(1f))
                 OutlinedTextField(value = shareValue, onValueChange = { shareValue = it },
@@ -870,8 +871,8 @@ private fun EditScpiSheet(
                 }
             }
 
-            val previewTotal = shares.toIntOrNull()?.let { s ->
-                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> s * (v * 100).toLong() }
+            val previewTotal = shares.replace(',', '.').toDoubleOrNull()?.let { s ->
+                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).toLong() }
             }
             if (previewTotal != null) {
                 Text("Total estimé : ${previewTotal.toCurrencyDisplay(selectedCurrency)}",
@@ -880,7 +881,7 @@ private fun EditScpiSheet(
 
             Button(
                 onClick = { onSave(label, shares, shareValue, contribution, selectedCurrency) },
-                enabled = label.isNotBlank() && shares.toIntOrNull()?.let { it > 0 } == true,
+                enabled = label.isNotBlank() && shares.replace(',', '.').toDoubleOrNull()?.let { it > 0.0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
         }

@@ -13,14 +13,14 @@ data class RealEstateAsset(
 data class ScpiInvestment(
     val id: Long = 0,
     val label: String,
-    val sharesCount: Int,
+    val sharesCount: Double,
     val shareValueCents: Long,
     val monthlyContributionCents: Long,
     val currency: Currency,
     val updatedAt: LocalDate
 ) {
-    // Valeur totale = nombre de parts × valeur unitaire
-    val totalValueCents: Long get() = sharesCount.toLong() * shareValueCents
+    // Valeur totale = nombre de parts (peut être fractionnaire, ex : 2,2) × valeur unitaire
+    val totalValueCents: Long get() = (sharesCount * shareValueCents).toLong()
 }
 
 data class AirbnbRental(

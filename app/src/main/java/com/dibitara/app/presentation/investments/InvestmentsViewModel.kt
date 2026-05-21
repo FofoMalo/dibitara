@@ -93,7 +93,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun addScpi(label: String, sharesStr: String, shareValueStr: String, contributionStr: String, currency: Currency) {
-        val shares = sharesStr.toIntOrNull() ?: run {
+        val shares = sharesStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Nombre de parts invalide")) }
             return
         }
@@ -142,7 +142,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun updateScpi(scpi: ScpiInvestment, label: String, sharesStr: String, shareValueStr: String, contributionStr: String, currency: Currency) {
-        val shares = sharesStr.toIntOrNull() ?: run {
+        val shares = sharesStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Nombre de parts invalide")) }
             return
         }
