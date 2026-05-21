@@ -48,7 +48,7 @@ class GetPatrimonyOverviewUseCaseTest {
             RealEstateAsset(label = "Appart", currentValueCents = 20000000L, currency = Currency.EUR, updatedAt = LocalDate.now())
         )
         val scpi = listOf(
-            ScpiInvestment(label = "SCPI", sharesCount = 10, shareValueCents = 20000L,
+            ScpiInvestment(label = "SCPI", sharesCount = 10.0, shareValueCents = 20000L,
                 monthlyContributionCents = 0L, currency = Currency.EUR, updatedAt = LocalDate.now())
         )
         val airbnb = listOf(

@@ -29,7 +29,7 @@ import com.dibitara.app.data.local.entity.MonthlyVersementEntity
         CustomSubCategoryEntity::class,
         MonthlyVersementEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -45,6 +45,28 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun monthlyVersementDao(): MonthlyVersementDao
 
     companion object {
+        // Migration v8 → v9 : sharesCount passe de INTEGER à REAL pour les parts fractionnées (ex : 2,2 parts)
+        // SQLite n'accepte pas ALTER TABLE MODIFY COLUMN → on recrée la table entièrement
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS scpi_investments_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        label TEXT NOT NULL,
+                        sharesCount REAL NOT NULL,
+                        shareValueCents INTEGER NOT NULL,
+                        monthlyContributionCents INTEGER NOT NULL,
+                        currency TEXT NOT NULL,
+                        updatedAtEpochDay INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                // Les anciennes valeurs entières (ex : 2) sont copiées comme REAL (2.0) sans perte
+                db.execSQL("INSERT INTO scpi_investments_new SELECT * FROM scpi_investments")
+                db.execSQL("DROP TABLE scpi_investments")
+                db.execSQL("ALTER TABLE scpi_investments_new RENAME TO scpi_investments")
+            }
+        }
+
         // Migration v7 → v8 : récurrences enrichies (fréquence, firstPaymentDate, endDate)
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {

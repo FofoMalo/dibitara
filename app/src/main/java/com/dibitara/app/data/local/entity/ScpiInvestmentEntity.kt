@@ -11,7 +11,7 @@ data class ScpiInvestmentEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val label: String,
-    val sharesCount: Int,
+    val sharesCount: Double,
     val shareValueCents: Long,
     val monthlyContributionCents: Long,
     val currency: String,

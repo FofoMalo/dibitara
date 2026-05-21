@@ -19,7 +19,7 @@ class InvestmentUseCasesTest {
     private fun buildRealEstate(label: String = "Appart Lyon", value: Long = 200000L) =
         RealEstateAsset(label = label, currentValueCents = value, currency = Currency.EUR, updatedAt = LocalDate.now())
 
-    private fun buildScpi(label: String = "SCPI Primovie", shares: Int = 10) =
+    private fun buildScpi(label: String = "SCPI Primovie", shares: Double = 10.0) =
         ScpiInvestment(label = label, sharesCount = shares, shareValueCents = 20000L,
             monthlyContributionCents = 0L, currency = Currency.EUR, updatedAt = LocalDate.now())
 
@@ -88,7 +88,7 @@ class InvestmentUseCasesTest {
 
     @Test
     fun `SaveScpi retourne échec si parts nulles`() = runTest {
-        assertTrue(SaveScpiUseCase(repository)(buildScpi(shares = 0)).isFailure)
+        assertTrue(SaveScpiUseCase(repository)(buildScpi(shares = 0.0)).isFailure)
     }
 
     // ─── SaveAirbnbRentalUseCase ─────────────────────────────────────────────
