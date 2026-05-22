@@ -1,8 +1,8 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 3.9 — 2026-05-20  
-> Statut : **En développement actif** — v4.0.0 sur develop (rupture schéma Room v7→v8)
+> Version du document : 4.0 — 2026-05-22  
+> Statut : **En développement actif** — v4.3.0 sur main — Room v10
 
 ---
 
@@ -35,8 +35,8 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 | F5 | Projections graphiques | MUST | ✅ Fait (donut, courbe 6 mois, barres investissements) |
 | F6 | Rappels et conseils sur fonds disponibles | SHOULD | ✅ Fait (3 canaux de notifications, Sprint 6) |
 | F7 | Authentification sécurisée | SHOULD | ✅ Fait (PIN 4 chiffres + biométrie — email/password retiré UI Sprint 12) |
-| F8 | Export des données (CSV/PDF) | COULD | ❌ Non implémenté — backlog V4 |
-| F9 | Sauvegarde cloud chiffrée | COULD | ❌ Non implémenté — backlog V4 |
+| F8 | Export des données (CSV/JSON) | COULD | ✅ Fait (Sprint 18 — CSV + JSON, partage Intent) |
+| F9 | Sauvegarde cloud chiffrée | COULD | ❌ Non implémenté — backlog V5 |
 
 ### Fonctionnalités réalisées au-delà du périmètre initial
 - **Rapport mensuel** — Module complet avec bilan, top catégories, variation M/M-1 (Sprint 8)
@@ -68,8 +68,10 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 ```
 app/src/main/java/com/dibitara/app/
 ├── data/
-│   ├── local/        — Room v8, migrations 1→2→3→4→5→6→7→8
+│   ├── export/       — CsvExporter, JsonExporter
+│   ├── local/        — Room v10, migrations 1→2→…→10
 │   └── repository/   — *RepositoryImpl.kt + UserPreferencesRepositoryImpl (DataStore)
+│                       + ExportRepositoryImpl + CustomInvestmentRepositoryImpl
 ├── di/               — DatabaseModule, DataStoreModule, SecurityModule
 ├── domain/
 │   ├── model/        — Transaction, Budget, Debt, SavingsAccount, RealEstateAsset,
@@ -77,22 +79,24 @@ app/src/main/java/com/dibitara/app/
 │   │                   Category, SubCategory, CustomSubCategory, DebtType, SavingsType,
 │   │                   Child, UserPreferences, MonthlyReport, CategoryExpense,
 │   │                   MonthlyVersement, RecurrenceFrequency, UpcomingPayment,
-│   │                   TransactionSuggestion
-│   ├── repository/   — 8 interfaces + UserPreferencesRepository + VersementRepository
-│   └── usecase/      — 43+ UseCases (1 responsabilité = 1 UseCase)
+│   │                   TransactionSuggestion, ExportData, ExportFormat,
+│   │                   PreciousMetalAsset, CustomAsset, EmployeeSavings,
+│   │                   MetalType, EmployeeSavingsType
+│   ├── repository/   — 11 interfaces (+ ExportRepository, CustomInvestmentRepository)
+│   └── usecase/      — 55+ UseCases (1 responsabilité = 1 UseCase)
 └── presentation/
-    ├── auth/         — LockScreen, AuthViewModel (PIN + email/password + biométrie)
+    ├── auth/         — LockScreen, AuthViewModel (PIN + biométrie)
     ├── dashboard/    — graphique 6 mois OU carte rapport selon toggle
-    ├── budget/       — donut + bilan revenus/dépenses réels
-    ├── expenses/     — liste + recherche + filtres + sous-catégories
-    ├── investments/  — barres + SRP (SCPI, immobilier, Airbnb)
+    ├── budget/       — donut interactif + bilan revenus/dépenses réels
+    ├── expenses/     — liste + recherche + filtres + suggestions + récurrences
+    ├── investments/  — barres + SCPI, immo, Airbnb, métaux, actifs libres, épargne salariale
     ├── savings/      — SavingsScreen, SavingsViewModel (CRUD complet)
     ├── debts/        — DebtsScreen, DebtsViewModel
     ├── report/       — MonthlyReportScreen, MonthlyReportViewModel
-    ├── settings/     — SettingsScreen (seuil, devise, toggle rapport, toggle nav)
+    ├── settings/     — SettingsScreen (seuil, devise, toggles, export)
     ├── common/       — CurrencyExt.kt, NotificationHelper.kt, BottomNavBar.kt
     ├── AppViewModel  — récurrentes + notifications au démarrage
-    └── navigation/   — DibitaraNavGraph (8 routes), BottomNavBar (6 onglets)
+    └── navigation/   — DibitaraNavGraph (9 routes), BottomNavBar (6 onglets)
 ```
 
 | Composant | Bibliothèque | Statut |
@@ -100,7 +104,7 @@ app/src/main/java/com/dibitara/app/
 | UI | Jetpack Compose | ✅ En production |
 | Navigation | Navigation Component | ✅ En production |
 | Architecture | ViewModel + StateFlow | ✅ En production |
-| Base de données locale | Room v8 | ✅ En production |
+| Base de données locale | Room v10 | ✅ En production |
 | Injection de dépendances | Hilt | ✅ En production |
 | Async | Coroutines + Flow | ✅ En production |
 | Graphiques | Vico (ou MPAndroidChart) | ✅ En production |
@@ -109,7 +113,7 @@ app/src/main/java/com/dibitara/app/
 | Biométrie | BiometricPrompt (récupération accès) | ✅ En production |
 | Taux de change API | Frankfurter | ✅ En production |
 | Tests UI | Espresso / Compose Test | ❌ Non implémenté |
-| Tests unitaires | JUnit 5 + MockK | ✅ 123 tests |
+| Tests unitaires | JUnit 5 + MockK | ✅ 150+ tests |
 | Couverture | Kover | ✅ Configuré — seuil 80% domain/, CI actif |
 | Firebase Crashlytics | — | ✅ En production |
 
@@ -270,6 +274,9 @@ Pyramide de tests (situation actuelle) :
 | Sprint 14 | IME complet, analyse RecurringExpenseTracker, budget interactif | ✅ Terminé | v3.1.0 |
 | Sprint 15 | Suggestions de saisie rapide basées sur l'historique récent | ✅ Terminé | v3.2.0 |
 | Sprint 16 | Récurrences enrichies (hebdo/annuelles) + vue prochains paiements — Room v8 | ✅ Terminé | v4.0.0 |
+| Sprint 17 | BUG-SCPI parts fractionnées (sharesCount Int→Real) — Room v9 | ✅ Terminé | v4.1.0 |
+| Sprint 18 | Export CSV + JSON toutes données — FileProvider — section Paramètres | ✅ Terminé | v4.2.0 |
+| Sprint 19 | Investissements personnalisés (métaux, actifs libres, épargne salariale) — Room v10 | ✅ Terminé | v4.3.0 |
 
 ---
 
@@ -421,9 +428,9 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 ### 7.6 Backlog V4 (long terme)
 | ID | Fonctionnalité | Effort |
 |----|---------------|--------|
-| F8 | Export CSV des transactions | 8-12h |
 | F9 | Sauvegarde cloud chiffrée | 15-20h |
 | SEC-01 | SQLCipher — chiffrement Room | 8-12h |
+| IMPORT-01 | Import CSV Bred / TradeRepublic (Sprint 20) | 12-18h |
 | PERF-01 | Tests d'intégration Room (in-memory, avant prochaine migration) | 10-15h |
 
 ---
@@ -492,6 +499,7 @@ Avant de proposer ou d'implémenter une migration, je dois vérifier et signaler
 | 3.7 | 2026-05-20 | Florent | Sprint 15 défini — FEAT-SUGGEST suggestions de saisie rapide (5-8h, v3.2.0, sans migration Room) |
 | 3.8 | 2026-05-20 | Florent | Sprint 15 marqué terminé — PR #7 mergée, v3.2.0 |
 | 3.9 | 2026-05-20 | Florent | Sprint 16 FEAT-RECUR livré — Room v7→v8, récurrences enrichies, vue prochains paiements, v4.0.0 |
+| 4.0 | 2026-05-22 | Florent | Sprints 17-19 ajoutés — Room v10, export CSV/JSON, investissements personnalisés, v4.3.0 |
 
 ---
 
