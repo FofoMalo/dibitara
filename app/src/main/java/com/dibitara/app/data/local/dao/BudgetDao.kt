@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface BudgetDao {
 
+    @Query("SELECT * FROM budgets ORDER BY year DESC, month DESC")
+    fun getAll(): Flow<List<BudgetEntity>>
+
     @Query("SELECT * FROM budgets WHERE month = :month AND year = :year LIMIT 1")
     fun getBudget(month: Int, year: Int): Flow<BudgetEntity?>
 

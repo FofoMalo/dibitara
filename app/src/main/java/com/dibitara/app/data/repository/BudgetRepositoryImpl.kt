@@ -12,6 +12,9 @@ class BudgetRepositoryImpl @Inject constructor(
     private val dao: BudgetDao
 ) : BudgetRepository {
 
+    override fun getAll(): Flow<List<Budget>> =
+        dao.getAll().map { list -> list.map { it.toDomain() } }
+
     override fun getBudget(month: Int, year: Int): Flow<Budget?> =
         dao.getBudget(month, year).map { it?.toDomain() }
 

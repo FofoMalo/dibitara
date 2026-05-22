@@ -36,6 +36,21 @@
             </intent-filter>
         </activity>
 
+        <!--
+            FileProvider sécurise le partage des fichiers d'export (CSV/JSON).
+            android:exported="false" + android:grantUriPermissions="true" =
+            seul l'app destinataire reçoit un accès temporaire à l'Uri.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
+
     </application>
 
 </manifest>

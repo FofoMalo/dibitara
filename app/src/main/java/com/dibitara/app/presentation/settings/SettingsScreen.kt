@@ -1,14 +1,17 @@
 package com.dibitara.app.presentation.settings
 
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -23,6 +26,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.ExportFormat
 import com.dibitara.app.presentation.auth.ClavierNumerique
 import com.dibitara.app.presentation.auth.PinDots
 import com.dibitara.app.presentation.auth.passwordCriteria
@@ -34,7 +38,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val security by viewModel.securityState.collectAsState()
     val totpSetupState by viewModel.totpSetupState.collectAsState()
     val tauxDeChange by viewModel.tauxDeChange.collectAsState()
+    val exportEnCours by viewModel.exportEnCours.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     var seuilEuros by remember(prefs.seuilFondsCents) {
         mutableStateOf((prefs.seuilFondsCents / 100).toString())
@@ -45,6 +51,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     var showChangerPin        by remember { mutableStateOf(false) }
     var showChangerMdp        by remember { mutableStateOf(false) }
     var showDesactiverTotp    by remember { mutableStateOf(false) }
+    var showDialogueExport    by remember { mutableStateOf(false) }
 
     // Écouter les événements du ViewModel pour les Snackbars
     LaunchedEffect(Unit) {
@@ -56,6 +63,24 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 is SettingsEvent.TotpDesactive      -> "Double authentification désactivée"
             }
             snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    // Écouter les événements d'export pour déclencher le partage système
+    LaunchedEffect(Unit) {
+        viewModel.exportEvent.collect { event ->
+            when (event) {
+                is ExportEvent.Succes -> {
+                    val mimeType = if (event.format == ExportFormat.CSV) "text/csv" else "application/json"
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = mimeType
+                        putExtra(Intent.EXTRA_STREAM, event.uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(intent, "Exporter les données"))
+                }
+                ExportEvent.Erreur -> snackbarHostState.showSnackbar("Erreur lors de l'export")
+            }
         }
     }
 
@@ -231,6 +256,35 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 }
             }
 
+            // ─── Section données ──────────────────────────────────────────────
+            SectionCard(titre = "Données") {
+                Text(
+                    "Exportez toutes vos données dans un fichier CSV (compatible Excel) ou JSON.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { showDialogueExport = true },
+                    enabled = !exportEnCours,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (exportEnCours) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Export en cours…")
+                    } else {
+                        Icon(Icons.Filled.Download, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Exporter mes données")
+                    }
+                }
+            }
+
             // ─── Section sécurité ─────────────────────────────────────────────
             SectionCard(titre = "Sécurité") {
                 // PIN
@@ -330,6 +384,52 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             state     = state,
             onActiver = { code -> viewModel.activerTotp(code) },
             onDismiss = { viewModel.annulerSetupTotp() }
+        )
+    }
+
+    // ─── Dialogue export ──────────────────────────────────────────────────────
+    if (showDialogueExport) {
+        AlertDialog(
+            onDismissRequest = { showDialogueExport = false },
+            title = { Text("Exporter les données") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Choisissez le format d'export :",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "• CSV — tableau lisible dans Excel ou Google Sheets",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "• JSON — sauvegarde complète (transactions, budgets, épargne, investissements, dettes)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            showDialogueExport = false
+                            viewModel.exporterDonnees(ExportFormat.CSV)
+                        }
+                    ) { Text("CSV") }
+                    Button(
+                        onClick = {
+                            showDialogueExport = false
+                            viewModel.exporterDonnees(ExportFormat.JSON)
+                        }
+                    ) { Text("JSON") }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialogueExport = false }) { Text("Annuler") }
+            }
         )
     }
 
