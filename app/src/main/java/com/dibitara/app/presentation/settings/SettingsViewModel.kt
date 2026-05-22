@@ -1,10 +1,13 @@
 package com.dibitara.app.presentation.settings
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ExchangeRates
+import com.dibitara.app.domain.model.ExportFormat
 import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.usecase.ExporterDonneesUseCase
 import com.dibitara.app.domain.usecase.GetExchangeRatesUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherEpargneUseCase
@@ -38,6 +41,7 @@ class SettingsViewModel @Inject constructor(
     private val ucUpdateAfficherInvestissements: UpdateAfficherInvestissementsUseCase,
     private val ucUpdateAfficherProchainsPaiements: UpdateAfficherProchainsPaiementsUseCase,
     private val ucUpdateTwoFactorEnabled: UpdateTwoFactorEnabledUseCase,
+    private val ucExporterDonnees: ExporterDonneesUseCase,
     private val credentialManager: CredentialManager,
     private val totpManager: TotpManager
 ) : ViewModel() {
@@ -84,6 +88,33 @@ class SettingsViewModel @Inject constructor(
 
     private val _event = MutableSharedFlow<SettingsEvent>()
     val event = _event.asSharedFlow()
+
+    // ─── Export des données ───────────────────────────────────────────────────
+
+    /** true pendant la génération du fichier pour désactiver le bouton. */
+    private val _exportEnCours = MutableStateFlow(false)
+    val exportEnCours: StateFlow<Boolean> = _exportEnCours.asStateFlow()
+
+    private val _exportEvent = MutableSharedFlow<ExportEvent>()
+    val exportEvent = _exportEvent.asSharedFlow()
+
+    /**
+     * Lance la collecte et l'écriture du fichier en arrière-plan.
+     * Émet [ExportEvent.Succes] avec l'Uri FileProvider, ou [ExportEvent.Erreur] si ça échoue.
+     */
+    fun exporterDonnees(format: ExportFormat) {
+        viewModelScope.launch {
+            _exportEnCours.value = true
+            try {
+                val uri = ucExporterDonnees(format)
+                _exportEvent.emit(ExportEvent.Succes(uri, format))
+            } catch (e: Exception) {
+                _exportEvent.emit(ExportEvent.Erreur)
+            } finally {
+                _exportEnCours.value = false
+            }
+        }
+    }
 
     // ─── Préférences ──────────────────────────────────────────────────────────
 
@@ -215,4 +246,11 @@ sealed class SettingsEvent {
     data object MotDePasseMisAJour  : SettingsEvent()
     data object TotpActive          : SettingsEvent()
     data object TotpDesactive       : SettingsEvent()
+}
+
+/** Résultat de l'opération d'export. */
+sealed class ExportEvent {
+    /** Fichier prêt — [uri] à passer à Intent.ACTION_SEND, [format] pour déterminer le mimeType. */
+    data class Succes(val uri: Uri, val format: ExportFormat) : ExportEvent()
+    data object Erreur : ExportEvent()
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Chemins autorisés par FileProvider pour partager des fichiers via Intent.
+    "cache-path" pointe vers context.cacheDir — le dossier "exports" est créé à la demande.
+-->
+<paths>
+    <cache-path name="exports" path="exports/" />
+</paths>
