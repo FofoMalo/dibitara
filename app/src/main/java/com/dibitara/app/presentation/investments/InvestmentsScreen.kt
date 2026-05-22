@@ -24,6 +24,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CustomAsset
+import com.dibitara.app.domain.model.EmployeeSavings
+import com.dibitara.app.domain.model.EmployeeSavingsType
+import com.dibitara.app.domain.model.MetalType
+import com.dibitara.app.domain.model.PreciousMetalAsset
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.presentation.common.toCurrencyDisplay
@@ -45,25 +50,29 @@ import java.util.Locale
 fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val defaultCurrency by viewModel.defaultCurrency.collectAsState()
-    var showAddRealEstate by remember { mutableStateOf(false) }
-    var showAddScpi      by remember { mutableStateOf(false) }
-    var showAddAirbnb    by remember { mutableStateOf(false) }
+    var showAddRealEstate    by remember { mutableStateOf(false) }
+    var showAddScpi          by remember { mutableStateOf(false) }
+    var showAddAirbnb        by remember { mutableStateOf(false) }
+    var showAddMetal         by remember { mutableStateOf(false) }
+    var showAddCustomAsset   by remember { mutableStateOf(false) }
+    var showAddEmpSavings    by remember { mutableStateOf(false) }
     // Éléments en cours d'édition — null = pas d'édition ouverte
-    var realEstateToEdit by remember { mutableStateOf<RealEstateAsset?>(null) }
-    var scpiToEdit       by remember { mutableStateOf<ScpiInvestment?>(null) }
-    var airbnbToEdit     by remember { mutableStateOf<AirbnbRental?>(null) }
+    var realEstateToEdit  by remember { mutableStateOf<RealEstateAsset?>(null) }
+    var scpiToEdit        by remember { mutableStateOf<ScpiInvestment?>(null) }
+    var airbnbToEdit      by remember { mutableStateOf<AirbnbRental?>(null) }
+    var metalToEdit       by remember { mutableStateOf<PreciousMetalAsset?>(null) }
+    var customAssetToEdit by remember { mutableStateOf<CustomAsset?>(null) }
+    var empSavingsToEdit  by remember { mutableStateOf<EmployeeSavings?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
             when (event) {
                 is InvestmentsEvent.Saved -> {
-                    showAddRealEstate = false
-                    showAddScpi = false
-                    showAddAirbnb = false
-                    realEstateToEdit = null
-                    scpiToEdit = null
-                    airbnbToEdit = null
+                    showAddRealEstate = false; showAddScpi = false; showAddAirbnb = false
+                    showAddMetal = false; showAddCustomAsset = false; showAddEmpSavings = false
+                    realEstateToEdit = null; scpiToEdit = null; airbnbToEdit = null
+                    metalToEdit = null; customAssetToEdit = null; empSavingsToEdit = null
                     snackbarHostState.showSnackbar("Investissement enregistré")
                 }
                 is InvestmentsEvent.VersementApplique -> snackbarHostState.showSnackbar("Versement appliqué ✓")
@@ -89,18 +98,57 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                         onAddRealEstate = { showAddRealEstate = true },
                         onAddScpi = { showAddScpi = true },
                         onAddAirbnb = { showAddAirbnb = true },
+                        onAddMetal = { showAddMetal = true },
+                        onAddCustomAsset = { showAddCustomAsset = true },
+                        onAddEmpSavings = { showAddEmpSavings = true },
                         onEditRealEstate = { realEstateToEdit = it },
                         onEditScpi = { scpiToEdit = it },
                         onEditAirbnb = { airbnbToEdit = it },
+                        onEditMetal = { metalToEdit = it },
+                        onEditCustomAsset = { customAssetToEdit = it },
+                        onEditEmpSavings = { empSavingsToEdit = it },
                         onDeleteRealEstate = viewModel::deleteRealEstate,
                         onDeleteScpi = viewModel::deleteScpi,
                         onDeleteAirbnb = viewModel::deleteAirbnb,
+                        onDeleteMetal = viewModel::deletePreciousMetal,
+                        onDeleteCustomAsset = viewModel::deleteCustomAsset,
+                        onDeleteEmpSavings = viewModel::deleteEmployeeSavings,
                         onAppliquerVersementScpi = viewModel::appliquerVersementScpi
                     )
             }
         }
     }
 
+    if (showAddMetal) {
+        AddMetalSheet(defaultCurrency = defaultCurrency,
+            onSave = { type, label, qty, price, cur -> viewModel.addPreciousMetal(type, label, qty, price, cur) },
+            onDismiss = { showAddMetal = false })
+    }
+    if (showAddCustomAsset) {
+        AddCustomAssetSheet(defaultCurrency = defaultCurrency,
+            onSave = { label, value, cur -> viewModel.addCustomAsset(label, value, cur) },
+            onDismiss = { showAddCustomAsset = false })
+    }
+    if (showAddEmpSavings) {
+        AddEmployeeSavingsSheet(defaultCurrency = defaultCurrency,
+            onSave = { type, label, balance, contrib, cur -> viewModel.addEmployeeSavings(type, label, balance, contrib, cur) },
+            onDismiss = { showAddEmpSavings = false })
+    }
+    metalToEdit?.let { metal ->
+        EditMetalSheet(asset = metal,
+            onSave = { type, label, qty, price, cur -> viewModel.updatePreciousMetal(metal, type, label, qty, price, cur) },
+            onDismiss = { metalToEdit = null })
+    }
+    customAssetToEdit?.let { asset ->
+        EditCustomAssetSheet(asset = asset,
+            onSave = { label, value, cur -> viewModel.updateCustomAsset(asset, label, value, cur) },
+            onDismiss = { customAssetToEdit = null })
+    }
+    empSavingsToEdit?.let { savings ->
+        EditEmployeeSavingsSheet(savings = savings,
+            onSave = { type, label, balance, contrib, cur -> viewModel.updateEmployeeSavings(savings, type, label, balance, contrib, cur) },
+            onDismiss = { empSavingsToEdit = null })
+    }
     if (showAddRealEstate) {
         AddRealEstateSheet(
             defaultCurrency = defaultCurrency,
@@ -157,16 +205,28 @@ private fun InvestmentsContent(
     onAddRealEstate: () -> Unit,
     onAddScpi: () -> Unit,
     onAddAirbnb: () -> Unit,
+    onAddMetal: () -> Unit,
+    onAddCustomAsset: () -> Unit,
+    onAddEmpSavings: () -> Unit,
     onEditRealEstate: (RealEstateAsset) -> Unit,
     onEditScpi: (ScpiInvestment) -> Unit,
     onEditAirbnb: (AirbnbRental) -> Unit,
+    onEditMetal: (PreciousMetalAsset) -> Unit,
+    onEditCustomAsset: (CustomAsset) -> Unit,
+    onEditEmpSavings: (EmployeeSavings) -> Unit,
     onDeleteRealEstate: (RealEstateAsset) -> Unit,
     onDeleteScpi: (ScpiInvestment) -> Unit,
     onDeleteAirbnb: (AirbnbRental) -> Unit,
+    onDeleteMetal: (PreciousMetalAsset) -> Unit,
+    onDeleteCustomAsset: (CustomAsset) -> Unit,
+    onDeleteEmpSavings: (EmployeeSavings) -> Unit,
     onAppliquerVersementScpi: (ScpiInvestment) -> Unit
 ) {
     val totalCents = state.realEstate.sumOf { it.currentValueCents } +
-            state.scpi.sumOf { it.totalValueCents }
+            state.scpi.sumOf { it.totalValueCents } +
+            state.preciousMetals.sumOf { it.totalValueCents } +
+            state.customAssets.sumOf { it.totalValueCents } +
+            state.employeeSavings.sumOf { it.currentBalanceCents }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -221,12 +281,40 @@ private fun InvestmentsContent(
             SectionHeader(title = "Revenus locatifs (${state.anneeLocatifs})", onAdd = onAddAirbnb)
         }
         if (state.airbnbRentals.isEmpty()) {
-            item {
-                EmptySectionText("Aucun revenu locatif enregistré.")
-            }
+            item { EmptySectionText("Aucun revenu locatif enregistré.") }
         } else {
             items(state.airbnbRentals, key = { "airbnb_${it.id}" }) { rental ->
                 AirbnbRentalCard(rental = rental, onEdit = { onEditAirbnb(rental) }, onDelete = { onDeleteAirbnb(rental) })
+            }
+        }
+
+        // --- Section Métaux précieux ---
+        item { SectionHeader(title = "Métaux précieux", onAdd = onAddMetal) }
+        if (state.preciousMetals.isEmpty()) {
+            item { EmptySectionText("Aucun métal précieux enregistré.") }
+        } else {
+            items(state.preciousMetals, key = { "metal_${it.id}" }) { metal ->
+                PreciousMetalCard(asset = metal, onEdit = { onEditMetal(metal) }, onDelete = { onDeleteMetal(metal) })
+            }
+        }
+
+        // --- Section Actifs libres ---
+        item { SectionHeader(title = "Actifs libres", onAdd = onAddCustomAsset) }
+        if (state.customAssets.isEmpty()) {
+            item { EmptySectionText("Aucun actif libre enregistré (crypto, actions, œuvres...).") }
+        } else {
+            items(state.customAssets, key = { "custom_${it.id}" }) { asset ->
+                CustomAssetCard(asset = asset, onEdit = { onEditCustomAsset(asset) }, onDelete = { onDeleteCustomAsset(asset) })
+            }
+        }
+
+        // --- Section Épargne salariale ---
+        item { SectionHeader(title = "Épargne salariale", onAdd = onAddEmpSavings) }
+        if (state.employeeSavings.isEmpty()) {
+            item { EmptySectionText("Aucun plan d'épargne salariale enregistré (PEE, PERCO).") }
+        } else {
+            items(state.employeeSavings, key = { "emp_${it.id}" }) { savings ->
+                EmployeeSavingsCard(savings = savings, onEdit = { onEditEmpSavings(savings) }, onDelete = { onDeleteEmpSavings(savings) })
             }
         }
     }
@@ -950,6 +1038,290 @@ private fun EditAirbnbSheet(
                 enabled = label.isNotBlank() && amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
+        }
+    }
+}
+
+// ─── Cartes investissements personnalisés ─────────────────────────────────────
+
+@Composable
+private fun PreciousMetalCard(asset: PreciousMetalAsset, onEdit: () -> Unit, onDelete: () -> Unit) {
+    var showConfirm by remember { mutableStateOf(false) }
+    val qtyDisplay = if (asset.quantityGrams % 1.0 == 0.0) asset.quantityGrams.toInt().toString() else "%.2f".format(asset.quantityGrams)
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("${asset.metalType.displayName} — ${asset.label}", style = MaterialTheme.typography.bodyLarge)
+                Text("$qtyDisplay g × ${asset.pricePerGramCents.toCurrencyDisplay(asset.currency)}/g", style = MaterialTheme.typography.bodyMedium)
+                Text("Total : ${asset.totalValueCents.toCurrencyDisplay(asset.currency)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+            }
+            Row {
+                IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Modifier") }
+                IconButton(onClick = { showConfirm = true }) { Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error) }
+            }
+        }
+    }
+    if (showConfirm) {
+        AlertDialog(onDismissRequest = { showConfirm = false }, title = { Text("Supprimer ce métal ?") },
+            confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
+            dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } })
+    }
+}
+
+@Composable
+private fun CustomAssetCard(asset: CustomAsset, onEdit: () -> Unit, onDelete: () -> Unit) {
+    var showConfirm by remember { mutableStateOf(false) }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(asset.label, style = MaterialTheme.typography.bodyLarge)
+                Text(asset.totalValueCents.toCurrencyDisplay(asset.currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                Text("Mis à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row {
+                IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Modifier") }
+                IconButton(onClick = { showConfirm = true }) { Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error) }
+            }
+        }
+    }
+    if (showConfirm) {
+        AlertDialog(onDismissRequest = { showConfirm = false }, title = { Text("Supprimer cet actif ?") },
+            confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
+            dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } })
+    }
+}
+
+@Composable
+private fun EmployeeSavingsCard(savings: EmployeeSavings, onEdit: () -> Unit, onDelete: () -> Unit) {
+    var showConfirm by remember { mutableStateOf(false) }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("${savings.type.displayName} — ${savings.label}", style = MaterialTheme.typography.bodyLarge)
+                Text("Solde : ${savings.currentBalanceCents.toCurrencyDisplay(savings.currency)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                if (savings.employerContributionCents > 0) {
+                    Text("Abondement : ${savings.employerContributionCents.toCurrencyDisplay(savings.currency)}/mois", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+            Row {
+                IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Modifier") }
+                IconButton(onClick = { showConfirm = true }) { Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error) }
+            }
+        }
+    }
+    if (showConfirm) {
+        AlertDialog(onDismissRequest = { showConfirm = false }, title = { Text("Supprimer ce plan ?") },
+            confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
+            dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } })
+    }
+}
+
+// ─── Bottom Sheets investissements personnalisés ──────────────────────────────
+
+@Composable
+private fun MetalTypeSelector(selected: MetalType, onSelect: (MetalType) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        MetalType.entries.forEach { type ->
+            FilterChip(selected = selected == type, onClick = { onSelect(type) }, label = { Text(type.displayName) })
+        }
+    }
+}
+
+@Composable
+private fun EmployeeSavingsTypeSelector(selected: EmployeeSavingsType, onSelect: (EmployeeSavingsType) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        EmployeeSavingsType.entries.forEach { type ->
+            FilterChip(selected = selected == type, onClick = { onSelect(type) }, label = { Text(type.name) })
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddMetalSheet(
+    defaultCurrency: Currency = Currency.EUR,
+    onSave: (MetalType, String, String, String, Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var metalType by remember { mutableStateOf(MetalType.OR) }
+    var label by remember { mutableStateOf("") }
+    var quantity by remember { mutableStateOf("") }
+    var price by remember { mutableStateOf("") }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("Nouveau métal précieux", style = MaterialTheme.typography.titleLarge)
+            MetalTypeSelector(selected = metalType, onSelect = { metalType = it })
+            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Libellé (ex. Lingot 100g)") }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = quantity, onValueChange = { quantity = it }, label = { Text("Quantité (g)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }), singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Prix/g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }), singleLine = true, modifier = Modifier.weight(1f))
+            }
+            val previewTotal = quantity.replace(',', '.').toDoubleOrNull()?.let { q -> price.replace(',', '.').toDoubleOrNull()?.let { p -> (q * p * 100).toLong() } }
+            if (previewTotal != null) Text("Total estimé : ${previewTotal.toCurrencyDisplay(selectedCurrency)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
+            }
+            Button(onClick = { onSave(metalType, label, quantity, price, selectedCurrency) }, enabled = label.isNotBlank() && quantity.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Ajouter") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditMetalSheet(
+    asset: PreciousMetalAsset,
+    onSave: (MetalType, String, String, String, Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var metalType by remember { mutableStateOf(asset.metalType) }
+    var label by remember { mutableStateOf(asset.label) }
+    var quantity by remember { mutableStateOf(if (asset.quantityGrams % 1.0 == 0.0) asset.quantityGrams.toInt().toString() else "%.2f".format(asset.quantityGrams)) }
+    var price by remember { mutableStateOf("%.2f".format(asset.pricePerGramCents / 100.0).replace(',', '.')) }
+    var selectedCurrency by remember { mutableStateOf(asset.currency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("Modifier le métal précieux", style = MaterialTheme.typography.titleLarge)
+            MetalTypeSelector(selected = metalType, onSelect = { metalType = it })
+            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Libellé") }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = quantity, onValueChange = { quantity = it }, label = { Text("Quantité (g)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }), singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Prix/g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }), singleLine = true, modifier = Modifier.weight(1f))
+            }
+            val previewTotal = quantity.replace(',', '.').toDoubleOrNull()?.let { q -> price.replace(',', '.').toDoubleOrNull()?.let { p -> (q * p * 100).toLong() } }
+            if (previewTotal != null) Text("Total estimé : ${previewTotal.toCurrencyDisplay(selectedCurrency)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
+            }
+            Button(onClick = { onSave(metalType, label, quantity, price, selectedCurrency) }, enabled = label.isNotBlank() && quantity.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddCustomAssetSheet(
+    defaultCurrency: Currency = Currency.EUR,
+    onSave: (String, String, Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf("") }
+    var value by remember { mutableStateOf("") }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("Nouvel actif libre", style = MaterialTheme.typography.titleLarge)
+            Text("Crypto, actions, œuvres d'art…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Libellé (ex. Bitcoin, ETF Monde...)") }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = value, onValueChange = { value = it }, label = { Text("Valeur actuelle") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
+            }
+            Button(onClick = { onSave(label, value, selectedCurrency) }, enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Ajouter") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditCustomAssetSheet(
+    asset: CustomAsset,
+    onSave: (String, String, Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf(asset.label) }
+    var value by remember { mutableStateOf("%.2f".format(asset.totalValueCents / 100.0).replace(',', '.')) }
+    var selectedCurrency by remember { mutableStateOf(asset.currency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("Modifier l'actif libre", style = MaterialTheme.typography.titleLarge)
+            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Libellé") }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = value, onValueChange = { value = it }, label = { Text("Valeur actuelle") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
+            }
+            Button(onClick = { onSave(label, value, selectedCurrency) }, enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddEmployeeSavingsSheet(
+    defaultCurrency: Currency = Currency.EUR,
+    onSave: (EmployeeSavingsType, String, String, String, Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var savingsType by remember { mutableStateOf(EmployeeSavingsType.PEE) }
+    var label by remember { mutableStateOf("") }
+    var balance by remember { mutableStateOf("") }
+    var contribution by remember { mutableStateOf("") }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("Nouvelle épargne salariale", style = MaterialTheme.typography.titleLarge)
+            EmployeeSavingsTypeSelector(selected = savingsType, onSelect = { savingsType = it })
+            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Libellé (ex. PEE Société Générale)") }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = balance, onValueChange = { balance = it }, label = { Text("Solde actuel") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = contribution, onValueChange = { contribution = it }, label = { Text("Abondement employeur/mois (optionnel)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
+            }
+            Button(onClick = { onSave(savingsType, label, balance, contribution, selectedCurrency) }, enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Ajouter") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditEmployeeSavingsSheet(
+    savings: EmployeeSavings,
+    onSave: (EmployeeSavingsType, String, String, String, Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var savingsType by remember { mutableStateOf(savings.type) }
+    var label by remember { mutableStateOf(savings.label) }
+    var balance by remember { mutableStateOf("%.2f".format(savings.currentBalanceCents / 100.0).replace(',', '.')) }
+    var contribution by remember { mutableStateOf(if (savings.employerContributionCents > 0) "%.2f".format(savings.employerContributionCents / 100.0).replace(',', '.') else "") }
+    var selectedCurrency by remember { mutableStateOf(savings.currency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("Modifier l'épargne salariale", style = MaterialTheme.typography.titleLarge)
+            EmployeeSavingsTypeSelector(selected = savingsType, onSelect = { savingsType = it })
+            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Libellé") }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = balance, onValueChange = { balance = it }, label = { Text("Solde actuel") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = contribution, onValueChange = { contribution = it }, label = { Text("Abondement employeur/mois (optionnel)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }), singleLine = true, modifier = Modifier.fillMaxWidth())
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
+            }
+            Button(onClick = { onSave(savingsType, label, balance, contribution, selectedCurrency) }, enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
         }
     }
 }

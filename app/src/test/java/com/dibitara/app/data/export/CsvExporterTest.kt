@@ -21,17 +21,20 @@ import java.time.LocalDate
 class CsvExporterTest {
 
     private fun donneesVides() = ExportData(
-        transactions = emptyList(),
-        budgets      = emptyList(),
-        epargne      = emptyList(),
-        immobilier   = emptyList(),
-        scpi         = emptyList(),
-        airbnb       = emptyList(),
-        dettes       = emptyList()
+        transactions    = emptyList(),
+        budgets         = emptyList(),
+        epargne         = emptyList(),
+        immobilier      = emptyList(),
+        scpi            = emptyList(),
+        airbnb          = emptyList(),
+        dettes          = emptyList(),
+        metaux          = emptyList(),
+        actifsLibres    = emptyList(),
+        epargneSalariale = emptyList()
     )
 
     @Test
-    fun `le CSV contient les sept sections`() {
+    fun `le CSV contient les dix sections`() {
         val csv = CsvExporter.generer(donneesVides())
         assertTrue(csv.contains("# TRANSACTIONS"))
         assertTrue(csv.contains("# BUDGETS"))
@@ -40,6 +43,9 @@ class CsvExporterTest {
         assertTrue(csv.contains("# SCPI"))
         assertTrue(csv.contains("# AIRBNB"))
         assertTrue(csv.contains("# DETTES"))
+        assertTrue(csv.contains("# METAUX_PRECIEUX"))
+        assertTrue(csv.contains("# ACTIFS_LIBRES"))
+        assertTrue(csv.contains("# EPARGNE_SALARIALE"))
     }
 
     @Test

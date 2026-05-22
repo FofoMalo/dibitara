@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dibitara.app.data.local.dao.*
 import com.dibitara.app.data.local.entity.*
 import com.dibitara.app.data.local.entity.CustomSubCategoryEntity
+import com.dibitara.app.data.local.entity.EmployeeSavingsEntity
 import com.dibitara.app.data.local.entity.MonthlyVersementEntity
 
 /**
@@ -27,9 +28,12 @@ import com.dibitara.app.data.local.entity.MonthlyVersementEntity
         ScpiInvestmentEntity::class,
         AirbnbRentalEntity::class,
         CustomSubCategoryEntity::class,
-        MonthlyVersementEntity::class
+        MonthlyVersementEntity::class,
+        PreciousMetalEntity::class,
+        CustomAssetEntity::class,
+        EmployeeSavingsEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -43,8 +47,48 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun airbnbRentalDao(): AirbnbRentalDao
     abstract fun customSubCategoryDao(): CustomSubCategoryDao
     abstract fun monthlyVersementDao(): MonthlyVersementDao
+    abstract fun preciousMetalDao(): PreciousMetalDao
+    abstract fun customAssetDao(): CustomAssetDao
+    abstract fun employeeSavingsDao(): EmployeeSavingsDao
 
     companion object {
+        // Migration v9 → v10 : 3 nouvelles tables pour les investissements personnalisés
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS precious_metals (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        metalType TEXT NOT NULL,
+                        label TEXT NOT NULL,
+                        quantityGrams REAL NOT NULL,
+                        pricePerGramCents INTEGER NOT NULL,
+                        currency TEXT NOT NULL,
+                        updatedAtEpochDay INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS custom_assets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        label TEXT NOT NULL,
+                        totalValueCents INTEGER NOT NULL,
+                        currency TEXT NOT NULL,
+                        updatedAtEpochDay INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS employee_savings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        type TEXT NOT NULL,
+                        label TEXT NOT NULL,
+                        currentBalanceCents INTEGER NOT NULL,
+                        employerContributionCents INTEGER NOT NULL,
+                        currency TEXT NOT NULL,
+                        updatedAtEpochDay INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         // Migration v8 → v9 : sharesCount passe de INTEGER à REAL pour les parts fractionnées (ex : 2,2 parts)
         // SQLite n'accepte pas ALTER TABLE MODIFY COLUMN → on recrée la table entièrement
         val MIGRATION_8_9 = object : Migration(8, 9) {

@@ -5,23 +5,40 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CustomAsset
+import com.dibitara.app.domain.model.EmployeeSavings
+import com.dibitara.app.domain.model.EmployeeSavingsType
+import com.dibitara.app.domain.model.MetalType
 import com.dibitara.app.domain.model.MonthlyVersement
+import com.dibitara.app.domain.model.PreciousMetalAsset
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
+import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
+import com.dibitara.app.domain.usecase.DeletePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
+import com.dibitara.app.domain.usecase.GetCustomAssetsUseCase
+import com.dibitara.app.domain.usecase.GetEmployeeSavingsUseCase
+import com.dibitara.app.domain.usecase.GetPreciousMetalsUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
+import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
+import com.dibitara.app.domain.usecase.SaveEmployeeSavingsUseCase
+import com.dibitara.app.domain.usecase.SavePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.UpdateCustomAssetUseCase
+import com.dibitara.app.domain.usecase.UpdateEmployeeSavingsUseCase
+import com.dibitara.app.domain.usecase.UpdatePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
-import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -35,15 +52,27 @@ class InvestmentsViewModel @Inject constructor(
     private val ucGetRealEstate: GetRealEstateUseCase,
     private val ucGetScpi: GetScpiUseCase,
     private val ucGetAirbnbByYear: GetAirbnbRentalsByYearUseCase,
+    private val ucGetPreciousMetals: GetPreciousMetalsUseCase,
+    private val ucGetCustomAssets: GetCustomAssetsUseCase,
+    private val ucGetEmployeeSavings: GetEmployeeSavingsUseCase,
     private val ucSaveRealEstate: SaveRealEstateUseCase,
     private val ucSaveScpi: SaveScpiUseCase,
     private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase,
+    private val ucSavePreciousMetal: SavePreciousMetalUseCase,
+    private val ucSaveCustomAsset: SaveCustomAssetUseCase,
+    private val ucSaveEmployeeSavings: SaveEmployeeSavingsUseCase,
     private val ucUpdateRealEstate: UpdateRealEstateUseCase,
     private val ucUpdateScpi: UpdateScpiUseCase,
     private val ucUpdateAirbnbRental: UpdateAirbnbRentalUseCase,
+    private val ucUpdatePreciousMetal: UpdatePreciousMetalUseCase,
+    private val ucUpdateCustomAsset: UpdateCustomAssetUseCase,
+    private val ucUpdateEmployeeSavings: UpdateEmployeeSavingsUseCase,
     private val ucDeleteRealEstate: DeleteRealEstateUseCase,
     private val ucDeleteScpi: DeleteScpiUseCase,
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase,
+    private val ucDeletePreciousMetal: DeletePreciousMetalUseCase,
+    private val ucDeleteCustomAsset: DeleteCustomAssetUseCase,
+    private val ucDeleteEmployeeSavings: DeleteEmployeeSavingsUseCase,
     private val ucSaveVersement: SaveVersementUseCase,
     private val ucExisteVersementMois: ExisteVersementMoisUseCase,
     private val ucGetPreferences: GetUserPreferencesUseCase
@@ -55,17 +84,29 @@ class InvestmentsViewModel @Inject constructor(
 
     private val currentYear = LocalDate.now().year
 
-    val uiState: StateFlow<InvestmentsUiState> = combine(
+    private val baseFlow = combine(
         ucGetRealEstate(),
         ucGetScpi(),
         ucGetAirbnbByYear(currentYear)
-    ) { realEstate, scpi, airbnb ->
+    ) { realEstate, scpi, airbnb -> Triple(realEstate, scpi, airbnb) }
+
+    private val customFlow = combine(
+        ucGetPreciousMetals(),
+        ucGetCustomAssets(),
+        ucGetEmployeeSavings()
+    ) { metals, assets, empSavings -> Triple(metals, assets, empSavings) }
+
+    val uiState: StateFlow<InvestmentsUiState> = combine(baseFlow, customFlow) {
+        (realEstate, scpi, airbnb), (metals, assets, empSavings) ->
         InvestmentsUiState.Success(
-            realEstate = realEstate,
-            scpi = scpi,
-            airbnbRentals = airbnb,
+            realEstate      = realEstate,
+            scpi            = scpi,
+            airbnbRentals   = airbnb,
             airbnbAnnualTotal = airbnb.sumOf { it.amountCents },
-            anneeLocatifs = currentYear
+            anneeLocatifs   = currentYear,
+            preciousMetals  = metals,
+            customAssets    = assets,
+            employeeSavings = empSavings
         ) as InvestmentsUiState
     }
         .catch { emit(InvestmentsUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -179,6 +220,100 @@ class InvestmentsViewModel @Inject constructor(
         viewModelScope.launch { ucDeleteAirbnbRental(rental) }
     }
 
+    // ─── Métaux précieux ───────────────────────────────────────────────────────
+
+    fun addPreciousMetal(metalType: MetalType, label: String, quantityStr: String, priceStr: String, currency: Currency) {
+        val quantity = quantityStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Quantité invalide")) }
+            return
+        }
+        val price = priceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        viewModelScope.launch {
+            ucSavePreciousMetal(PreciousMetalAsset(metalType = metalType, label = label, quantityGrams = quantity, pricePerGramCents = price, currency = currency, updatedAt = LocalDate.now()))
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun updatePreciousMetal(asset: PreciousMetalAsset, metalType: MetalType, label: String, quantityStr: String, priceStr: String, currency: Currency) {
+        val quantity = quantityStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Quantité invalide")) }
+            return
+        }
+        val price = priceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        viewModelScope.launch {
+            ucUpdatePreciousMetal(asset.copy(metalType = metalType, label = label, quantityGrams = quantity, pricePerGramCents = price, currency = currency, updatedAt = LocalDate.now()))
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun deletePreciousMetal(asset: PreciousMetalAsset) {
+        viewModelScope.launch { ucDeletePreciousMetal(asset) }
+    }
+
+    // ─── Actifs libres ─────────────────────────────────────────────────────────
+
+    fun addCustomAsset(label: String, valueStr: String, currency: Currency) {
+        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
+            return
+        }
+        viewModelScope.launch {
+            ucSaveCustomAsset(CustomAsset(label = label, totalValueCents = cents, currency = currency, updatedAt = LocalDate.now()))
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun updateCustomAsset(asset: CustomAsset, label: String, valueStr: String, currency: Currency) {
+        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
+            return
+        }
+        viewModelScope.launch {
+            ucUpdateCustomAsset(asset.copy(label = label, totalValueCents = cents, currency = currency, updatedAt = LocalDate.now()))
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun deleteCustomAsset(asset: CustomAsset) {
+        viewModelScope.launch { ucDeleteCustomAsset(asset) }
+    }
+
+    // ─── Épargne salariale ─────────────────────────────────────────────────────
+
+    fun addEmployeeSavings(type: EmployeeSavingsType, label: String, balanceStr: String, contributionStr: String, currency: Currency) {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Solde invalide")) }
+            return
+        }
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        viewModelScope.launch {
+            ucSaveEmployeeSavings(EmployeeSavings(type = type, label = label, currentBalanceCents = balance, employerContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun updateEmployeeSavings(savings: EmployeeSavings, type: EmployeeSavingsType, label: String, balanceStr: String, contributionStr: String, currency: Currency) {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Solde invalide")) }
+            return
+        }
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        viewModelScope.launch {
+            ucUpdateEmployeeSavings(savings.copy(type = type, label = label, currentBalanceCents = balance, employerContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun deleteEmployeeSavings(savings: EmployeeSavings) {
+        viewModelScope.launch { ucDeleteEmployeeSavings(savings) }
+    }
+
     /**
      * Applique le versement mensuel prévu sur une SCPI.
      * Même logique que pour l'épargne : non-rétroactif, un seul versement par mois.
@@ -218,11 +353,14 @@ class InvestmentsViewModel @Inject constructor(
 sealed class InvestmentsUiState {
     data object Loading : InvestmentsUiState()
     data class Success(
-        val realEstate: List<RealEstateAsset>,
-        val scpi: List<ScpiInvestment>,
-        val airbnbRentals: List<AirbnbRental>,
+        val realEstate      : List<RealEstateAsset>,
+        val scpi            : List<ScpiInvestment>,
+        val airbnbRentals   : List<AirbnbRental>,
         val airbnbAnnualTotal: Long,
-        val anneeLocatifs: Int
+        val anneeLocatifs   : Int,
+        val preciousMetals  : List<PreciousMetalAsset> = emptyList(),
+        val customAssets    : List<CustomAsset>        = emptyList(),
+        val employeeSavings : List<EmployeeSavings>    = emptyList()
     ) : InvestmentsUiState()
     data class Error(val message: String) : InvestmentsUiState()
 }
