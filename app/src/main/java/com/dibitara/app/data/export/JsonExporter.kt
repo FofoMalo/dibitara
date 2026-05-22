@@ -28,15 +28,18 @@ object JsonExporter {
     fun generer(data: ExportData, versionApp: String): String {
         // LinkedHashMap pour garantir l'ordre des clés dans le JSON final
         val enveloppe = linkedMapOf(
-            "exportDate"   to LocalDate.now().toString(),
-            "version"      to versionApp,
-            "transactions" to data.transactions,
-            "budgets"      to data.budgets,
-            "epargne"      to data.epargne,
-            "immobilier"   to data.immobilier,
-            "scpi"         to data.scpi,
-            "airbnb"       to data.airbnb,
-            "dettes"       to data.dettes
+            "exportDate"       to LocalDate.now().toString(),
+            "version"          to versionApp,
+            "transactions"     to data.transactions,
+            "budgets"          to data.budgets,
+            "epargne"          to data.epargne,
+            "immobilier"       to data.immobilier,
+            "scpi"             to data.scpi,
+            "airbnb"           to data.airbnb,
+            "dettes"           to data.dettes,
+            "metaux_precieux"  to data.metaux,
+            "actifs_libres"    to data.actifsLibres,
+            "epargne_salariale" to data.epargneSalariale
         )
         return gson.toJson(enveloppe)
     }

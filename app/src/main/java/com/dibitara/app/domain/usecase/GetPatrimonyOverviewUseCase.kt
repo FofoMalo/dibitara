@@ -4,6 +4,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.PatrimonyOverview
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.repository.BudgetRepository
+import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
 import com.dibitara.app.domain.repository.SavingsRepository
@@ -25,6 +26,7 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
     private val budgetRepository: BudgetRepository,
     private val savingsRepository: SavingsRepository,
     private val investmentRepository: InvestmentRepository,
+    private val customInvestmentRepository: CustomInvestmentRepository,
     private val debtRepository: DebtRepository,
     private val transactionRepository: TransactionRepository
 ) {
@@ -50,7 +52,16 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
             Triple(scpi, airbnb, debts)
         }
 
-        return combine(groupA, groupB) { (groupATriple, transactions), (scpi, airbnb, debts) ->
+        // Groupe C : investissements personnalisés (métaux précieux, actifs libres, épargne salariale)
+        val groupC = combine(
+            customInvestmentRepository.getAllPreciousMetals(),
+            customInvestmentRepository.getAllCustomAssets(),
+            customInvestmentRepository.getAllEmployeeSavings()
+        ) { metals, assets, empSavings ->
+            Triple(metals, assets, empSavings)
+        }
+
+        return combine(groupA, groupB, groupC) { (groupATriple, transactions), (scpi, airbnb, debts), (metals, assets, empSavings) ->
             val (budget, savings, realEstate) = groupATriple
 
             // Liquidités = budget alloué − dépenses réelles du mois
@@ -64,7 +75,10 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
                 liquiditesCents          = liquidites,
                 epargneCents             = savings.sumOf { it.currentBalanceCents },
                 investissementsCents     = realEstate.sumOf { it.currentValueCents } +
-                                           scpi.sumOf { it.totalValueCents },
+                                           scpi.sumOf { it.totalValueCents } +
+                                           metals.sumOf { it.totalValueCents } +
+                                           assets.sumOf { it.totalValueCents } +
+                                           empSavings.sumOf { it.currentBalanceCents },
                 airbnbAnnualRevenueCents = airbnb.sumOf { it.amountCents },
                 dettesTotalCents         = debts.sumOf { it.totalCents },
                 currency                 = budget?.currency ?: Currency.EUR

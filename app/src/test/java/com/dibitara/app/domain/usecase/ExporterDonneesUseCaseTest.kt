@@ -16,6 +16,7 @@ import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.repository.BudgetRepository
+import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.ExportRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
@@ -33,12 +34,13 @@ import java.time.LocalDate
 
 class ExporterDonneesUseCaseTest {
 
-    private val transactionRepo  : TransactionRepository = mockk()
-    private val budgetRepo       : BudgetRepository      = mockk()
-    private val savingsRepo      : SavingsRepository     = mockk()
-    private val investmentRepo   : InvestmentRepository  = mockk()
-    private val debtRepo         : DebtRepository        = mockk()
-    private val exportRepo       : ExportRepository      = mockk()
+    private val transactionRepo    : TransactionRepository      = mockk()
+    private val budgetRepo         : BudgetRepository           = mockk()
+    private val savingsRepo        : SavingsRepository          = mockk()
+    private val investmentRepo     : InvestmentRepository       = mockk()
+    private val debtRepo           : DebtRepository             = mockk()
+    private val customInvestRepo   : CustomInvestmentRepository = mockk()
+    private val exportRepo         : ExportRepository           = mockk()
 
     private lateinit var useCase: ExporterDonneesUseCase
 
@@ -47,23 +49,27 @@ class ExporterDonneesUseCaseTest {
     @BeforeEach
     fun setUp() {
         useCase = ExporterDonneesUseCase(
-            transactionRepository = transactionRepo,
-            budgetRepository      = budgetRepo,
-            savingsRepository     = savingsRepo,
-            investmentRepository  = investmentRepo,
-            debtRepository        = debtRepo,
-            exportRepository      = exportRepo
+            transactionRepository      = transactionRepo,
+            budgetRepository           = budgetRepo,
+            savingsRepository          = savingsRepo,
+            investmentRepository       = investmentRepo,
+            debtRepository             = debtRepo,
+            customInvestmentRepository = customInvestRepo,
+            exportRepository           = exportRepo
         )
 
         // Tous les repos retournent des listes vides par défaut
-        coEvery { transactionRepo.getAll()             } returns flowOf(emptyList())
-        coEvery { budgetRepo.getAll()                  } returns flowOf(emptyList())
-        coEvery { savingsRepo.getAll()                 } returns flowOf(emptyList())
-        coEvery { investmentRepo.getAllRealEstate()     } returns flowOf(emptyList())
-        coEvery { investmentRepo.getAllScpi()           } returns flowOf(emptyList())
-        coEvery { investmentRepo.getAllAirbnbRentals()  } returns flowOf(emptyList())
-        coEvery { debtRepo.getAll()                    } returns flowOf(emptyList())
-        coEvery { exportRepo.exporter(any(), any())    } returns uriMock
+        coEvery { transactionRepo.getAll()                   } returns flowOf(emptyList())
+        coEvery { budgetRepo.getAll()                        } returns flowOf(emptyList())
+        coEvery { savingsRepo.getAll()                       } returns flowOf(emptyList())
+        coEvery { investmentRepo.getAllRealEstate()           } returns flowOf(emptyList())
+        coEvery { investmentRepo.getAllScpi()                 } returns flowOf(emptyList())
+        coEvery { investmentRepo.getAllAirbnbRentals()        } returns flowOf(emptyList())
+        coEvery { debtRepo.getAll()                          } returns flowOf(emptyList())
+        coEvery { customInvestRepo.getAllPreciousMetals()     } returns flowOf(emptyList())
+        coEvery { customInvestRepo.getAllCustomAssets()       } returns flowOf(emptyList())
+        coEvery { customInvestRepo.getAllEmployeeSavings()    } returns flowOf(emptyList())
+        coEvery { exportRepo.exporter(any(), any())          } returns uriMock
     }
 
     @Test

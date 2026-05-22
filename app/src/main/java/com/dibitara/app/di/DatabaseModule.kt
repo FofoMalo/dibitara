@@ -4,11 +4,16 @@ import android.content.Context
 import androidx.room.Room
 import com.dibitara.app.data.local.database.DibitaraDatabase
 import com.dibitara.app.data.local.dao.*
+import com.dibitara.app.data.local.dao.CustomAssetDao
+import com.dibitara.app.data.local.dao.EmployeeSavingsDao
 import com.dibitara.app.data.local.dao.MonthlyVersementDao
+import com.dibitara.app.data.local.dao.PreciousMetalDao
 import com.dibitara.app.data.repository.*
+import com.dibitara.app.data.repository.CustomInvestmentRepositoryImpl
 import com.dibitara.app.data.repository.ExportRepositoryImpl
 import com.dibitara.app.data.repository.VersementRepositoryImpl
 import com.dibitara.app.domain.repository.*
+import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.ExportRepository
 import com.dibitara.app.domain.repository.VersementRepository
 import dagger.Binds
@@ -35,7 +40,8 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_5_6,
                 DibitaraDatabase.MIGRATION_6_7,
                 DibitaraDatabase.MIGRATION_7_8,
-                DibitaraDatabase.MIGRATION_8_9
+                DibitaraDatabase.MIGRATION_8_9,
+                DibitaraDatabase.MIGRATION_9_10
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
@@ -50,6 +56,9 @@ object DatabaseModule {
     @Provides fun provideAirbnbRentalDao(db: DibitaraDatabase): AirbnbRentalDao = db.airbnbRentalDao()
     @Provides fun provideCustomSubCategoryDao(db: DibitaraDatabase): CustomSubCategoryDao = db.customSubCategoryDao()
     @Provides fun provideMonthlyVersementDao(db: DibitaraDatabase): MonthlyVersementDao = db.monthlyVersementDao()
+    @Provides fun providePreciousMetalDao(db: DibitaraDatabase): PreciousMetalDao = db.preciousMetalDao()
+    @Provides fun provideCustomAssetDao(db: DibitaraDatabase): CustomAssetDao = db.customAssetDao()
+    @Provides fun provideEmployeeSavingsDao(db: DibitaraDatabase): EmployeeSavingsDao = db.employeeSavingsDao()
 }
 
 @Module
@@ -65,4 +74,5 @@ abstract class RepositoryModule {
     @Binds abstract fun bindCustomSubCategoryRepository(impl: CustomSubCategoryRepositoryImpl): CustomSubCategoryRepository
     @Binds abstract fun bindVersementRepository(impl: VersementRepositoryImpl): VersementRepository
     @Binds abstract fun bindExportRepository(impl: ExportRepositoryImpl): ExportRepository
+    @Binds abstract fun bindCustomInvestmentRepository(impl: CustomInvestmentRepositoryImpl): CustomInvestmentRepository
 }

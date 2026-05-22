@@ -2,8 +2,11 @@ package com.dibitara.app.data.export
 
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Budget
+import com.dibitara.app.domain.model.CustomAsset
 import com.dibitara.app.domain.model.Debt
+import com.dibitara.app.domain.model.EmployeeSavings
 import com.dibitara.app.domain.model.ExportData
+import com.dibitara.app.domain.model.PreciousMetalAsset
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.ScpiInvestment
@@ -17,13 +20,16 @@ import com.dibitara.app.domain.model.Transaction
 object CsvExporter {
 
     fun generer(data: ExportData): String = buildString {
-        appendSection("TRANSACTIONS", lignesTransactions(data.transactions))
-        appendSection("BUDGETS",      lignesBudgets(data.budgets))
-        appendSection("EPARGNE",      lignesEpargne(data.epargne))
-        appendSection("IMMOBILIER",   lignesImmobilier(data.immobilier))
-        appendSection("SCPI",         lignesScpi(data.scpi))
-        appendSection("AIRBNB",       lignesAirbnb(data.airbnb))
-        appendSection("DETTES",       lignesDettes(data.dettes))
+        appendSection("TRANSACTIONS",    lignesTransactions(data.transactions))
+        appendSection("BUDGETS",         lignesBudgets(data.budgets))
+        appendSection("EPARGNE",         lignesEpargne(data.epargne))
+        appendSection("IMMOBILIER",      lignesImmobilier(data.immobilier))
+        appendSection("SCPI",            lignesScpi(data.scpi))
+        appendSection("AIRBNB",          lignesAirbnb(data.airbnb))
+        appendSection("DETTES",          lignesDettes(data.dettes))
+        appendSection("METAUX_PRECIEUX", lignesMetaux(data.metaux))
+        appendSection("ACTIFS_LIBRES",   lignesActifsLibres(data.actifsLibres))
+        appendSection("EPARGNE_SALARIALE", lignesEpargneSalariale(data.epargneSalariale))
     }
 
     // ─── Sections ─────────────────────────────────────────────────────────────
@@ -89,6 +95,29 @@ object CsvExporter {
         return listOf(entete) + list.map { d ->
             "${d.id};${echapper(d.label)};${d.type.displayName};${d.totalCents};" +
             "${d.monthlyPaymentCents};${d.currency.isoCode};${d.updatedAt}"
+        }
+    }
+
+    private fun lignesMetaux(list: List<PreciousMetalAsset>): List<String> {
+        val entete = "id;type_metal;libelle;quantite_grammes;prix_par_gramme_centimes;valeur_totale_centimes;devise;mise_a_jour"
+        return listOf(entete) + list.map { m ->
+            "${m.id};${m.metalType.displayName};${echapper(m.label)};${m.quantityGrams};" +
+            "${m.pricePerGramCents};${m.totalValueCents};${m.currency.isoCode};${m.updatedAt}"
+        }
+    }
+
+    private fun lignesActifsLibres(list: List<CustomAsset>): List<String> {
+        val entete = "id;libelle;valeur_totale_centimes;devise;mise_a_jour"
+        return listOf(entete) + list.map { a ->
+            "${a.id};${echapper(a.label)};${a.totalValueCents};${a.currency.isoCode};${a.updatedAt}"
+        }
+    }
+
+    private fun lignesEpargneSalariale(list: List<EmployeeSavings>): List<String> {
+        val entete = "id;type;libelle;solde_centimes;abondement_employeur_centimes;devise;mise_a_jour"
+        return listOf(entete) + list.map { e ->
+            "${e.id};${e.type.displayName};${echapper(e.label)};${e.currentBalanceCents};" +
+            "${e.employerContributionCents};${e.currency.isoCode};${e.updatedAt}"
         }
     }
 

@@ -6,18 +6,30 @@ import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
+import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
+import com.dibitara.app.domain.usecase.DeletePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
+import com.dibitara.app.domain.usecase.GetCustomAssetsUseCase
+import com.dibitara.app.domain.usecase.GetEmployeeSavingsUseCase
+import com.dibitara.app.domain.usecase.GetPreciousMetalsUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
+import com.dibitara.app.domain.usecase.SaveEmployeeSavingsUseCase
+import com.dibitara.app.domain.usecase.SavePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.UpdateCustomAssetUseCase
+import com.dibitara.app.domain.usecase.UpdateEmployeeSavingsUseCase
+import com.dibitara.app.domain.usecase.UpdatePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
 import io.mockk.coEvery
@@ -43,15 +55,27 @@ class InvestmentsViewModelTest {
     private val ucGetRealEstate: GetRealEstateUseCase = mockk()
     private val ucGetScpi: GetScpiUseCase = mockk()
     private val ucGetAirbnbByYear: GetAirbnbRentalsByYearUseCase = mockk()
+    private val ucGetPreciousMetals: GetPreciousMetalsUseCase = mockk()
+    private val ucGetCustomAssets: GetCustomAssetsUseCase = mockk()
+    private val ucGetEmployeeSavings: GetEmployeeSavingsUseCase = mockk()
     private val ucSaveRealEstate: SaveRealEstateUseCase = mockk()
     private val ucSaveScpi: SaveScpiUseCase = mockk()
     private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase = mockk()
+    private val ucSavePreciousMetal: SavePreciousMetalUseCase = mockk(relaxed = true)
+    private val ucSaveCustomAsset: SaveCustomAssetUseCase = mockk(relaxed = true)
+    private val ucSaveEmployeeSavings: SaveEmployeeSavingsUseCase = mockk(relaxed = true)
     private val ucUpdateRealEstate: UpdateRealEstateUseCase = mockk()
     private val ucUpdateScpi: UpdateScpiUseCase = mockk()
     private val ucUpdateAirbnbRental: UpdateAirbnbRentalUseCase = mockk()
+    private val ucUpdatePreciousMetal: UpdatePreciousMetalUseCase = mockk(relaxed = true)
+    private val ucUpdateCustomAsset: UpdateCustomAssetUseCase = mockk(relaxed = true)
+    private val ucUpdateEmployeeSavings: UpdateEmployeeSavingsUseCase = mockk(relaxed = true)
     private val ucDeleteRealEstate: DeleteRealEstateUseCase = mockk()
     private val ucDeleteScpi: DeleteScpiUseCase = mockk()
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase = mockk()
+    private val ucDeletePreciousMetal: DeletePreciousMetalUseCase = mockk(relaxed = true)
+    private val ucDeleteCustomAsset: DeleteCustomAssetUseCase = mockk(relaxed = true)
+    private val ucDeleteEmployeeSavings: DeleteEmployeeSavingsUseCase = mockk(relaxed = true)
     private val ucSaveVersement: SaveVersementUseCase = mockk()
     private val ucExisteVersementMois: ExisteVersementMoisUseCase = mockk()
     private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
@@ -64,12 +88,19 @@ class InvestmentsViewModelTest {
         every { ucGetRealEstate() } returns flowOf(emptyList())
         every { ucGetScpi() } returns flowOf(emptyList())
         every { ucGetAirbnbByYear(any()) } returns flowOf(emptyList())
+        every { ucGetPreciousMetals() } returns flowOf(emptyList())
+        every { ucGetCustomAssets() } returns flowOf(emptyList())
+        every { ucGetEmployeeSavings() } returns flowOf(emptyList())
         every { ucGetPreferences() } returns flowOf(UserPreferences())
         viewModel = InvestmentsViewModel(
             ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear,
+            ucGetPreciousMetals, ucGetCustomAssets, ucGetEmployeeSavings,
             ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental,
+            ucSavePreciousMetal, ucSaveCustomAsset, ucSaveEmployeeSavings,
             ucUpdateRealEstate, ucUpdateScpi, ucUpdateAirbnbRental,
+            ucUpdatePreciousMetal, ucUpdateCustomAsset, ucUpdateEmployeeSavings,
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental,
+            ucDeletePreciousMetal, ucDeleteCustomAsset, ucDeleteEmployeeSavings,
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences
         )
     }

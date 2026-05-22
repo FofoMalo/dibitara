@@ -2,6 +2,7 @@ package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.*
 import com.dibitara.app.domain.repository.BudgetRepository
+import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
 import com.dibitara.app.domain.repository.SavingsRepository
@@ -21,13 +22,14 @@ class GetPatrimonyOverviewUseCaseTest {
     private val budgetRepo: BudgetRepository = mockk()
     private val savingsRepo: SavingsRepository = mockk()
     private val investmentRepo: InvestmentRepository = mockk()
+    private val customInvestRepo: CustomInvestmentRepository = mockk()
     private val debtRepo: DebtRepository = mockk()
     private val transactionRepo: TransactionRepository = mockk()
     private lateinit var useCase: GetPatrimonyOverviewUseCase
 
     @BeforeEach
     fun setUp() {
-        useCase = GetPatrimonyOverviewUseCase(budgetRepo, savingsRepo, investmentRepo, debtRepo, transactionRepo)
+        useCase = GetPatrimonyOverviewUseCase(budgetRepo, savingsRepo, investmentRepo, customInvestRepo, debtRepo, transactionRepo)
     }
 
     @Test
@@ -66,6 +68,9 @@ class GetPatrimonyOverviewUseCaseTest {
         every { investmentRepo.getAllScpi() } returns flowOf(scpi)
         every { investmentRepo.getAirbnbRentalsByYear(2026) } returns flowOf(airbnb)
         every { debtRepo.getAll() } returns flowOf(debts)
+        every { customInvestRepo.getAllPreciousMetals() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllEmployeeSavings() } returns flowOf(emptyList())
 
         val overview = useCase(5, 2026).first()
 
@@ -99,6 +104,9 @@ class GetPatrimonyOverviewUseCaseTest {
         every { investmentRepo.getAllScpi() } returns flowOf(emptyList())
         every { investmentRepo.getAirbnbRentalsByYear(2026) } returns flowOf(emptyList())
         every { debtRepo.getAll() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllPreciousMetals() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllEmployeeSavings() } returns flowOf(emptyList())
 
         val overview = useCase(5, 2026).first()
 
@@ -115,6 +123,9 @@ class GetPatrimonyOverviewUseCaseTest {
         every { investmentRepo.getAllScpi() } returns flowOf(emptyList())
         every { investmentRepo.getAirbnbRentalsByYear(any()) } returns flowOf(emptyList())
         every { debtRepo.getAll() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllPreciousMetals() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllEmployeeSavings() } returns flowOf(emptyList())
 
         val overview = useCase(5, 2026).first()
 
