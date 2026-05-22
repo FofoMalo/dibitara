@@ -37,7 +37,7 @@ class DashboardViewModel @Inject constructor(
         DashboardUiState.Success(
             overview        = overview,
             spendingHistory = history,
-            upcomingPayments = upcoming,
+            upcomingPayments = if (prefs.afficherProchainsPaiements) upcoming else emptyList(),
             // null si la fonctionnalité est désactivée — le Dashboard affiche alors le graphique
             rapportMensuel   = if (prefs.afficherRapportMensuel) rapport else null
         ) as DashboardUiState
