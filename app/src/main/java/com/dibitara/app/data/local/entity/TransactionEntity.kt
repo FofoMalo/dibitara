@@ -33,7 +33,9 @@ data class TransactionEntity(
     val customSubCategoryId: Long? = null,      // Ajouté en v5 : référence à custom_sub_categories
     val recurrenceFrequency: String? = null,    // Ajouté en v8 : WEEKLY | MONTHLY | YEARLY
     val firstPaymentDateEpochDay: Long? = null, // Ajouté en v8 : date première occurrence (epoch day)
-    val endDateEpochDay: Long? = null           // Ajouté en v8 : date de fin (null = indéfini)
+    val endDateEpochDay: Long? = null,          // Ajouté en v8 : date de fin (null = indéfini)
+    val importSource: String? = null,           // Ajouté en v11 : source de l'import ("trade_republic")
+    val externalId: String? = null              // Ajouté en v11 : UUID externe pour la déduplication
 ) {
     fun toDomain() = Transaction(
         id = id,
@@ -51,7 +53,9 @@ data class TransactionEntity(
         customSubCategoryId = customSubCategoryId,
         recurrenceFrequency = recurrenceFrequency?.let { safeValueOf(it, RecurrenceFrequency.MONTHLY) },
         firstPaymentDate = firstPaymentDateEpochDay?.let { LocalDate.ofEpochDay(it) },
-        endDate = endDateEpochDay?.let { LocalDate.ofEpochDay(it) }
+        endDate = endDateEpochDay?.let { LocalDate.ofEpochDay(it) },
+        importSource = importSource,
+        externalId = externalId
     )
 
     companion object {
@@ -71,7 +75,9 @@ data class TransactionEntity(
             customSubCategoryId = t.customSubCategoryId,
             recurrenceFrequency = t.recurrenceFrequency?.name,
             firstPaymentDateEpochDay = t.firstPaymentDate?.toEpochDay(),
-            endDateEpochDay = t.endDate?.toEpochDay()
+            endDateEpochDay = t.endDate?.toEpochDay(),
+            importSource = t.importSource,
+            externalId = t.externalId
         )
     }
 }

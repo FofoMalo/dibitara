@@ -11,10 +11,12 @@ import com.dibitara.app.data.local.dao.PreciousMetalDao
 import com.dibitara.app.data.repository.*
 import com.dibitara.app.data.repository.CustomInvestmentRepositoryImpl
 import com.dibitara.app.data.repository.ExportRepositoryImpl
+import com.dibitara.app.data.repository.ImportRepositoryImpl
 import com.dibitara.app.data.repository.VersementRepositoryImpl
 import com.dibitara.app.domain.repository.*
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.ExportRepository
+import com.dibitara.app.domain.repository.ImportRepository
 import com.dibitara.app.domain.repository.VersementRepository
 import dagger.Binds
 import dagger.Module
@@ -41,7 +43,8 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_6_7,
                 DibitaraDatabase.MIGRATION_7_8,
                 DibitaraDatabase.MIGRATION_8_9,
-                DibitaraDatabase.MIGRATION_9_10
+                DibitaraDatabase.MIGRATION_9_10,
+                DibitaraDatabase.MIGRATION_10_11
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
@@ -75,4 +78,5 @@ abstract class RepositoryModule {
     @Binds abstract fun bindVersementRepository(impl: VersementRepositoryImpl): VersementRepository
     @Binds abstract fun bindExportRepository(impl: ExportRepositoryImpl): ExportRepository
     @Binds abstract fun bindCustomInvestmentRepository(impl: CustomInvestmentRepositoryImpl): CustomInvestmentRepository
+    @Binds abstract fun bindImportRepository(impl: ImportRepositoryImpl): ImportRepository
 }

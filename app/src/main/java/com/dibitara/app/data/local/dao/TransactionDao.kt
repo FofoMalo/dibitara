@@ -28,6 +28,10 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE sourceRecurringId = :recurringId AND dateEpochDay >= :fromEpoch AND dateEpochDay <= :toEpoch")
     suspend fun countBySourceAndRange(recurringId: Long, fromEpoch: Long, toEpoch: Long): Int
 
+    // Retourne tous les externalId non-null — utilisé pour la déduplication à l'import
+    @Query("SELECT externalId FROM transactions WHERE externalId IS NOT NULL")
+    suspend fun getAllExternalIds(): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transaction: TransactionEntity): Long
 

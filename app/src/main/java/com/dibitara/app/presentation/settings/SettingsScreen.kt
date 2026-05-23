@@ -33,7 +33,10 @@ import com.dibitara.app.presentation.auth.passwordCriteria
 import com.dibitara.app.presentation.common.QrCodeImage
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    onNavigateToImportTR: () -> Unit = {},
+    viewModel: SettingsViewModel = hiltViewModel()
+) {
     val prefs by viewModel.preferences.collectAsState()
     val security by viewModel.securityState.collectAsState()
     val totpSetupState by viewModel.totpSetupState.collectAsState()
@@ -282,6 +285,13 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         Spacer(Modifier.width(8.dp))
                         Text("Exporter mes données")
                     }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onNavigateToImportTR,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Importer depuis TradeRepublic")
                 }
             }
 
