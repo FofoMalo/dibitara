@@ -15,7 +15,7 @@ import java.time.LocalDate
 /**
  * Tests de GenerateRecurringUseCase — couvre les trois fréquences (MONTHLY, WEEKLY, YEARLY).
  */
-class GenerateMonthlyRecurringUseCaseTest {
+class GenerateRecurringUseCaseTest {
 
     private val repository: TransactionRepository = mockk()
     private val useCase = GenerateRecurringUseCase(repository)

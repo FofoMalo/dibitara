@@ -23,7 +23,7 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
-    // Instancié ici pour que GenerateMonthlyRecurringUseCase s'exécute dès le démarrage
+    // Instancié ici pour que GenerateRecurringUseCase s'exécute dès le démarrage
     private val appViewModel: AppViewModel by viewModels()
 
     /**

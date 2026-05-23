@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Application bancaire Android à usage personnel, inspirée de **Finary**. L'objectif est de centraliser budget mensuel, suivi des dépenses, investissements et projections financières.
 
 **Stack cible :** Android natif (Kotlin), architecture MVVM + Clean Architecture.
-**Version courante :** v4.3.0 (versionCode 14) — Room v10.
+**Version courante :** v4.4.0 (versionCode 15) — Room v11.
 
 ## Fonctionnalités principales
 
@@ -60,7 +60,7 @@ Clean Architecture en 3 couches :
 
 Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCase → Repository → DataSource`.
 
-## Schéma Room — Version actuelle : v10
+## Schéma Room — Version actuelle : v11
 
 | Migration | Contenu |
 |-----------|---------|
@@ -73,16 +73,17 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 | v7 → v8 | Récurrences enrichies (`recurrenceFrequency`, `firstPaymentDateEpochDay`, `endDateEpochDay`) |
 | v8 → v9 | `sharesCount` Int→Real (SCPI parts fractionnées) |
 | v9 → v10 | Tables `precious_metals`, `custom_assets`, `employee_savings` |
+| v10 → v11 | Colonnes `importSource TEXT`, `externalId TEXT` sur `transactions` (import CSV TradeRepublic) |
 
 ## Modèles métier clés (domain/model/)
 
-`Transaction`, `Budget`, `Debt`, `SavingsAccount`, `RealEstateAsset`, `ScpiInvestment`, `AirbnbRental`, `PatrimonyOverview`, `Currency`, `Category`, `SubCategory`, `CustomSubCategory`, `DebtType`, `SavingsType`, `Child`, `UserPreferences`, `MonthlyReport`, `CategoryExpense`, `MonthlyVersement`, `RecurrenceFrequency`, `UpcomingPayment`, `TransactionSuggestion`, `ExportData`, `ExportFormat`, `PreciousMetalAsset`, `CustomAsset`, `EmployeeSavings`, `MetalType`, `EmployeeSavingsType`
+`Transaction`, `Budget`, `Debt`, `SavingsAccount`, `RealEstateAsset`, `ScpiInvestment`, `AirbnbRental`, `PatrimonyOverview`, `Currency`, `Category`, `SubCategory`, `CustomSubCategory`, `DebtType`, `SavingsType`, `Child`, `UserPreferences`, `MonthlyReport`, `CategoryExpense`, `MonthlyVersement`, `RecurrenceFrequency`, `UpcomingPayment`, `TransactionSuggestion`, `ExportData`, `ExportFormat`, `PreciousMetalAsset`, `CustomAsset`, `EmployeeSavings`, `MetalType`, `EmployeeSavingsType`, `ImportedTransaction`, `ImportResult`
 
 ## Conventions de développement
 
 - **Langue du code :** Kotlin uniquement.
 - **Commentaires :** en français, clairs et pédagogiques — le code est lu par un développeur junior.
-- **Chaque UseCase** ne fait qu'une seule chose (principe de responsabilité unique). ~55 UseCases au total.
+- **Chaque UseCase** ne fait qu'une seule chose (principe de responsabilité unique). ~69 UseCases au total.
 - **Les ViewModels** exposent des `StateFlow` ou `LiveData`, jamais de logique métier directe.
 - **Devises :** toujours stocker les montants en centimes (Long) avec la devise associée ; la conversion se fait dans la couche `domain`.
 - **Migrations Room :** chaque modification de schéma incrémente `version` d'exactement 1 et requiert une migration + le fichier `N.json` exporté. Ne jamais utiliser `fallbackToDestructiveMigration` en production.
