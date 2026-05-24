@@ -3,7 +3,9 @@ package com.dibitara.app.presentation.debts
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
+import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.usecase.DeleteDebtUseCase
 import com.dibitara.app.domain.usecase.GetDebtsUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
@@ -29,6 +31,7 @@ class DebtsViewModelTest {
     private val saveDebt: SaveDebtUseCase = mockk()
     private val deleteDebt: DeleteDebtUseCase = mockk()
     private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
+    private val ratesRepo: ExchangeRateRepository = mockk()
     private lateinit var viewModel: DebtsViewModel
 
     @BeforeEach
@@ -36,7 +39,8 @@ class DebtsViewModelTest {
         Dispatchers.setMain(testDispatcher)
         every { getDebts() } returns flowOf(emptyList())
         every { ucGetPreferences() } returns flowOf(UserPreferences())
-        viewModel = DebtsViewModel(getDebts, saveDebt, deleteDebt, ucGetPreferences)
+        every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
+        viewModel = DebtsViewModel(getDebts, saveDebt, deleteDebt, ucGetPreferences, ratesRepo)
     }
 
     @AfterEach
@@ -54,7 +58,7 @@ class DebtsViewModelTest {
     fun `liste reflète les dettes retournées par le repository`() = runTest {
         val dettes = listOf(buildDebt("Crédit auto"), buildDebt("Crédit immo"))
         every { getDebts() } returns flowOf(dettes)
-        viewModel = DebtsViewModel(getDebts, saveDebt, deleteDebt, ucGetPreferences)
+        viewModel = DebtsViewModel(getDebts, saveDebt, deleteDebt, ucGetPreferences, ratesRepo)
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is DebtsUiState.Success } as DebtsUiState.Success

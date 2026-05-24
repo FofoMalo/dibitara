@@ -6,6 +6,8 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
 import com.dibitara.app.domain.usecase.DeleteDebtUseCase
+import com.dibitara.app.domain.model.CurrencyConverter
+import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.usecase.GetDebtsUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveDebtUseCase
@@ -20,15 +22,30 @@ class DebtsViewModel @Inject constructor(
     private val getDebts: GetDebtsUseCase,
     private val saveDebt: SaveDebtUseCase,
     private val deleteDebt: DeleteDebtUseCase,
-    private val ucGetPreferences: GetUserPreferencesUseCase
+    private val ucGetPreferences: GetUserPreferencesUseCase,
+    private val exchangeRateRepository: ExchangeRateRepository
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
         .map { it.deviseParDefaut }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
 
-    val uiState: StateFlow<DebtsUiState> = getDebts()
-        .map { debts -> DebtsUiState.Success(debts) as DebtsUiState }
+    val uiState: StateFlow<DebtsUiState> = combine(
+        getDebts(),
+        ucGetPreferences(),
+        exchangeRateRepository.getRatesFlow()
+    ) { debts, prefs, rates ->
+        // Conversion de chaque dette vers la devise par défaut avant sommation
+        val target = prefs.deviseParDefaut
+        val total   = debts.sumOf { CurrencyConverter.convertCents(it.totalCents, it.currency, target, rates) }
+        val monthly = debts.sumOf { CurrencyConverter.convertCents(it.monthlyPaymentCents, it.currency, target, rates) }
+        DebtsUiState.Success(
+            debts             = debts,
+            totalCents        = total,
+            totalMonthlyCents = monthly,
+            summaryCurrency   = target
+        ) as DebtsUiState
+    }
         .catch { emit(DebtsUiState.Error(it.message ?: "Erreur inconnue")) }
         .stateIn(
             scope = viewModelScope,
@@ -77,7 +94,12 @@ class DebtsViewModel @Inject constructor(
 
 sealed class DebtsUiState {
     data object Loading : DebtsUiState()
-    data class Success(val debts: List<Debt>) : DebtsUiState()
+    data class Success(
+        val debts             : List<Debt>,
+        val totalCents        : Long     = 0L,
+        val totalMonthlyCents : Long     = 0L,
+        val summaryCurrency   : Currency = Currency.EUR
+    ) : DebtsUiState()
     data class Error(val message: String) : DebtsUiState()
 }
 

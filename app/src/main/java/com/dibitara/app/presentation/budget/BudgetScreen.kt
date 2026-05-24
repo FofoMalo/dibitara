@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
@@ -719,6 +720,4 @@ private fun categoryBreakdown(transactions: List<Transaction>): List<Pair<Catego
         .map { (cat, txs) -> cat to txs.sumOf { it.amountCents } }
         .sortedByDescending { it.second }
 
-private fun Long.toCurrencyDisplay(currency: Currency): String =
-    "%.2f %s".format(this / 100.0, currency.symbol)
 

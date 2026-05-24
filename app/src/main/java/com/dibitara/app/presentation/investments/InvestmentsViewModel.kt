@@ -26,6 +26,8 @@ import com.dibitara.app.domain.usecase.GetEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.GetPreciousMetalsUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
+import com.dibitara.app.domain.model.CurrencyConverter
+import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
@@ -75,7 +77,8 @@ class InvestmentsViewModel @Inject constructor(
     private val ucDeleteEmployeeSavings: DeleteEmployeeSavingsUseCase,
     private val ucSaveVersement: SaveVersementUseCase,
     private val ucExisteVersementMois: ExisteVersementMoisUseCase,
-    private val ucGetPreferences: GetUserPreferencesUseCase
+    private val ucGetPreferences: GetUserPreferencesUseCase,
+    private val exchangeRateRepository: ExchangeRateRepository
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -96,17 +99,33 @@ class InvestmentsViewModel @Inject constructor(
         ucGetEmployeeSavings()
     ) { metals, assets, empSavings -> Triple(metals, assets, empSavings) }
 
-    val uiState: StateFlow<InvestmentsUiState> = combine(baseFlow, customFlow) {
-        (realEstate, scpi, airbnb), (metals, assets, empSavings) ->
+    // Flux de conversion : devise cible + taux en cache
+    private val conversionFlow = combine(
+        ucGetPreferences(),
+        exchangeRateRepository.getRatesFlow()
+    ) { prefs, rates -> prefs.deviseParDefaut to rates }
+
+    val uiState: StateFlow<InvestmentsUiState> = combine(baseFlow, customFlow, conversionFlow) {
+        (realEstate, scpi, airbnb), (metals, assets, empSavings), (target, rates) ->
+        // Conversion de chaque actif vers la devise par défaut avant sommation
+        fun Long.cvt(from: com.dibitara.app.domain.model.Currency) =
+            CurrencyConverter.convertCents(this, from, target, rates)
         InvestmentsUiState.Success(
-            realEstate      = realEstate,
-            scpi            = scpi,
-            airbnbRentals   = airbnb,
-            airbnbAnnualTotal = airbnb.sumOf { it.amountCents },
-            anneeLocatifs   = currentYear,
-            preciousMetals  = metals,
-            customAssets    = assets,
-            employeeSavings = empSavings
+            realEstate            = realEstate,
+            scpi                  = scpi,
+            airbnbRentals         = airbnb,
+            airbnbAnnualTotal     = airbnb.sumOf { it.amountCents.cvt(it.currency) },
+            anneeLocatifs         = currentYear,
+            preciousMetals        = metals,
+            customAssets          = assets,
+            employeeSavings       = empSavings,
+            totalInvestmentsCents =
+                realEstate.sumOf  { it.currentValueCents.cvt(it.currency) } +
+                scpi.sumOf        { it.totalValueCents.cvt(it.currency) }   +
+                metals.sumOf      { it.totalValueCents.cvt(it.currency) }   +
+                assets.sumOf      { it.totalValueCents.cvt(it.currency) }   +
+                empSavings.sumOf  { it.currentBalanceCents.cvt(it.currency) },
+            summaryCurrency       = target
         ) as InvestmentsUiState
     }
         .catch { emit(InvestmentsUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -353,14 +372,16 @@ class InvestmentsViewModel @Inject constructor(
 sealed class InvestmentsUiState {
     data object Loading : InvestmentsUiState()
     data class Success(
-        val realEstate      : List<RealEstateAsset>,
-        val scpi            : List<ScpiInvestment>,
-        val airbnbRentals   : List<AirbnbRental>,
-        val airbnbAnnualTotal: Long,
-        val anneeLocatifs   : Int,
-        val preciousMetals  : List<PreciousMetalAsset> = emptyList(),
-        val customAssets    : List<CustomAsset>        = emptyList(),
-        val employeeSavings : List<EmployeeSavings>    = emptyList()
+        val realEstate            : List<RealEstateAsset>,
+        val scpi                  : List<ScpiInvestment>,
+        val airbnbRentals         : List<AirbnbRental>,
+        val airbnbAnnualTotal     : Long,
+        val anneeLocatifs         : Int,
+        val preciousMetals        : List<PreciousMetalAsset> = emptyList(),
+        val customAssets          : List<CustomAsset>        = emptyList(),
+        val employeeSavings       : List<EmployeeSavings>    = emptyList(),
+        val totalInvestmentsCents : Long                     = 0L,
+        val summaryCurrency       : Currency                 = Currency.EUR
     ) : InvestmentsUiState()
     data class Error(val message: String) : InvestmentsUiState()
 }

@@ -78,8 +78,11 @@ fun DebtsScreen(
                     )
                 is DebtsUiState.Success ->
                     DebtsContent(
-                        debts = state.debts,
-                        onDelete = viewModel::removeDebt
+                        debts             = state.debts,
+                        totalCents        = state.totalCents,
+                        totalMonthlyCents = state.totalMonthlyCents,
+                        summaryCurrency   = state.summaryCurrency,
+                        onDelete          = viewModel::removeDebt
                     )
             }
         }
@@ -97,10 +100,13 @@ fun DebtsScreen(
 }
 
 @Composable
-private fun DebtsContent(debts: List<Debt>, onDelete: (Debt) -> Unit) {
-    val totalCents = debts.sumOf { it.totalCents }
-    val totalMensuel = debts.sumOf { it.monthlyPaymentCents }
-
+private fun DebtsContent(
+    debts             : List<Debt>,
+    totalCents        : Long,
+    totalMonthlyCents : Long,
+    summaryCurrency   : Currency,
+    onDelete          : (Debt) -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(vertical = 16.dp),
@@ -124,7 +130,7 @@ private fun DebtsContent(debts: List<Debt>, onDelete: (Debt) -> Unit) {
                                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
                             )
                             Text(
-                                totalCents.toCurrencyDisplay(Currency.EUR),
+                                totalCents.toCurrencyDisplay(summaryCurrency),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onErrorContainer
@@ -137,7 +143,7 @@ private fun DebtsContent(debts: List<Debt>, onDelete: (Debt) -> Unit) {
                                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
                             )
                             Text(
-                                "${totalMensuel.toCurrencyDisplay(Currency.EUR)}/mois",
+                                "${totalMonthlyCents.toCurrencyDisplay(summaryCurrency)}/mois",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )

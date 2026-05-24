@@ -2,9 +2,11 @@ package com.dibitara.app.presentation.investments
 
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
 import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
@@ -79,6 +81,7 @@ class InvestmentsViewModelTest {
     private val ucSaveVersement: SaveVersementUseCase = mockk()
     private val ucExisteVersementMois: ExisteVersementMoisUseCase = mockk()
     private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
+    private val ratesRepo: ExchangeRateRepository = mockk()
 
     private lateinit var viewModel: InvestmentsViewModel
 
@@ -92,6 +95,7 @@ class InvestmentsViewModelTest {
         every { ucGetCustomAssets() } returns flowOf(emptyList())
         every { ucGetEmployeeSavings() } returns flowOf(emptyList())
         every { ucGetPreferences() } returns flowOf(UserPreferences())
+        every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
         viewModel = InvestmentsViewModel(
             ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear,
             ucGetPreciousMetals, ucGetCustomAssets, ucGetEmployeeSavings,
@@ -101,7 +105,7 @@ class InvestmentsViewModelTest {
             ucUpdatePreciousMetal, ucUpdateCustomAsset, ucUpdateEmployeeSavings,
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental,
             ucDeletePreciousMetal, ucDeleteCustomAsset, ucDeleteEmployeeSavings,
-            ucSaveVersement, ucExisteVersementMois, ucGetPreferences
+            ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo
         )
     }
 

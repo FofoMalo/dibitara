@@ -136,9 +136,6 @@ private fun SavingsContent(
     onAppliquerVersement: (SavingsAccount) -> Unit,
     onAssocierComptes: (Child, Set<Long>) -> Unit
 ) {
-    val totalEpargne = state.accounts.sumOf { it.currentBalanceCents }
-    val totalMensuel = state.accounts.sumOf { it.monthlyContributionCents }
-
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(vertical = 16.dp),
@@ -160,12 +157,12 @@ private fun SavingsContent(
                 ) {
                     Column {
                         Text("Total épargne", style = MaterialTheme.typography.labelMedium)
-                        Text(totalEpargne.toCurrencyDisplay(Currency.EUR),
+                        Text(state.totalEpargneCents.toCurrencyDisplay(state.summaryCurrency),
                             style = MaterialTheme.typography.titleLarge)
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text("Versements/mois", style = MaterialTheme.typography.labelMedium)
-                        Text(totalMensuel.toCurrencyDisplay(Currency.EUR),
+                        Text(state.totalMensuelCents.toCurrencyDisplay(state.summaryCurrency),
                             style = MaterialTheme.typography.titleMedium)
                     }
                 }

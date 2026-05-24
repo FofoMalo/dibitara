@@ -222,12 +222,6 @@ private fun InvestmentsContent(
     onDeleteEmpSavings: (EmployeeSavings) -> Unit,
     onAppliquerVersementScpi: (ScpiInvestment) -> Unit
 ) {
-    val totalCents = state.realEstate.sumOf { it.currentValueCents } +
-            state.scpi.sumOf { it.totalValueCents } +
-            state.preciousMetals.sumOf { it.totalValueCents } +
-            state.customAssets.sumOf { it.totalValueCents } +
-            state.employeeSavings.sumOf { it.currentBalanceCents }
-
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(vertical = 16.dp),
@@ -236,7 +230,11 @@ private fun InvestmentsContent(
         item { Text("Investissements", style = MaterialTheme.typography.headlineMedium) }
 
         // Carte récapitulative
-        item { TotalInvestmentsCard(totalCents = totalCents, airbnbAnnualCents = state.airbnbAnnualTotal) }
+        item { TotalInvestmentsCard(
+            totalCents       = state.totalInvestmentsCents,
+            airbnbAnnualCents = state.airbnbAnnualTotal,
+            currency         = state.summaryCurrency
+        ) }
 
         // Graphique barres — affiché si au moins un actif immo ou SCPI
         if (state.realEstate.isNotEmpty() || state.scpi.isNotEmpty()) {
@@ -321,7 +319,7 @@ private fun InvestmentsContent(
 }
 
 @Composable
-private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long) {
+private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long, currency: Currency) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
@@ -337,7 +335,7 @@ private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long) {
                     color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                 )
                 Text(
-                    totalCents.toCurrencyDisplay(Currency.EUR),
+                    totalCents.toCurrencyDisplay(currency),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onTertiaryContainer
@@ -350,7 +348,7 @@ private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long) {
                     color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                 )
                 Text(
-                    airbnbAnnualCents.toCurrencyDisplay(Currency.EUR),
+                    airbnbAnnualCents.toCurrencyDisplay(currency),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onTertiaryContainer
                 )

@@ -16,6 +16,8 @@ import com.dibitara.app.domain.usecase.GetSavingsUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
+import com.dibitara.app.domain.model.CurrencyConverter
+import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateSavingsAccountUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,7 +37,8 @@ class SavingsViewModel @Inject constructor(
     private val deleteChild: DeleteChildUseCase,
     private val saveVersement: SaveVersementUseCase,
     private val existeVersementMois: ExisteVersementMoisUseCase,
-    private val ucGetPreferences: GetUserPreferencesUseCase
+    private val ucGetPreferences: GetUserPreferencesUseCase,
+    private val exchangeRateRepository: ExchangeRateRepository
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -44,9 +47,21 @@ class SavingsViewModel @Inject constructor(
 
     val uiState: StateFlow<SavingsUiState> = combine(
         getSavings(),
-        getChildren()
-    ) { accounts, children ->
-        SavingsUiState.Success(accounts = accounts, children = children) as SavingsUiState
+        getChildren(),
+        ucGetPreferences(),
+        exchangeRateRepository.getRatesFlow()
+    ) { accounts, children, prefs, rates ->
+        // Conversion de chaque compte vers la devise par défaut avant sommation
+        val target = prefs.deviseParDefaut
+        val totalBalance = accounts.sumOf { CurrencyConverter.convertCents(it.currentBalanceCents, it.currency, target, rates) }
+        val totalMonthly = accounts.sumOf { CurrencyConverter.convertCents(it.monthlyContributionCents, it.currency, target, rates) }
+        SavingsUiState.Success(
+            accounts          = accounts,
+            children          = children,
+            totalEpargneCents = totalBalance,
+            totalMensuelCents = totalMonthly,
+            summaryCurrency   = target
+        ) as SavingsUiState
     }
         .catch { emit(SavingsUiState.Error(it.message ?: "Erreur inconnue")) }
         .stateIn(
@@ -197,8 +212,11 @@ class SavingsViewModel @Inject constructor(
 sealed class SavingsUiState {
     data object Loading : SavingsUiState()
     data class Success(
-        val accounts: List<SavingsAccount>,
-        val children: List<Child>
+        val accounts          : List<SavingsAccount>,
+        val children          : List<Child>,
+        val totalEpargneCents : Long     = 0L,
+        val totalMensuelCents : Long     = 0L,
+        val summaryCurrency   : Currency = Currency.EUR
     ) : SavingsUiState()
     data class Error(val message: String) : SavingsUiState()
 }
