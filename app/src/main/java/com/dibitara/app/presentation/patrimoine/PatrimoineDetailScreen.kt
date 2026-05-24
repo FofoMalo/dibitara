@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.patrimoine
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -10,11 +11,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.PatrimonyOverview
+import com.dibitara.app.presentation.common.DonutAvecLegende
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -111,6 +114,9 @@ private fun PatrimoineDetailContent(
             }
         }
 
+        // ── Répartition visuelle des actifs ─────────────────────────────────
+        PatrimoineDonutCard(overview)
+
         // ── Décomposition des actifs ─────────────────────────────────────────
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
@@ -178,7 +184,7 @@ private fun PatrimoineDetailContent(
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     "Patrimoine net",
@@ -192,13 +198,77 @@ private fun PatrimoineDetailContent(
                     color = if (netPositif) MaterialTheme.colorScheme.onPrimaryContainer
                             else MaterialTheme.colorScheme.error
                 )
-                Spacer(Modifier.height(4.dp))
+                // Barre de santé : part du brut non engagée dans des dettes
+                if (overview.patrimoineBrutCents > 0) {
+                    val ratio = (overview.patrimoineNetCents.toFloat() / overview.patrimoineBrutCents.toFloat())
+                        .coerceIn(0f, 1f)
+                    val barreColor = if (netPositif)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error
+                    LinearProgressIndicator(
+                        progress = { ratio },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color      = barreColor,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    Text(
+                        "${(ratio * 100).toInt()}% du brut non endetté",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                    )
+                }
                 Text(
                     "= Patrimoine brut − Dettes",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
                 )
             }
+        }
+    }
+}
+
+// ─── Donut de répartition des actifs ─────────────────────────────────────────
+
+/**
+ * Camembert (donut) montrant la décomposition du patrimoine brut en 3 segments :
+ * liquidités (primary), épargne (secondary), investissements (tertiary).
+ * Les segments à 0 sont ignorés. La carte n'est pas affichée si le brut est nul.
+ */
+@Composable
+private fun PatrimoineDonutCard(overview: PatrimonyOverview) {
+    val brut = overview.patrimoineBrutCents
+    if (brut <= 0L) return
+
+    val groupes = buildList {
+        if (overview.liquiditesCents    > 0L) add("Liquidités"      to overview.liquiditesCents)
+        if (overview.epargneCents       > 0L) add("Épargne"         to overview.epargneCents)
+        if (overview.investissementsCents > 0L) add("Investissements" to overview.investissementsCents)
+    }
+    if (groupes.isEmpty()) return
+
+    // Couleurs M3 sémantiques : cohérence avec la décomposition textuelle ci-dessous
+    val couleurs = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.secondary,
+        MaterialTheme.colorScheme.tertiary
+    )
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Répartition des actifs", style = MaterialTheme.typography.titleMedium)
+            DonutAvecLegende(
+                groupes  = groupes,
+                total    = brut.toFloat(),
+                currency = overview.currency,
+                couleurs = couleurs
+            )
         }
     }
 }

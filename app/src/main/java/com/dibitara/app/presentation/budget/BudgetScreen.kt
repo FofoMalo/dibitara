@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.presentation.common.DonutAvecLegende
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.Transaction
@@ -551,12 +552,6 @@ private fun SetBudgetDialog(
     )
 }
 
-// Palette de couleurs partagée par les deux vues du donut (principale et drill-down)
-private val DONUT_COULEURS = listOf(
-    Color(0xFF1DB954), Color(0xFF2196F3), Color(0xFFFF9800),
-    Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF00BCD4),
-    Color(0xFF4CAF50), Color(0xFFFF5722), Color(0xFF607D8B)
-)
 
 /**
  * Donut interactif des dépenses par catégorie.
@@ -649,70 +644,6 @@ private fun CategoryDonutChart(
     }
 }
 
-/**
- * Composant réutilisable : cercle donut Canvas + légende cliquable.
- *
- * [groupes] : liste de (libellé, montant en centimes).
- * [onItemClick] : appelé avec le libellé du segment cliqué.
- * [trailingLabel] : suffixe optionnel ajouté au libellé (ex. "▶" pour le drill-down).
- */
-@Composable
-private fun DonutAvecLegende(
-    groupes: List<Pair<String, Long>>,
-    total: Float,
-    currency: Currency,
-    onItemClick: (String) -> Unit,
-    trailingLabel: (String) -> String = { "" }
-) {
-    if (total == 0f || groupes.isEmpty()) return
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Cercle donut dessiné avec Canvas (purement visuel, les clics sont sur la légende)
-        Canvas(modifier = Modifier.size(110.dp)) {
-            var angleDepart = -90f
-            groupes.forEachIndexed { i, (_, cents) ->
-                val balayage = (cents.toFloat() / total) * 360f
-                drawArc(
-                    color      = DONUT_COULEURS[i % DONUT_COULEURS.size],
-                    startAngle = angleDepart,
-                    sweepAngle = balayage,
-                    useCenter  = false,
-                    style      = Stroke(width = 28.dp.toPx(), cap = StrokeCap.Butt)
-                )
-                angleDepart += balayage
-            }
-        }
-
-        // Légende : chaque ligne est cliquable
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
-            groupes.forEachIndexed { i, (label, cents) ->
-                val pct = (cents.toFloat() / total * 100).toInt()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(role = Role.Button) { onItemClick(label) }
-                        .padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    // Point de couleur
-                    Canvas(modifier = Modifier.size(10.dp)) {
-                        drawCircle(color = DONUT_COULEURS[i % DONUT_COULEURS.size])
-                    }
-                    Text(
-                        text  = "$label$pct% · ${cents.toCurrencyDisplay(currency)}${trailingLabel(label)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    }
-}
 
 private fun categoryBreakdown(transactions: List<Transaction>): List<Pair<Category, Long>> =
     transactions
