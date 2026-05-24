@@ -33,7 +33,7 @@ import com.dibitara.app.data.local.entity.MonthlyVersementEntity
         CustomAssetEntity::class,
         EmployeeSavingsEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -52,6 +52,13 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun employeeSavingsDao(): EmployeeSavingsDao
 
     companion object {
+        // Migration v11 → v12 : colonne debtId sur real_estate_assets pour lier un crédit à un bien
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE real_estate_assets ADD COLUMN debtId INTEGER")
+            }
+        }
+
         // Migration v10 → v11 : 2 colonnes sur transactions pour l'import TradeRepublic
         // importSource identifie l'origine ("trade_republic"), externalId est l'UUID TR pour la déduplication
         val MIGRATION_10_11 = object : Migration(10, 11) {

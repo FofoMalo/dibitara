@@ -7,7 +7,9 @@ data class RealEstateAsset(
     val label: String,
     val currentValueCents: Long,
     val currency: Currency,
-    val updatedAt: LocalDate
+    val updatedAt: LocalDate,
+    // Référence optionnelle vers la dette (crédit) qui finance ce bien
+    val debtId: Long? = null
 )
 
 data class ScpiInvestment(

@@ -29,6 +29,7 @@ import com.dibitara.app.domain.model.EmployeeSavings
 import com.dibitara.app.domain.model.EmployeeSavingsType
 import com.dibitara.app.domain.model.MetalType
 import com.dibitara.app.domain.model.PreciousMetalAsset
+import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.presentation.common.toCurrencyDisplay
@@ -150,9 +151,13 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
             onDismiss = { empSavingsToEdit = null })
     }
     if (showAddRealEstate) {
+        val debts = (uiState as? InvestmentsUiState.Success)?.availableDebts ?: emptyList()
         AddRealEstateSheet(
             defaultCurrency = defaultCurrency,
-            onSave = { label, value, currency -> viewModel.addRealEstate(label, value, currency) },
+            availableDebts  = debts,
+            onSave = { label, value, currency, debtId ->
+                viewModel.addRealEstate(label, value, currency, debtId)
+            },
             onDismiss = { showAddRealEstate = false }
         )
     }
@@ -175,9 +180,13 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
 
     // Sheets d'édition
     realEstateToEdit?.let { asset ->
+        val debts = (uiState as? InvestmentsUiState.Success)?.availableDebts ?: emptyList()
         EditRealEstateSheet(
-            asset = asset,
-            onSave = { label, value, currency -> viewModel.updateRealEstate(asset, label, value, currency) },
+            asset          = asset,
+            availableDebts = debts,
+            onSave = { label, value, currency, debtId ->
+                viewModel.updateRealEstate(asset, label, value, currency, debtId)
+            },
             onDismiss = { realEstateToEdit = null }
         )
     }
@@ -251,7 +260,13 @@ private fun InvestmentsContent(
             }
         } else {
             items(state.realEstate, key = { "immo_${it.id}" }) { asset ->
-                RealEstateCard(asset = asset, onEdit = { onEditRealEstate(asset) }, onDelete = { onDeleteRealEstate(asset) })
+                val linkedDebt = asset.debtId?.let { id -> state.availableDebts.find { it.id == id } }
+                RealEstateCard(
+                    asset       = asset,
+                    linkedDebt  = linkedDebt,
+                    onEdit      = { onEditRealEstate(asset) },
+                    onDelete    = { onDeleteRealEstate(asset) }
+                )
             }
         }
 
@@ -383,7 +398,12 @@ private fun EmptySectionText(text: String) {
 }
 
 @Composable
-private fun RealEstateCard(asset: RealEstateAsset, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun RealEstateCard(
+    asset      : RealEstateAsset,
+    linkedDebt : com.dibitara.app.domain.model.Debt?,
+    onEdit     : () -> Unit,
+    onDelete   : () -> Unit
+) {
     var showConfirm by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -399,6 +419,20 @@ private fun RealEstateCard(asset: RealEstateAsset, onEdit: () -> Unit, onDelete:
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
+                if (linkedDebt != null) {
+                    Text(
+                        "Crédit lié : ${linkedDebt.label} — −${linkedDebt.totalCents.toCurrencyDisplay(linkedDebt.currency)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    val equite = asset.currentValueCents - linkedDebt.totalCents
+                    Text(
+                        "Équité nette : ${equite.toCurrencyDisplay(asset.currency)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (equite >= 0) MaterialTheme.colorScheme.tertiary
+                                else MaterialTheme.colorScheme.error
+                    )
+                }
                 Text(
                     "Mis à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
                     style = MaterialTheme.typography.bodySmall,
@@ -566,13 +600,16 @@ private fun AirbnbRentalCard(rental: AirbnbRental, onEdit: () -> Unit, onDelete:
 @Composable
 private fun AddRealEstateSheet(
     defaultCurrency: Currency = Currency.EUR,
-    onSave: (label: String, value: String, currency: Currency) -> Unit,
+    availableDebts : List<Debt> = emptyList(),
+    onSave: (label: String, value: String, currency: Currency, debtId: Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf("") }
     var value by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var selectedDebtId by remember { mutableStateOf<Long?>(null) }
+    var debtExpanded by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -626,8 +663,32 @@ private fun AddRealEstateSheet(
                 }
             }
 
+            // Liaison à un crédit existant (optionnelle)
+            ExposedDropdownMenuBox(expanded = debtExpanded, onExpandedChange = { debtExpanded = it }) {
+                OutlinedTextField(
+                    value = availableDebts.find { it.id == selectedDebtId }?.label ?: "Aucun",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Crédit lié (optionnel)") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(debtExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = debtExpanded, onDismissRequest = { debtExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Aucun") },
+                        onClick = { selectedDebtId = null; debtExpanded = false }
+                    )
+                    availableDebts.forEach { debt ->
+                        DropdownMenuItem(
+                            text = { Text(debt.label) },
+                            onClick = { selectedDebtId = debt.id; debtExpanded = false }
+                        )
+                    }
+                }
+            }
+
             Button(
-                onClick = { onSave(label, value, selectedCurrency) },
+                onClick = { onSave(label, value, selectedCurrency, selectedDebtId) },
                 enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
@@ -829,14 +890,18 @@ private fun AddAirbnbSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditRealEstateSheet(
-    asset: RealEstateAsset,
-    onSave: (label: String, value: String, currency: Currency) -> Unit,
+    asset          : RealEstateAsset,
+    availableDebts : List<Debt> = emptyList(),
+    onSave: (label: String, value: String, currency: Currency, debtId: Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(asset.label) }
     var value by remember { mutableStateOf("%.2f".format(asset.currentValueCents / 100.0).replace(',', '.')) }
     var selectedCurrency by remember { mutableStateOf(asset.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    // Pré-sélectionne le crédit déjà rattaché au bien, le cas échéant
+    var selectedDebtId by remember { mutableStateOf(asset.debtId) }
+    var debtExpanded by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -878,8 +943,32 @@ private fun EditRealEstateSheet(
                 }
             }
 
+            // Liaison à un crédit existant (optionnelle — pré-remplie si déjà rattaché)
+            ExposedDropdownMenuBox(expanded = debtExpanded, onExpandedChange = { debtExpanded = it }) {
+                OutlinedTextField(
+                    value = availableDebts.find { it.id == selectedDebtId }?.label ?: "Aucun",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Crédit lié (optionnel)") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(debtExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = debtExpanded, onDismissRequest = { debtExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Aucun") },
+                        onClick = { selectedDebtId = null; debtExpanded = false }
+                    )
+                    availableDebts.forEach { debt ->
+                        DropdownMenuItem(
+                            text = { Text(debt.label) },
+                            onClick = { selectedDebtId = debt.id; debtExpanded = false }
+                        )
+                    }
+                }
+            }
+
             Button(
-                onClick = { onSave(label, value, selectedCurrency) },
+                onClick = { onSave(label, value, selectedCurrency, selectedDebtId) },
                 enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }

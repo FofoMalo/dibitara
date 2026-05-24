@@ -27,7 +27,9 @@ import com.dibitara.app.domain.usecase.GetPreciousMetalsUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.model.CurrencyConverter
+import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.usecase.GetDebtsUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
@@ -78,7 +80,8 @@ class InvestmentsViewModel @Inject constructor(
     private val ucSaveVersement: SaveVersementUseCase,
     private val ucExisteVersementMois: ExisteVersementMoisUseCase,
     private val ucGetPreferences: GetUserPreferencesUseCase,
-    private val exchangeRateRepository: ExchangeRateRepository
+    private val exchangeRateRepository: ExchangeRateRepository,
+    private val ucGetDebts: GetDebtsUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -90,8 +93,11 @@ class InvestmentsViewModel @Inject constructor(
     private val baseFlow = combine(
         ucGetRealEstate(),
         ucGetScpi(),
-        ucGetAirbnbByYear(currentYear)
-    ) { realEstate, scpi, airbnb -> Triple(realEstate, scpi, airbnb) }
+        ucGetAirbnbByYear(currentYear),
+        ucGetDebts()
+    ) { realEstate, scpi, airbnb, debts ->
+        BaseData(realEstate, scpi, airbnb, debts)
+    }
 
     private val customFlow = combine(
         ucGetPreciousMetals(),
@@ -106,25 +112,26 @@ class InvestmentsViewModel @Inject constructor(
     ) { prefs, rates -> prefs.deviseParDefaut to rates }
 
     val uiState: StateFlow<InvestmentsUiState> = combine(baseFlow, customFlow, conversionFlow) {
-        (realEstate, scpi, airbnb), (metals, assets, empSavings), (target, rates) ->
+        base, (metals, assets, empSavings), (target, rates) ->
         // Conversion de chaque actif vers la devise par défaut avant sommation
         fun Long.cvt(from: com.dibitara.app.domain.model.Currency) =
             CurrencyConverter.convertCents(this, from, target, rates)
         InvestmentsUiState.Success(
-            realEstate            = realEstate,
-            scpi                  = scpi,
-            airbnbRentals         = airbnb,
-            airbnbAnnualTotal     = airbnb.sumOf { it.amountCents.cvt(it.currency) },
+            realEstate            = base.realEstate,
+            scpi                  = base.scpi,
+            airbnbRentals         = base.airbnb,
+            airbnbAnnualTotal     = base.airbnb.sumOf { it.amountCents.cvt(it.currency) },
             anneeLocatifs         = currentYear,
             preciousMetals        = metals,
             customAssets          = assets,
             employeeSavings       = empSavings,
+            availableDebts        = base.debts,
             totalInvestmentsCents =
-                realEstate.sumOf  { it.currentValueCents.cvt(it.currency) } +
-                scpi.sumOf        { it.totalValueCents.cvt(it.currency) }   +
-                metals.sumOf      { it.totalValueCents.cvt(it.currency) }   +
-                assets.sumOf      { it.totalValueCents.cvt(it.currency) }   +
-                empSavings.sumOf  { it.currentBalanceCents.cvt(it.currency) },
+                base.realEstate.sumOf { it.currentValueCents.cvt(it.currency) } +
+                base.scpi.sumOf       { it.totalValueCents.cvt(it.currency) }   +
+                metals.sumOf          { it.totalValueCents.cvt(it.currency) }   +
+                assets.sumOf          { it.totalValueCents.cvt(it.currency) }   +
+                empSavings.sumOf      { it.currentBalanceCents.cvt(it.currency) },
             summaryCurrency       = target
         ) as InvestmentsUiState
     }
@@ -138,14 +145,15 @@ class InvestmentsViewModel @Inject constructor(
     private val _event = MutableSharedFlow<InvestmentsEvent>()
     val event: SharedFlow<InvestmentsEvent> = _event.asSharedFlow()
 
-    fun addRealEstate(label: String, valueStr: String, currency: Currency) {
+    fun addRealEstate(label: String, valueStr: String, currency: Currency, debtId: Long? = null) {
         val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
         viewModelScope.launch {
             ucSaveRealEstate(
-                RealEstateAsset(label = label, currentValueCents = cents, currency = currency, updatedAt = LocalDate.now())
+                RealEstateAsset(label = label, currentValueCents = cents, currency = currency,
+                    updatedAt = LocalDate.now(), debtId = debtId)
             )
                 .onSuccess { _event.emit(InvestmentsEvent.Saved) }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
@@ -189,13 +197,14 @@ class InvestmentsViewModel @Inject constructor(
         }
     }
 
-    fun updateRealEstate(asset: RealEstateAsset, label: String, valueStr: String, currency: Currency) {
+    fun updateRealEstate(asset: RealEstateAsset, label: String, valueStr: String, currency: Currency, debtId: Long? = null) {
         val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
         viewModelScope.launch {
-            ucUpdateRealEstate(asset.copy(label = label, currentValueCents = cents, currency = currency, updatedAt = LocalDate.now()))
+            ucUpdateRealEstate(asset.copy(label = label, currentValueCents = cents, currency = currency,
+                updatedAt = LocalDate.now(), debtId = debtId))
                 .onSuccess { _event.emit(InvestmentsEvent.Saved) }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }
@@ -380,11 +389,20 @@ sealed class InvestmentsUiState {
         val preciousMetals        : List<PreciousMetalAsset> = emptyList(),
         val customAssets          : List<CustomAsset>        = emptyList(),
         val employeeSavings       : List<EmployeeSavings>    = emptyList(),
+        val availableDebts        : List<Debt>               = emptyList(),
         val totalInvestmentsCents : Long                     = 0L,
         val summaryCurrency       : Currency                 = Currency.EUR
     ) : InvestmentsUiState()
     data class Error(val message: String) : InvestmentsUiState()
 }
+
+// Holder interne : contourne la limite de 5 arguments de combine()
+private data class BaseData(
+    val realEstate : List<RealEstateAsset>,
+    val scpi       : List<ScpiInvestment>,
+    val airbnb     : List<AirbnbRental>,
+    val debts      : List<Debt>
+)
 
 sealed class InvestmentsEvent {
     data object Saved : InvestmentsEvent()
