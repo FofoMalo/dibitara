@@ -8,7 +8,9 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import com.dibitara.app.data.remote.api.FrankfurterApi
 import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.repository.ExchangeRateRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 /**
@@ -70,5 +72,13 @@ class ExchangeRateRepositoryImpl @Inject constructor(
                 Result.failure(e)
             }
         }
+    }
+
+    override fun getRatesFlow(): Flow<ExchangeRates> = dataStore.data.map { prefs ->
+        ExchangeRates(
+            usdParEur  = prefs[KEY_USD] ?: USD_FALLBACK,
+            xofParEur  = prefs[KEY_XOF] ?: XOF_FALLBACK,
+            horodatage = prefs[KEY_TIME] ?: 0L
+        )
     }
 }

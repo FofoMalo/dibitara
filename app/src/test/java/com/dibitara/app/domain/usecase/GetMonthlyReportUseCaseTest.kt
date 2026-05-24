@@ -1,6 +1,8 @@
 package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.*
+import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.first
@@ -13,14 +15,22 @@ import java.time.LocalDate
 
 class GetMonthlyReportUseCaseTest {
 
-    private val getMonthlyTransactions: GetMonthlyTransactionsUseCase = mockk()
-    private val getMonthlyBudget: GetMonthlyBudgetUseCase = mockk()
-    private val getCustomSubCategories: GetCustomSubCategoriesUseCase = mockk()
-    private val useCase = GetMonthlyReportUseCase(getMonthlyTransactions, getMonthlyBudget, getCustomSubCategories)
+    private val getMonthlyTransactions : GetMonthlyTransactionsUseCase = mockk()
+    private val getMonthlyBudget       : GetMonthlyBudgetUseCase       = mockk()
+    private val getCustomSubCategories : GetCustomSubCategoriesUseCase = mockk()
+    private val prefsRepo              : UserPreferencesRepository     = mockk()
+    private val ratesRepo              : ExchangeRateRepository        = mockk()
+    private lateinit var useCase: GetMonthlyReportUseCase
 
     @BeforeEach
     fun setUp() {
         every { getCustomSubCategories() } returns flowOf(emptyList())
+        every { prefsRepo.get() } returns flowOf(UserPreferences())
+        every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
+        useCase = GetMonthlyReportUseCase(
+            getMonthlyTransactions, getMonthlyBudget, getCustomSubCategories,
+            prefsRepo, ratesRepo
+        )
     }
 
     private val mois = 5

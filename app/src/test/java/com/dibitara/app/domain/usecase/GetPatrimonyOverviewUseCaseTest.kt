@@ -4,9 +4,11 @@ import com.dibitara.app.domain.model.*
 import com.dibitara.app.domain.repository.BudgetRepository
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.DebtRepository
+import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
 import com.dibitara.app.domain.repository.SavingsRepository
 import com.dibitara.app.domain.repository.TransactionRepository
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.first
@@ -19,17 +21,25 @@ import java.time.LocalDate
 
 class GetPatrimonyOverviewUseCaseTest {
 
-    private val budgetRepo: BudgetRepository = mockk()
-    private val savingsRepo: SavingsRepository = mockk()
-    private val investmentRepo: InvestmentRepository = mockk()
-    private val customInvestRepo: CustomInvestmentRepository = mockk()
-    private val debtRepo: DebtRepository = mockk()
-    private val transactionRepo: TransactionRepository = mockk()
-    private lateinit var useCase: GetPatrimonyOverviewUseCase
+    private val budgetRepo       : BudgetRepository           = mockk()
+    private val savingsRepo      : SavingsRepository          = mockk()
+    private val investmentRepo   : InvestmentRepository       = mockk()
+    private val customInvestRepo : CustomInvestmentRepository = mockk()
+    private val debtRepo         : DebtRepository             = mockk()
+    private val transactionRepo  : TransactionRepository      = mockk()
+    private val prefsRepo        : UserPreferencesRepository  = mockk()
+    private val ratesRepo        : ExchangeRateRepository     = mockk()
+    private lateinit var useCase : GetPatrimonyOverviewUseCase
 
     @BeforeEach
     fun setUp() {
-        useCase = GetPatrimonyOverviewUseCase(budgetRepo, savingsRepo, investmentRepo, customInvestRepo, debtRepo, transactionRepo)
+        // Devise par défaut EUR → conversion identité dans tous les tests existants
+        every { prefsRepo.get() } returns flowOf(UserPreferences())
+        every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
+        useCase = GetPatrimonyOverviewUseCase(
+            budgetRepo, savingsRepo, investmentRepo, customInvestRepo,
+            debtRepo, transactionRepo, prefsRepo, ratesRepo
+        )
     }
 
     @Test

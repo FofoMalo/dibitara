@@ -3,8 +3,11 @@ package com.dibitara.app.domain.usecase
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.CategoryExpense
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CurrencyConverter
 import com.dibitara.app.domain.model.MonthlyReport
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.LocalDate
@@ -21,23 +24,35 @@ import javax.inject.Inject
  * si l'une des sources est modifiée.
  */
 class GetMonthlyReportUseCase @Inject constructor(
-    private val getMonthlyTransactions: GetMonthlyTransactionsUseCase,
-    private val getMonthlyBudget: GetMonthlyBudgetUseCase,
-    private val getCustomSubCategories: GetCustomSubCategoriesUseCase
+    private val getMonthlyTransactions   : GetMonthlyTransactionsUseCase,
+    private val getMonthlyBudget         : GetMonthlyBudgetUseCase,
+    private val getCustomSubCategories   : GetCustomSubCategoriesUseCase,
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val exchangeRateRepository   : ExchangeRateRepository
 ) {
     operator fun invoke(month: Int, year: Int): Flow<MonthlyReport> {
         val datePrecedente = LocalDate.of(year, month, 1).minusMonths(1)
+
+        // Taux + préférences combinés pour la conversion
+        val conversionFlow = combine(
+            userPreferencesRepository.get(),
+            exchangeRateRepository.getRatesFlow()
+        ) { prefs, rates -> prefs.deviseParDefaut to rates }
 
         return combine(
             getMonthlyTransactions(month, year),
             getMonthlyTransactions(datePrecedente.monthValue, datePrecedente.year),
             getMonthlyBudget(month, year),
-            getCustomSubCategories()
-        ) { current, previous, budget, customSubCats ->
+            getCustomSubCategories(),
+            conversionFlow
+        ) { current, previous, budget, customSubCats, (targetCurrency, rates) ->
 
-            val revenus  = current.filter { it.type == TransactionType.INCOME  }.sumOf { it.amountCents }
-            val depenses = current.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents }
-            val depensesPrecedent = previous.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents }
+            fun Long.cvt(from: Currency) =
+                CurrencyConverter.convertCents(this, from, targetCurrency, rates)
+
+            val revenus  = current.filter { it.type == TransactionType.INCOME  }.sumOf { it.amountCents.cvt(it.currency) }
+            val depenses = current.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents.cvt(it.currency) }
+            val depensesPrecedent = previous.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents.cvt(it.currency) }
 
             // Pour AUTRE : on éclate par sous-catégorie pour éviter un bloc "Autre" dominant.
             // Clé de regroupement : catégorie normale, ou sous-catégorie si category == AUTRE.
@@ -53,7 +68,7 @@ class GetMonthlyReportUseCase @Inject constructor(
                     }
                 }
                 .map { (key, transactions) ->
-                    val total      = transactions.sumOf { it.amountCents }
+                    val total      = transactions.sumOf { it.amountCents.cvt(it.currency) }
                     val firstTx    = transactions.first()
                     val label = when {
                         key.startsWith("subcat_") ->
@@ -73,12 +88,10 @@ class GetMonthlyReportUseCase @Inject constructor(
                 .sortedByDescending { it.totalCents }
                 .take(5)
 
-            val devise = current.firstOrNull()?.currency ?: Currency.EUR
-
             MonthlyReport(
                 month                   = month,
                 year                    = year,
-                currency                = devise,
+                currency                = targetCurrency,
                 revenusCents            = revenus,
                 depensesCents           = depenses,
                 soldeCents              = revenus - depenses,

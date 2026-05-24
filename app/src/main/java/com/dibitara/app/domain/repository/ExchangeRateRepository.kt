@@ -1,6 +1,7 @@
 package com.dibitara.app.domain.repository
 
 import com.dibitara.app.domain.model.ExchangeRates
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Contrat pour récupérer les taux de change.
@@ -9,4 +10,11 @@ import com.dibitara.app.domain.model.ExchangeRates
 interface ExchangeRateRepository {
     /** Retourne les taux (cache local si récents, sinon appel réseau). */
     suspend fun getRates(): Result<ExchangeRates>
+
+    /**
+     * Émet les taux mis en cache dès qu'ils changent (DataStore).
+     * Utilise les taux de secours si le cache est vide.
+     * Utilisé pour des calculs réactifs (overview patrimonial, rapport mensuel).
+     */
+    fun getRatesFlow(): Flow<ExchangeRates>
 }
