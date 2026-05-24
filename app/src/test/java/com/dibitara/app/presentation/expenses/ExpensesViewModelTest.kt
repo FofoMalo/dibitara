@@ -10,7 +10,9 @@ import com.dibitara.app.domain.usecase.DeleteCustomSubCategoryUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
+import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
 import com.dibitara.app.domain.usecase.GetTransactionSuggestionsUseCase
+import com.dibitara.app.domain.usecase.GetTransactionsByDateRangeUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
@@ -34,31 +36,43 @@ import java.time.LocalDate
 class ExpensesViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
-    private val ucGetAll: GetAllTransactionsUseCase = mockk()
-    private val ucAdd: AddTransactionUseCase = mockk()
-    private val ucUpdate: UpdateTransactionUseCase = mockk()
-    private val ucDelete: DeleteTransactionUseCase = mockk()
-    private val ucGetCustomSubCategories: GetCustomSubCategoriesUseCase = mockk()
-    private val ucUpsertCustomSubCategory: UpsertCustomSubCategoryUseCase = mockk(relaxed = true)
-    private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase = mockk(relaxed = true)
-    private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
-    private val ucGetSuggestions: GetTransactionSuggestionsUseCase = mockk()
+
+    private val ucGetMonthlyTransactions : GetMonthlyTransactionsUseCase  = mockk()
+    private val ucGetByDateRange         : GetTransactionsByDateRangeUseCase = mockk()
+    private val ucGetAll                 : GetAllTransactionsUseCase       = mockk()
+    private val ucAdd                    : AddTransactionUseCase           = mockk()
+    private val ucUpdate                 : UpdateTransactionUseCase        = mockk()
+    private val ucDelete                 : DeleteTransactionUseCase        = mockk()
+    private val ucGetCustomSubCategories : GetCustomSubCategoriesUseCase   = mockk()
+    private val ucUpsertCustomSubCategory: UpsertCustomSubCategoryUseCase  = mockk(relaxed = true)
+    private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase  = mockk(relaxed = true)
+    private val ucGetPreferences         : GetUserPreferencesUseCase       = mockk()
+    private val ucGetSuggestions         : GetTransactionSuggestionsUseCase = mockk()
+
     private lateinit var viewModel: ExpensesViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        every { ucGetAll() } returns flowOf(emptyList())
+        // Le filtre par défaut est CURRENT_MONTH → la source est GetMonthlyTransactionsUseCase
+        every { ucGetMonthlyTransactions(any(), any()) } returns flowOf(emptyList())
         every { ucGetCustomSubCategories() } returns flowOf(emptyList())
         every { ucGetPreferences() } returns flowOf(UserPreferences())
         every { ucGetSuggestions() } returns flowOf(emptyList())
-        viewModel = ExpensesViewModel(ucGetAll, ucAdd, ucUpdate, ucDelete,
-            ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
-            ucGetPreferences, ucGetSuggestions, SavedStateHandle())
+        viewModel = buildViewModel()
     }
 
     @AfterEach
     fun tearDown() { Dispatchers.resetMain() }
+
+    private fun buildViewModel(savedState: SavedStateHandle = SavedStateHandle()) =
+        ExpensesViewModel(
+            ucGetMonthlyTransactions, ucGetByDateRange, ucGetAll,
+            ucAdd, ucUpdate, ucDelete,
+            ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
+            ucGetPreferences, ucGetSuggestions,
+            savedState
+        )
 
     @Test
     fun `liste vide au démarrage`() = runTest {
@@ -75,16 +89,43 @@ class ExpensesViewModelTest {
             buildTransaction(type = TransactionType.INCOME),
             buildTransaction(type = TransactionType.INVESTMENT)
         )
-        every { ucGetAll() } returns flowOf(transactions)
-        viewModel = ExpensesViewModel(ucGetAll, ucAdd, ucUpdate, ucDelete,
-            ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
-            ucGetPreferences, ucGetSuggestions, SavedStateHandle())
+        every { ucGetMonthlyTransactions(any(), any()) } returns flowOf(transactions)
+        viewModel = buildViewModel()
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is ExpensesUiState.Success } as ExpensesUiState.Success
         assertEquals(1, state.expenses.size)
         assertEquals(TransactionType.EXPENSE, state.expenses.first().type)
         job.cancel()
+    }
+
+    @Test
+    fun `previousMonth décrémente le mois sélectionné`() = runTest {
+        val now = LocalDate.now()
+        assertEquals(now.monthValue, viewModel.selectedMonth.value)
+        assertEquals(now.year, viewModel.selectedYear.value)
+
+        viewModel.previousMonth()
+        val expected = now.minusMonths(1)
+        assertEquals(expected.monthValue, viewModel.selectedMonth.value)
+        assertEquals(expected.year, viewModel.selectedYear.value)
+    }
+
+    @Test
+    fun `nextMonth ne dépasse pas le mois courant`() = runTest {
+        // On recule d'un mois pour pouvoir avancer
+        viewModel.previousMonth()
+        val before = viewModel.selectedMonth.value
+        val now = LocalDate.now()
+
+        // Premier avancement — doit atteindre le mois courant
+        viewModel.nextMonth()
+        assertEquals(now.monthValue, viewModel.selectedMonth.value)
+        assertEquals(now.year, viewModel.selectedYear.value)
+
+        // Second avancement — bloqué au mois courant
+        viewModel.nextMonth()
+        assertEquals(now.monthValue, viewModel.selectedMonth.value)
     }
 
     @Test

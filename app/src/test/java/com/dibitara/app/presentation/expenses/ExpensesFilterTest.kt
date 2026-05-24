@@ -8,17 +8,22 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
+/**
+ * Tests de [ExpensesFilter.apply].
+ *
+ * Le filtre de date est désormais géré au niveau SQL par le ViewModel selon la [FilterPeriod].
+ * [apply] ne couvre que : catégorie, type, recherche textuelle et tri.
+ */
 class ExpensesFilterTest {
 
-    // Date de référence fixe pour rendre les tests déterministes
     private val today = LocalDate.of(2026, 5, 9)
 
     private fun buildExpense(
-        note: String = "",
-        category: Category = Category.ALIMENTATION,
-        date: LocalDate = today,
-        amountCents: Long = 1000L,
-        type: TransactionType = TransactionType.EXPENSE
+        note        : String           = "",
+        category    : Category         = Category.ALIMENTATION,
+        date        : LocalDate        = today,
+        amountCents : Long             = 1000L,
+        type        : TransactionType  = TransactionType.EXPENSE
     ) = Transaction(
         id = 0, amountCents = amountCents, currency = Currency.EUR,
         category = category, type = type, date = date, note = note
@@ -27,7 +32,7 @@ class ExpensesFilterTest {
     @Test
     fun `filtre par note — retourne uniquement les correspondances`() {
         val list = listOf(buildExpense(note = "Courses Lidl"), buildExpense(note = "Loyer"))
-        val result = ExpensesFilter(query = "courses").apply(list, today)
+        val result = ExpensesFilter(query = "courses").apply(list)
         assertEquals(1, result.size)
         assertEquals("Courses Lidl", result.first().note)
     }
@@ -35,7 +40,7 @@ class ExpensesFilterTest {
     @Test
     fun `filtre par note est insensible à la casse`() {
         val list = listOf(buildExpense(note = "COURSES"), buildExpense(note = "loyer"))
-        val result = ExpensesFilter(query = "courses").apply(list, today)
+        val result = ExpensesFilter(query = "courses").apply(list)
         assertEquals(1, result.size)
     }
 
@@ -45,7 +50,7 @@ class ExpensesFilterTest {
             buildExpense(category = Category.ALIMENTATION),
             buildExpense(category = Category.LOGEMENT)
         )
-        val result = ExpensesFilter(category = Category.LOGEMENT).apply(list, today)
+        val result = ExpensesFilter(category = Category.LOGEMENT).apply(list)
         assertEquals(1, result.size)
         assertEquals(Category.LOGEMENT, result.first().category)
     }
@@ -56,39 +61,7 @@ class ExpensesFilterTest {
             buildExpense(category = Category.ALIMENTATION),
             buildExpense(category = Category.LOGEMENT)
         )
-        val result = ExpensesFilter(category = null, transactionType = null).apply(list, today)
-        assertEquals(2, result.size)
-    }
-
-    @Test
-    fun `filtre période mois courant exclut les transactions du mois précédent`() {
-        val list = listOf(
-            buildExpense(date = today),
-            buildExpense(date = today.minusMonths(1))
-        )
-        val result = ExpensesFilter(period = FilterPeriod.CURRENT_MONTH).apply(list, today)
-        assertEquals(1, result.size)
-        assertEquals(today, result.first().date)
-    }
-
-    @Test
-    fun `filtre période 3 mois inclut les 3 derniers mois`() {
-        val list = listOf(
-            buildExpense(date = today),
-            buildExpense(date = today.minusMonths(2)),
-            buildExpense(date = today.minusMonths(4))
-        )
-        val result = ExpensesFilter(period = FilterPeriod.THREE_MONTHS).apply(list, today)
-        assertEquals(2, result.size)
-    }
-
-    @Test
-    fun `filtre tout retourne toutes les transactions`() {
-        val list = listOf(
-            buildExpense(date = today),
-            buildExpense(date = today.minusYears(2))
-        )
-        val result = ExpensesFilter(period = FilterPeriod.ALL, transactionType = null).apply(list, today)
+        val result = ExpensesFilter(category = null, transactionType = null).apply(list)
         assertEquals(2, result.size)
     }
 
@@ -98,8 +71,19 @@ class ExpensesFilterTest {
             buildExpense(type = TransactionType.EXPENSE),
             buildExpense(type = TransactionType.INCOME)
         )
-        val result = ExpensesFilter(transactionType = null, period = FilterPeriod.ALL).apply(list, today)
+        val result = ExpensesFilter(transactionType = null).apply(list)
         assertEquals(2, result.size)
+    }
+
+    @Test
+    fun `filtre type EXPENSE exclut les revenus`() {
+        val list = listOf(
+            buildExpense(type = TransactionType.EXPENSE),
+            buildExpense(type = TransactionType.INCOME)
+        )
+        val result = ExpensesFilter(transactionType = TransactionType.EXPENSE).apply(list)
+        assertEquals(1, result.size)
+        assertEquals(TransactionType.EXPENSE, result.first().type)
     }
 
     @Test
@@ -109,7 +93,7 @@ class ExpensesFilterTest {
             buildExpense(amountCents = 2000L),
             buildExpense(amountCents = 100L)
         )
-        val result = ExpensesFilter(sort = SortOrder.AMOUNT_DESC).apply(list, today)
+        val result = ExpensesFilter(sort = SortOrder.AMOUNT_DESC).apply(list)
         assertEquals(2000L, result.first().amountCents)
         assertEquals(100L, result.last().amountCents)
     }
@@ -121,7 +105,13 @@ class ExpensesFilterTest {
             buildExpense(date = today),
             buildExpense(date = today.minusDays(5))
         )
-        val result = ExpensesFilter(sort = SortOrder.DATE_DESC).apply(list, today)
+        val result = ExpensesFilter(sort = SortOrder.DATE_DESC).apply(list)
         assertEquals(today, result.first().date)
+    }
+
+    @Test
+    fun `liste vide retourne une liste vide`() {
+        val result = ExpensesFilter().apply(emptyList())
+        assertTrue(result.isEmpty())
     }
 }

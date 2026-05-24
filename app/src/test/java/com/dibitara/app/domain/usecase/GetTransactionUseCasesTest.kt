@@ -10,6 +10,7 @@ import io.mockk.verify
 import kotlinx.coroutines.flow.flowOf
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 
 class GetTransactionUseCasesTest {
 
@@ -23,6 +24,20 @@ class GetTransactionUseCasesTest {
 
         assertNotNull(flow)
         verify(exactly = 1) { repository.getByMonth(5, 2026) }
+    }
+
+    @Test
+    fun `GetTransactionsByDateRangeUseCase délègue au repository avec la bonne plage de dates`() {
+        val repository: TransactionRepository = mockk()
+        val from = LocalDate.of(2026, 3, 1)
+        val to   = LocalDate.of(2026, 5, 31)
+        every { repository.getByDateRange(from, to) } returns flowOf(emptyList())
+        val useCase = GetTransactionsByDateRangeUseCase(repository)
+
+        val flow = useCase(from, to)
+
+        assertNotNull(flow)
+        verify(exactly = 1) { repository.getByDateRange(from, to) }
     }
 
     @Test

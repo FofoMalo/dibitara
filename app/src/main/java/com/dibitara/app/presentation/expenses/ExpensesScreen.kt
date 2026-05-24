@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -37,12 +39,17 @@ import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionSuggestion
 import com.dibitara.app.domain.model.TransactionType
 import java.time.LocalDate
+import java.time.Month
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 @Composable
 fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val filter by viewModel.filter.collectAsState()
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
+    val selectedYear  by viewModel.selectedYear.collectAsState()
     val defaultCurrency by viewModel.defaultCurrency.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
@@ -112,6 +119,16 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                         )
                     }
                 }
+            }
+
+            // Navigation mensuelle — visible uniquement en mode "Ce mois"
+            if (filter.period == FilterPeriod.CURRENT_MONTH) {
+                MonthNavigationBar(
+                    month       = selectedMonth,
+                    year        = selectedYear,
+                    onPrevious  = viewModel::previousMonth,
+                    onNext      = viewModel::nextMonth
+                )
             }
 
             // Liste des transactions
@@ -190,6 +207,53 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             },
             onDismiss = { editingExpense = null }
         )
+    }
+}
+
+// ─── Barre de navigation mensuelle ───────────────────────────────────────────
+
+@Composable
+private fun MonthNavigationBar(
+    month: Int,
+    year: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
+) {
+    val monthName = Month.of(month).getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRENCH)
+        .replaceFirstChar { it.uppercase() }
+    // Désactiver "suivant" si on est déjà au mois courant
+    val now = LocalDate.now()
+    val estMoisCourant = month == now.monthValue && year == now.year
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onPrevious) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Mois précédent",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(
+            text  = "$monthName $year",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        IconButton(onClick = onNext, enabled = !estMoisCourant) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "Mois suivant",
+                tint = if (estMoisCourant)
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
