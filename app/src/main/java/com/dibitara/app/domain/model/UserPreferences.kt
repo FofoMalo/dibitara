@@ -2,15 +2,19 @@ package com.dibitara.app.domain.model
 
 /**
  * Préférences de l'utilisateur stockées localement via DataStore.
- * [seuilFondsCents] : seuil en-dessous duquel une alerte "liquidités insuffisantes" est envoyée.
- * [deviseParDefaut] : devise utilisée à l'affichage et à la saisie.
+ * [seuilFondsCents]       : seuil en-dessous duquel une alerte "liquidités insuffisantes" est envoyée.
+ * [deviseParDefaut]       : devise utilisée à l'affichage et à la saisie.
+ * [dashboardCardOrder]    : ordre des cartes reordonnables du tableau de bord.
+ * [notificationsMensuelles] : si true, un résumé mensuel est envoyé en notification le 1er du mois.
  */
 data class UserPreferences(
     val seuilFondsCents: Long = 20_000L,
     val deviseParDefaut: Currency = Currency.EUR,
     val afficherRapportMensuel: Boolean = false,
-    val afficherEpargne: Boolean = true,          // onglet "Épargne" visible dans la nav bar
-    val afficherInvestissements: Boolean = true,  // onglet "Placements" visible dans la nav bar
-    val twoFactorEnabled: Boolean = false,        // TOTP requis après PIN ou mot de passe
-    val afficherProchainsPaiements: Boolean = true   // carte "Prochains paiements" sur le Dashboard
+    val afficherEpargne: Boolean = true,
+    val afficherInvestissements: Boolean = true,
+    val twoFactorEnabled: Boolean = false,
+    val afficherProchainsPaiements: Boolean = true,
+    val dashboardCardOrder: List<DashboardCard> = DashboardCard.entries.toList(),
+    val notificationsMensuelles: Boolean = false
 )

@@ -1,16 +1,26 @@
 package com.dibitara.app
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 /**
  * Point d'entrée de l'application.
- * L'annotation @HiltAndroidApp déclenche la génération du code Hilt
- * qui permet l'injection de dépendances dans toute l'application.
+ * Implémente [Configuration.Provider] pour que WorkManager utilise [HiltWorkerFactory]
+ * et puisse injecter des dépendances dans les Workers (@HiltWorker).
  */
 @HiltAndroidApp
-class DibitaraApp : Application() {
+class DibitaraApp : Application(), Configuration.Provider {
+
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 
     override fun onCreate() {
         super.onCreate()

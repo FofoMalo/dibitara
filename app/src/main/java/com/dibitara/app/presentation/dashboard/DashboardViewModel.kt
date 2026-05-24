@@ -3,6 +3,7 @@ package com.dibitara.app.presentation.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.CashflowProjection
+import com.dibitara.app.domain.model.DashboardCard
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.MonthlyExpense
 import com.dibitara.app.domain.model.MonthlyReport
@@ -16,7 +17,10 @@ import com.dibitara.app.domain.usecase.GetRecategorizationSuggestionsUseCase
 import com.dibitara.app.domain.usecase.GetSpendingHistoryUseCase
 import com.dibitara.app.domain.usecase.GetUpcomingPaymentsUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
+import com.dibitara.app.domain.usecase.UpdateDashboardCardOrderUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -30,10 +34,30 @@ class DashboardViewModel @Inject constructor(
     private val getMonthlyReport       : GetMonthlyReportUseCase,
     private val getUpcomingPayments    : GetUpcomingPaymentsUseCase,
     private val getPreferences         : GetUserPreferencesUseCase,
-    private val getCashflowProjection  : GetCashflowProjectionUseCase,
-    private val getRecategorizations   : GetRecategorizationSuggestionsUseCase,
-    private val updateTransaction      : UpdateTransactionUseCase
+    private val getCashflowProjection    : GetCashflowProjectionUseCase,
+    private val getRecategorizations     : GetRecategorizationSuggestionsUseCase,
+    private val updateTransaction        : UpdateTransactionUseCase,
+    private val updateCardOrder          : UpdateDashboardCardOrderUseCase
 ) : ViewModel() {
+
+    private val _isEditMode = MutableStateFlow(false)
+    val isEditMode = _isEditMode.asStateFlow()
+
+    fun toggleEditMode() { _isEditMode.value = !_isEditMode.value }
+
+    /**
+     * Déplace la carte identifiée par [fromKey] à la position de [toKey].
+     * L'ordre courant est lu depuis [uiState] ; l'update est persisté dans DataStore.
+     */
+    fun moveCard(fromKey: String, toKey: String) {
+        val currentOrder = (uiState.value as? DashboardUiState.Success)
+            ?.cardOrder ?: return
+        val from = currentOrder.indexOfFirst { it.name == fromKey }
+        val to   = currentOrder.indexOfFirst { it.name == toKey }
+        if (from < 0 || to < 0 || from == to) return
+        val newOrder = currentOrder.toMutableList().apply { add(to, removeAt(from)) }
+        viewModelScope.launch { updateCardOrder(newOrder) }
+    }
 
     private val now = LocalDate.now()
 
@@ -54,12 +78,13 @@ class DashboardViewModel @Inject constructor(
     ) { (q, cashflow), recats ->
         val prefs = q.fifth
         DashboardUiState.Success(
-            overview                  = q.first,
-            spendingHistory           = q.second,
-            upcomingPayments          = if (prefs.afficherProchainsPaiements) q.fourth else emptyList(),
-            rapportMensuel            = if (prefs.afficherRapportMensuel) q.third else null,
-            cashflowProjection        = cashflow,
-            recategorizationSuggestions = recats
+            overview                    = q.first,
+            spendingHistory             = q.second,
+            upcomingPayments            = if (prefs.afficherProchainsPaiements) q.fourth else emptyList(),
+            rapportMensuel              = if (prefs.afficherRapportMensuel) q.third else null,
+            cashflowProjection          = cashflow,
+            recategorizationSuggestions = recats,
+            cardOrder                   = prefs.dashboardCardOrder
         ) as DashboardUiState
     }
         .catch { emit(DashboardUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -113,7 +138,8 @@ sealed class DashboardUiState {
         val upcomingPayments            : List<UpcomingPayment>             = emptyList(),
         val rapportMensuel              : MonthlyReport?                    = null,
         val cashflowProjection          : CashflowProjection?               = null,
-        val recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList()
+        val recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
+        val cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList()
     ) : DashboardUiState()
     data class Error(val message: String) : DashboardUiState()
 }

@@ -1,6 +1,7 @@
 package com.dibitara.app.domain.repository
 
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.DashboardCard
 import com.dibitara.app.domain.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 
@@ -14,4 +15,6 @@ interface UserPreferencesRepository {
     suspend fun updateAfficherInvestissements(afficher: Boolean)
     suspend fun updateAfficherProchainsPaiements(afficher: Boolean)
     suspend fun updateTwoFactorEnabled(enabled: Boolean)
+    suspend fun updateDashboardCardOrder(order: List<DashboardCard>)
+    suspend fun updateNotificationsMensuelles(enabled: Boolean)
 }

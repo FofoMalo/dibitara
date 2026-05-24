@@ -1,9 +1,15 @@
 package com.dibitara.app.presentation.settings
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.dibitara.app.data.worker.MonthlyReportNotificationWorker
 import com.dibitara.app.domain.model.Currency
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.ExportFormat
 import com.dibitara.app.domain.model.UserPreferences
@@ -15,8 +21,10 @@ import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherProchainsPaiementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
+import com.dibitara.app.domain.usecase.UpdateNotificationsMensuellesUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
 import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
+import java.util.concurrent.TimeUnit
 import com.dibitara.app.security.CredentialManager
 import com.dibitara.app.security.TotpManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,6 +40,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val ucGetPreferences: GetUserPreferencesUseCase,
     private val ucGetExchangeRates: GetExchangeRatesUseCase,
     private val ucUpdateSeuil: UpdateSeuilFondsUseCase,
@@ -41,6 +50,7 @@ class SettingsViewModel @Inject constructor(
     private val ucUpdateAfficherInvestissements: UpdateAfficherInvestissementsUseCase,
     private val ucUpdateAfficherProchainsPaiements: UpdateAfficherProchainsPaiementsUseCase,
     private val ucUpdateTwoFactorEnabled: UpdateTwoFactorEnabledUseCase,
+    private val ucUpdateNotificationsMensuelles: UpdateNotificationsMensuellesUseCase,
     private val ucExporterDonnees: ExporterDonneesUseCase,
     private val credentialManager: CredentialManager,
     private val totpManager: TotpManager
@@ -146,6 +156,30 @@ class SettingsViewModel @Inject constructor(
 
     fun mettreAJourAfficherProchainsPaiements(afficher: Boolean) {
         viewModelScope.launch { ucUpdateAfficherProchainsPaiements(afficher) }
+    }
+
+    /**
+     * Active ou désactive les notifications mensuelles.
+     * Si activé : planifie un [MonthlyReportNotificationWorker] tous les 30 jours.
+     * Si désactivé : annule le travail planifié.
+     */
+    fun mettreAJourNotificationsMensuelles(enabled: Boolean) {
+        viewModelScope.launch {
+            ucUpdateNotificationsMensuelles(enabled)
+            val workManager = WorkManager.getInstance(context)
+            if (enabled) {
+                val request = PeriodicWorkRequestBuilder<MonthlyReportNotificationWorker>(
+                    30, TimeUnit.DAYS
+                ).build()
+                workManager.enqueueUniquePeriodicWork(
+                    MonthlyReportNotificationWorker.NOM_TRAVAIL_UNIQUE,
+                    ExistingPeriodicWorkPolicy.UPDATE,
+                    request
+                )
+            } else {
+                workManager.cancelUniqueWork(MonthlyReportNotificationWorker.NOM_TRAVAIL_UNIQUE)
+            }
+        }
     }
 
     // ─── Sécurité ─────────────────────────────────────────────────────────────

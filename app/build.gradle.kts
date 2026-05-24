@@ -179,6 +179,14 @@ dependencies {
     implementation(libs.vico.compose.m3)
     implementation(libs.zxing.core)
 
+    // Drag-and-drop dashboard
+    implementation(libs.reorderable.compose)
+
+    // WorkManager — notifications périodiques
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
+
     // Firebase — suivi des crashs en production (Crashlytics)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.crashlytics)

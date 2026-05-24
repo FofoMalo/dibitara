@@ -1,8 +1,9 @@
 package com.dibitara.app.presentation.dashboard
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.DashboardCard
 import com.dibitara.app.domain.model.MonthlyExpense
 import com.dibitara.app.domain.model.MonthlyReport
 import com.dibitara.app.domain.model.PatrimonyOverview
@@ -25,7 +27,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Warning
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
@@ -59,7 +65,8 @@ fun DashboardScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(state.message, color = MaterialTheme.colorScheme.error)
                 }
-            is DashboardUiState.Success ->
+            is DashboardUiState.Success -> {
+                val isEditMode by viewModel.isEditMode.collectAsState()
                 DashboardContent(
                     overview                    = state.overview,
                     spendingHistory             = state.spendingHistory,
@@ -73,9 +80,14 @@ fun DashboardScreen(
                     rapportMensuel              = state.rapportMensuel,
                     cashflowProjection          = state.cashflowProjection,
                     recategorizationSuggestions = state.recategorizationSuggestions,
+                    cardOrder                   = state.cardOrder,
+                    isEditMode                  = isEditMode,
+                    onToggleEditMode            = { viewModel.toggleEditMode() },
+                    onMoveCard                  = { from, to -> viewModel.moveCard(from, to) },
                     onApplyRecategorization     = { viewModel.appliquerRecategorisation(it) },
                     onRefuseRecategorization    = { viewModel.refuserRecategorisation(it) }
                 )
+            }
         }
     }
 }
@@ -94,86 +106,184 @@ private fun DashboardContent(
     rapportMensuel              : MonthlyReport?                    = null,
     cashflowProjection          : CashflowProjection?               = null,
     recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
+    cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList(),
+    isEditMode                  : Boolean                           = false,
+    onToggleEditMode            : () -> Unit                        = {},
+    onMoveCard                  : (fromKey: String, toKey: String) -> Unit = { _, _ -> },
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
     onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 24.dp),
+    val lazyListState = rememberLazyListState()
+    val reorderState  = rememberReorderableLazyListState(lazyListState) { from, to ->
+        onMoveCard(from.key as String, to.key as String)
+    }
+
+    LazyColumn(
+        state   = lazyListState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium)
-
-        PatrimonyNetCard(overview = overview, onClick = onNavigateToPatrimoine)
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard(
-                modifier   = Modifier.weight(1f),
-                title      = "Liquidités",
-                valueCents = overview.liquiditesCents,
-                currency   = overview.currency,
-                color      = MaterialTheme.colorScheme.primary,
-                onClick    = onNavigateToBudget
-            )
-            MetricCard(
-                modifier   = Modifier.weight(1f),
-                title      = "Épargne",
-                valueCents = overview.epargneCents,
-                currency   = overview.currency,
-                color      = MaterialTheme.colorScheme.secondary,
-                onClick    = onNavigateToSavings
-            )
+        // ─── En-tête fixe (non reordonnable) ──────────────────────────────────
+        item(key = "header") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium)
+                IconButton(onClick = onToggleEditMode) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = if (isEditMode) "Terminer la réorganisation"
+                                             else "Réorganiser les cartes",
+                        tint = if (isEditMode) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard(
-                modifier   = Modifier.weight(1f),
-                title      = "Investissements",
-                valueCents = overview.investissementsCents,
-                currency   = overview.currency,
-                color      = MaterialTheme.colorScheme.tertiary,
-                onClick    = onNavigateToInvestments
-            )
-            MetricCard(
-                modifier   = Modifier.weight(1f),
-                title      = "Revenus locatifs (année)",
-                valueCents = overview.airbnbAnnualRevenueCents,
-                currency   = overview.currency,
-                color      = MaterialTheme.colorScheme.tertiary,
-                onClick    = onNavigateToInvestments
-            )
+        item(key = "patrimoine") {
+            PatrimonyNetCard(overview = overview, onClick = onNavigateToPatrimoine)
         }
 
-        DebtsCard(
-            totalCents = overview.dettesTotalCents,
-            currency   = overview.currency,
-            onClick    = onNavigateToDebts
+        // ─── Cartes reordonnables ──────────────────────────────────────────────
+        items(cardOrder, key = { it.name }) { card ->
+            ReorderableItem(reorderState, key = card.name) { isDragging ->
+                val elevation by androidx.compose.animation.core.animateDpAsState(
+                    if (isDragging) 8.dp else 0.dp, label = "drag_elevation"
+                )
+                Surface(shadowElevation = elevation, color = MaterialTheme.colorScheme.background) {
+                    DashboardCardSlot(
+                        card                    = card,
+                        overview                = overview,
+                        spendingHistory         = spendingHistory,
+                        upcomingPayments        = upcomingPayments,
+                        rapportMensuel          = rapportMensuel,
+                        cashflowProjection      = cashflowProjection,
+                        recategorizationSuggestions = recategorizationSuggestions,
+                        isEditMode              = isEditMode,
+                        dragHandleModifier      = Modifier.draggableHandle(),
+                        onNavigateToDebts       = onNavigateToDebts,
+                        onNavigateToReport      = onNavigateToReport,
+                        onNavigateToBudget      = onNavigateToBudget,
+                        onNavigateToSavings     = onNavigateToSavings,
+                        onNavigateToInvestments = onNavigateToInvestments,
+                        onApplyRecategorization = onApplyRecategorization,
+                        onRefuseRecategorization = onRefuseRecategorization
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Dispatche chaque [DashboardCard] vers le composable correspondant.
+ * [dragHandleModifier] est appliqué sur une icône de poignée visible en mode édition.
+ */
+@Composable
+private fun DashboardCardSlot(
+    card                        : DashboardCard,
+    overview                    : PatrimonyOverview,
+    spendingHistory             : List<MonthlyExpense>,
+    upcomingPayments            : List<UpcomingPayment>,
+    rapportMensuel              : MonthlyReport?,
+    cashflowProjection          : CashflowProjection?,
+    recategorizationSuggestions : List<RecategorizationSuggestion>,
+    isEditMode                  : Boolean,
+    dragHandleModifier          : Modifier,
+    onNavigateToDebts           : () -> Unit,
+    onNavigateToReport          : () -> Unit,
+    onNavigateToBudget          : () -> Unit,
+    onNavigateToSavings         : () -> Unit,
+    onNavigateToInvestments     : () -> Unit,
+    onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
+    onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit
+) {
+    // En mode édition, chaque carte affiche une poignée de déplacement à droite
+    if (isEditMode) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.weight(1f)) {
+                DashboardCardContent(
+                    card, overview, spendingHistory, upcomingPayments, rapportMensuel,
+                    cashflowProjection, recategorizationSuggestions,
+                    onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
+                    onNavigateToSavings, onNavigateToInvestments,
+                    onApplyRecategorization, onRefuseRecategorization
+                )
+            }
+            Icon(
+                imageVector        = Icons.Filled.DragHandle,
+                contentDescription = "Glisser pour déplacer",
+                modifier           = dragHandleModifier.padding(start = 8.dp),
+                tint               = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    } else {
+        DashboardCardContent(
+            card, overview, spendingHistory, upcomingPayments, rapportMensuel,
+            cashflowProjection, recategorizationSuggestions,
+            onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
+            onNavigateToSavings, onNavigateToInvestments,
+            onApplyRecategorization, onRefuseRecategorization
         )
+    }
+}
 
-        // Projection de trésorerie — toujours affichée si les données sont disponibles
-        if (cashflowProjection != null) {
-            CashflowProjectionCard(projection = cashflowProjection)
-        }
-
-        // Rapport synthèse OU graphique 6 mois selon le réglage utilisateur
-        if (rapportMensuel != null) {
-            RapportSyntheseCard(rapport = rapportMensuel, onVoirDetail = onNavigateToReport)
-        } else if (spendingHistory.any { it.totalCents > 0 }) {
-            SpendingHistoryCard(history = spendingHistory, currency = overview.currency)
-        }
-
-        if (recategorizationSuggestions.isNotEmpty()) {
-            RecategorizationCard(
-                suggestions = recategorizationSuggestions,
-                onApply     = onApplyRecategorization,
-                onRefuse    = onRefuseRecategorization
-            )
-        }
-
-        if (upcomingPayments.isNotEmpty()) {
-            UpcomingPaymentsCard(payments = upcomingPayments)
-        }
+@Composable
+private fun DashboardCardContent(
+    card                        : DashboardCard,
+    overview                    : PatrimonyOverview,
+    spendingHistory             : List<MonthlyExpense>,
+    upcomingPayments            : List<UpcomingPayment>,
+    rapportMensuel              : MonthlyReport?,
+    cashflowProjection          : CashflowProjection?,
+    recategorizationSuggestions : List<RecategorizationSuggestion>,
+    onNavigateToDebts           : () -> Unit,
+    onNavigateToReport          : () -> Unit,
+    onNavigateToBudget          : () -> Unit,
+    onNavigateToSavings         : () -> Unit,
+    onNavigateToInvestments     : () -> Unit,
+    onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
+    onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit
+) {
+    when (card) {
+        DashboardCard.METRIQUES_BUDGET_EPARGNE ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetricCard(Modifier.weight(1f), "Liquidités",  overview.liquiditesCents, overview.currency,
+                    MaterialTheme.colorScheme.primary, onNavigateToBudget)
+                MetricCard(Modifier.weight(1f), "Épargne", overview.epargneCents, overview.currency,
+                    MaterialTheme.colorScheme.secondary, onNavigateToSavings)
+            }
+        DashboardCard.METRIQUES_INVESTISSEMENTS ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetricCard(Modifier.weight(1f), "Investissements", overview.investissementsCents,
+                    overview.currency, MaterialTheme.colorScheme.tertiary, onNavigateToInvestments)
+                MetricCard(Modifier.weight(1f), "Revenus locatifs (année)", overview.airbnbAnnualRevenueCents,
+                    overview.currency, MaterialTheme.colorScheme.tertiary, onNavigateToInvestments)
+            }
+        DashboardCard.DETTES ->
+            DebtsCard(totalCents = overview.dettesTotalCents, currency = overview.currency,
+                onClick = onNavigateToDebts)
+        DashboardCard.CASHFLOW_PROJECTION ->
+            if (cashflowProjection != null)
+                CashflowProjectionCard(projection = cashflowProjection)
+        DashboardCard.RAPPORT_GRAPHIQUE ->
+            if (rapportMensuel != null)
+                RapportSyntheseCard(rapport = rapportMensuel, onVoirDetail = onNavigateToReport)
+            else if (spendingHistory.any { it.totalCents > 0 })
+                SpendingHistoryCard(history = spendingHistory, currency = overview.currency)
+        DashboardCard.SUGGESTIONS_RECATEGORISATION ->
+            if (recategorizationSuggestions.isNotEmpty())
+                RecategorizationCard(
+                    suggestions = recategorizationSuggestions,
+                    onApply     = onApplyRecategorization,
+                    onRefuse    = onRefuseRecategorization
+                )
+        DashboardCard.PROCHAINS_PAIEMENTS ->
+            if (upcomingPayments.isNotEmpty())
+                UpcomingPaymentsCard(payments = upcomingPayments)
     }
 }
 

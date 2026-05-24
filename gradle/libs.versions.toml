@@ -24,6 +24,9 @@ firebaseBom         = "33.6.0"
 firebaseCrashlytics = "3.0.2"
 retrofit            = "2.11.0"
 okhttp              = "4.12.0"
+reorderable         = "3.1.0"
+workManager         = "2.9.1"
+hiltWork            = "1.2.0"
 junitJupiter        = "5.11.0"
 mockk               = "1.13.12"
 espresso            = "3.6.1"
@@ -79,6 +82,14 @@ security-crypto             = { group = "androidx.security",          name = "se
 vico-compose                = { group = "com.patrykandpatrick.vico",  name = "compose",                           version.ref = "vico" }
 vico-compose-m3             = { group = "com.patrykandpatrick.vico",  name = "compose-m3",                        version.ref = "vico" }
 zxing-core                  = { group = "com.google.zxing",           name = "core",                              version.ref = "zxing" }
+
+# Drag-and-drop reordering Compose
+reorderable-compose     = { group = "sh.calvin.reorderable",     name = "reorderable",                       version.ref = "reorderable" }
+
+# WorkManager — tâches de fond persistantes
+work-runtime-ktx        = { group = "androidx.work",             name = "work-runtime-ktx",                  version.ref = "workManager" }
+hilt-work               = { group = "androidx.hilt",             name = "hilt-work",                         version.ref = "hiltWork" }
+hilt-work-compiler      = { group = "androidx.hilt",             name = "hilt-compiler",                     version.ref = "hiltWork" }
 
 # Tests unitaires
 junit-jupiter-api           = { group = "org.junit.jupiter",          name = "junit-jupiter-api",                 version.ref = "junitJupiter" }

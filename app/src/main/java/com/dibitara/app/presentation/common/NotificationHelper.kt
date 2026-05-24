@@ -9,6 +9,7 @@ import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.dibitara.app.R
+import com.dibitara.app.domain.model.MonthlyReport
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,13 +28,14 @@ class NotificationHelper @Inject constructor(
 ) {
 
     companion object {
-        const val CANAL_BUDGET = "canal_budget"
-        const val CANAL_DETTES = "canal_dettes"
-        const val CANAL_FONDS  = "canal_fonds"
+        const val CANAL_BUDGET   = "canal_budget"
+        const val CANAL_DETTES   = "canal_dettes"
+        const val CANAL_FONDS    = "canal_fonds"
+        const val CANAL_MENSUEL  = "canal_mensuel"
 
-        // Identifiants uniques pour chaque notification (évite les doublons)
-        private const val NOTIF_ID_BUDGET = 1001
-        private const val NOTIF_ID_FONDS  = 3001
+        private const val NOTIF_ID_BUDGET  = 1001
+        private const val NOTIF_ID_FONDS   = 3001
+        private const val NOTIF_ID_MENSUEL = 4001
     }
 
     init {
@@ -56,6 +58,10 @@ class NotificationHelper @Inject constructor(
         manager.createNotificationChannel(
             NotificationChannel(CANAL_FONDS, "Fonds disponibles", NotificationManager.IMPORTANCE_DEFAULT)
                 .apply { description = "Avertissements quand le solde est bas" }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CANAL_MENSUEL, "Bilan mensuel", NotificationManager.IMPORTANCE_DEFAULT)
+                .apply { description = "Résumé du mois écoulé envoyé en début de mois" }
         )
     }
 
@@ -128,12 +134,39 @@ class NotificationHelper @Inject constructor(
         envoyerSiAutorise(NOTIF_ID_FONDS, notification)
     }
 
+    /**
+     * Résumé du mois écoulé : revenus, dépenses et solde en une ligne.
+     * Appelé par [MonthlyReportNotificationWorker] en début de mois.
+     */
+    fun envoyerResumeMensuel(rapport: MonthlyReport) {
+        val moisLabel = moisComplet(rapport.month)
+        val sym = rapport.currency.symbol
+        val notification = NotificationCompat.Builder(context, CANAL_MENSUEL)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Bilan $moisLabel ${rapport.year}")
+            .setContentText(
+                "Revenus : ${rapport.revenusCents / 100}$sym  " +
+                "· Dépenses : ${rapport.depensesCents / 100}$sym  " +
+                "· Solde : ${rapport.soldeCents / 100}$sym"
+            )
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+        envoyerSiAutorise(NOTIF_ID_MENSUEL, notification)
+    }
+
     // ─── Helpers privés ───────────────────────────────────────────────────────
 
     /**
      * Vérifie que l'utilisateur a accordé la permission POST_NOTIFICATIONS
      * avant d'envoyer (obligatoire Android 13+, évite un crash SecurityException).
      */
+    private fun moisComplet(month: Int): String = when (month) {
+        1 -> "janvier"; 2 -> "février"; 3 -> "mars"; 4 -> "avril"
+        5 -> "mai"; 6 -> "juin"; 7 -> "juillet"; 8 -> "août"
+        9 -> "septembre"; 10 -> "octobre"; 11 -> "novembre"; else -> "décembre"
+    }
+
     private fun envoyerSiAutorise(id: Int, notification: android.app.Notification) {
         val manager = NotificationManagerCompat.from(context)
         if (manager.areNotificationsEnabled()) {

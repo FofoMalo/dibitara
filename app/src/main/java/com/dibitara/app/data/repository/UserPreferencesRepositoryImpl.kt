@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.DashboardCard
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -22,26 +23,33 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 ) : UserPreferencesRepository {
 
     companion object {
-        val KEY_SEUIL_CENTS           = longPreferencesKey("seuil_fonds_cents")
-        val KEY_DEVISE                = stringPreferencesKey("devise_par_defaut")
-        val KEY_RAPPORT_MENSUEL       = booleanPreferencesKey("afficher_rapport_mensuel")
-        val KEY_AFFICHER_EPARGNE         = booleanPreferencesKey("afficher_epargne")
-        val KEY_AFFICHER_INVESTISSEMENTS = booleanPreferencesKey("afficher_investissements")
+        val KEY_SEUIL_CENTS                  = longPreferencesKey("seuil_fonds_cents")
+        val KEY_DEVISE                       = stringPreferencesKey("devise_par_defaut")
+        val KEY_RAPPORT_MENSUEL              = booleanPreferencesKey("afficher_rapport_mensuel")
+        val KEY_AFFICHER_EPARGNE             = booleanPreferencesKey("afficher_epargne")
+        val KEY_AFFICHER_INVESTISSEMENTS     = booleanPreferencesKey("afficher_investissements")
         val KEY_TWO_FACTOR_ENABLED           = booleanPreferencesKey("two_factor_enabled")
         val KEY_AFFICHER_PROCHAINS_PAIEMENTS = booleanPreferencesKey("afficher_prochains_paiements")
+        // Ordre des cartes : noms d'enum séparés par des virgules, ex. "DETTES,RAPPORT_GRAPHIQUE,..."
+        val KEY_DASHBOARD_CARD_ORDER         = stringPreferencesKey("dashboard_card_order")
+        val KEY_NOTIFICATIONS_MENSUELLES     = booleanPreferencesKey("notifications_mensuelles")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
         UserPreferences(
-            seuilFondsCents        = prefs[KEY_SEUIL_CENTS] ?: UserPreferences().seuilFondsCents,
-            deviseParDefaut        = prefs[KEY_DEVISE]
+            seuilFondsCents             = prefs[KEY_SEUIL_CENTS] ?: UserPreferences().seuilFondsCents,
+            deviseParDefaut             = prefs[KEY_DEVISE]
                 ?.let { runCatching { Currency.valueOf(it) }.getOrNull() }
                 ?: UserPreferences().deviseParDefaut,
-            afficherRapportMensuel = prefs[KEY_RAPPORT_MENSUEL] ?: false,
-            afficherEpargne        = prefs[KEY_AFFICHER_EPARGNE] ?: true,
-            afficherInvestissements      = prefs[KEY_AFFICHER_INVESTISSEMENTS] ?: true,
+            afficherRapportMensuel      = prefs[KEY_RAPPORT_MENSUEL] ?: false,
+            afficherEpargne             = prefs[KEY_AFFICHER_EPARGNE] ?: true,
+            afficherInvestissements     = prefs[KEY_AFFICHER_INVESTISSEMENTS] ?: true,
             afficherProchainsPaiements  = prefs[KEY_AFFICHER_PROCHAINS_PAIEMENTS] ?: true,
-            twoFactorEnabled            = prefs[KEY_TWO_FACTOR_ENABLED] ?: false
+            twoFactorEnabled            = prefs[KEY_TWO_FACTOR_ENABLED] ?: false,
+            dashboardCardOrder          = prefs[KEY_DASHBOARD_CARD_ORDER]
+                ?.deserializeDashboardOrder()
+                ?: DashboardCard.entries.toList(),
+            notificationsMensuelles     = prefs[KEY_NOTIFICATIONS_MENSUELLES] ?: false
         )
     }
 
@@ -71,5 +79,28 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateTwoFactorEnabled(enabled: Boolean) {
         dataStore.edit { it[KEY_TWO_FACTOR_ENABLED] = enabled }
+    }
+
+    override suspend fun updateDashboardCardOrder(order: List<DashboardCard>) {
+        dataStore.edit { it[KEY_DASHBOARD_CARD_ORDER] = order.serializeDashboardOrder() }
+    }
+
+    override suspend fun updateNotificationsMensuelles(enabled: Boolean) {
+        dataStore.edit { it[KEY_NOTIFICATIONS_MENSUELLES] = enabled }
+    }
+
+    // ─── Sérialisation de l'ordre des cartes ─────────────────────────────────
+
+    private fun List<DashboardCard>.serializeDashboardOrder(): String =
+        joinToString(",") { it.name }
+
+    // Désérialise en ignorant les valeurs inconnues (migration future sans crash)
+    private fun String.deserializeDashboardOrder(): List<DashboardCard> {
+        val parsed = split(",").mapNotNull { name ->
+            runCatching { DashboardCard.valueOf(name.trim()) }.getOrNull()
+        }
+        // Ajouter les nouvelles cartes non encore persistées en fin de liste
+        val missing = DashboardCard.entries.filter { it !in parsed }
+        return parsed + missing
     }
 }

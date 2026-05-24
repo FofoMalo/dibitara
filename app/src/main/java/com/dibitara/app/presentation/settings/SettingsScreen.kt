@@ -125,6 +125,28 @@ fun SettingsScreen(
                         modifier = Modifier.padding(top = 4.dp)
                     ) { Text("Appliquer") }
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                // Bilan mensuel en notification — activé/désactivé par l'utilisateur
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Bilan mensuel", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Reçois un résumé de tes dépenses en début de mois.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = prefs.notificationsMensuelles,
+                        onCheckedChange = { viewModel.mettreAJourNotificationsMensuelles(it) }
+                    )
+                }
             }
 
             // ─── Section tableau de bord ──────────────────────────────────────
