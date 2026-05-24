@@ -10,10 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.MonthlyExpense
 import com.dibitara.app.domain.model.MonthlyReport
 import com.dibitara.app.domain.model.PatrimonyOverview
+import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.RecurrenceFrequency
 import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.presentation.common.toCurrencyDisplay
@@ -22,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
@@ -57,16 +61,20 @@ fun DashboardScreen(
                 }
             is DashboardUiState.Success ->
                 DashboardContent(
-                    overview                = state.overview,
-                    spendingHistory         = state.spendingHistory,
-                    upcomingPayments        = state.upcomingPayments,
-                    onNavigateToDebts       = onNavigateToDebts,
-                    onNavigateToReport      = onNavigateToReport,
-                    onNavigateToBudget      = onNavigateToBudget,
-                    onNavigateToSavings     = onNavigateToSavings,
-                    onNavigateToInvestments = onNavigateToInvestments,
-                    onNavigateToPatrimoine  = onNavigateToPatrimoine,
-                    rapportMensuel          = state.rapportMensuel
+                    overview                    = state.overview,
+                    spendingHistory             = state.spendingHistory,
+                    upcomingPayments            = state.upcomingPayments,
+                    onNavigateToDebts           = onNavigateToDebts,
+                    onNavigateToReport          = onNavigateToReport,
+                    onNavigateToBudget          = onNavigateToBudget,
+                    onNavigateToSavings         = onNavigateToSavings,
+                    onNavigateToInvestments     = onNavigateToInvestments,
+                    onNavigateToPatrimoine      = onNavigateToPatrimoine,
+                    rapportMensuel              = state.rapportMensuel,
+                    cashflowProjection          = state.cashflowProjection,
+                    recategorizationSuggestions = state.recategorizationSuggestions,
+                    onApplyRecategorization     = { viewModel.appliquerRecategorisation(it) },
+                    onRefuseRecategorization    = { viewModel.refuserRecategorisation(it) }
                 )
         }
     }
@@ -74,16 +82,20 @@ fun DashboardScreen(
 
 @Composable
 private fun DashboardContent(
-    overview                : PatrimonyOverview,
-    spendingHistory         : List<MonthlyExpense>,
-    upcomingPayments        : List<com.dibitara.app.domain.model.UpcomingPayment> = emptyList(),
-    onNavigateToDebts       : () -> Unit,
-    onNavigateToReport      : () -> Unit,
-    onNavigateToBudget      : () -> Unit,
-    onNavigateToSavings     : () -> Unit,
-    onNavigateToInvestments : () -> Unit,
-    onNavigateToPatrimoine  : () -> Unit,
-    rapportMensuel          : MonthlyReport? = null
+    overview                    : PatrimonyOverview,
+    spendingHistory             : List<MonthlyExpense>,
+    upcomingPayments            : List<UpcomingPayment>             = emptyList(),
+    onNavigateToDebts           : () -> Unit,
+    onNavigateToReport          : () -> Unit,
+    onNavigateToBudget          : () -> Unit,
+    onNavigateToSavings         : () -> Unit,
+    onNavigateToInvestments     : () -> Unit,
+    onNavigateToPatrimoine      : () -> Unit,
+    rapportMensuel              : MonthlyReport?                    = null,
+    cashflowProjection          : CashflowProjection?               = null,
+    recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
+    onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
+    onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -135,15 +147,28 @@ private fun DashboardContent(
 
         DebtsCard(
             totalCents = overview.dettesTotalCents,
-            currency = overview.currency,
-            onClick = onNavigateToDebts
+            currency   = overview.currency,
+            onClick    = onNavigateToDebts
         )
+
+        // Projection de trésorerie — toujours affichée si les données sont disponibles
+        if (cashflowProjection != null) {
+            CashflowProjectionCard(projection = cashflowProjection)
+        }
 
         // Rapport synthèse OU graphique 6 mois selon le réglage utilisateur
         if (rapportMensuel != null) {
             RapportSyntheseCard(rapport = rapportMensuel, onVoirDetail = onNavigateToReport)
         } else if (spendingHistory.any { it.totalCents > 0 }) {
             SpendingHistoryCard(history = spendingHistory, currency = overview.currency)
+        }
+
+        if (recategorizationSuggestions.isNotEmpty()) {
+            RecategorizationCard(
+                suggestions = recategorizationSuggestions,
+                onApply     = onApplyRecategorization,
+                onRefuse    = onRefuseRecategorization
+            )
         }
 
         if (upcomingPayments.isNotEmpty()) {
@@ -481,4 +506,132 @@ private fun frequenceLabel(freq: RecurrenceFrequency?): String = when (freq) {
 private fun moisAbrege(month: Int): String = when (month) {
     1 -> "Jan"; 2 -> "Fév"; 3 -> "Mar"; 4 -> "Avr"; 5 -> "Mai"; 6 -> "Jun"
     7 -> "Jul"; 8 -> "Aoû"; 9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; else -> "Déc"
+}
+
+// ─── Carte projection de trésorerie ──────────────────────────────────────────
+
+@Composable
+private fun CashflowProjectionCard(projection: CashflowProjection) {
+    val enDanger = projection.jourPassageSeuilNegatif != null
+    val containerColor = if (enDanger) MaterialTheme.colorScheme.errorContainer
+                         else MaterialTheme.colorScheme.secondaryContainer
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors   = CardDefaults.cardColors(containerColor = containerColor)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Projection 30 jours", style = MaterialTheme.typography.titleMedium)
+                Icon(
+                    imageVector = if (enDanger) Icons.Filled.Warning else Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = if (enDanger) MaterialTheme.colorScheme.error
+                           else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                BilanMini(
+                    label      = "Aujourd'hui",
+                    valueCents = projection.soldeActuelCents,
+                    currency   = projection.currency,
+                    color      = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                BilanMini(
+                    label      = "Dans 30 jours",
+                    valueCents = projection.soldeProjecte30jCents,
+                    currency   = projection.currency,
+                    color      = if (enDanger) MaterialTheme.colorScheme.error
+                                 else MaterialTheme.colorScheme.primary
+                )
+            }
+
+            if (enDanger) {
+                val dateFmt = DateTimeFormatter.ofPattern("dd/MM")
+                Text(
+                    text  = "Solde sous le seuil à partir du ${projection.jourPassageSeuilNegatif!!.format(dateFmt)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+// ─── Carte suggestions de recatégorisation ───────────────────────────────────
+
+@Composable
+private fun RecategorizationCard(
+    suggestions : List<RecategorizationSuggestion>,
+    onApply     : (RecategorizationSuggestion) -> Unit,
+    onRefuse    : (RecategorizationSuggestion) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "${suggestions.size} transaction${if (suggestions.size > 1) "s" else ""} à mieux catégoriser",
+                style      = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            // Afficher au maximum 3 suggestions pour ne pas surcharger le dashboard
+            suggestions.take(3).forEach { suggestion ->
+                Column(
+                    modifier            = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text       = suggestion.transaction.note.ifBlank { "—" },
+                        style      = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text  = "Autre → ${suggestion.suggestedCategory.displayName}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Refuser — outline, confirme "Autre / Divers" et retire la suggestion
+                        OutlinedButton(
+                            onClick  = { onRefuse(suggestion) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Refuser", style = MaterialTheme.typography.labelMedium)
+                        }
+                        // Appliquer — filled, change la catégorie
+                        Button(
+                            onClick  = { onApply(suggestion) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Appliquer", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+                if (suggestion != suggestions.take(3).last()) HorizontalDivider()
+            }
+
+            if (suggestions.size > 3) {
+                Text(
+                    text  = "+ ${suggestions.size - 3} autre${if (suggestions.size - 3 > 1) "s" else ""}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
