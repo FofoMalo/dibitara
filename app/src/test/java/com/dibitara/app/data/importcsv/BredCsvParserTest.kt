@@ -102,18 +102,52 @@ class BredCsvParserTest {
         assertEquals("PRLV SEPA EDF ENERGIE", tx.note)
     }
 
-    // ─── Catégorisation automatique ──────────────────────────────────────────
+    // ─── Catégorisation automatique — libellés réels BRED (depuis relevé PDF) ──
 
     @Test
-    fun `paiement LECLERC est catégorisé ALIMENTATION`() {
+    fun `Carte FNAC est catégorisée LOISIRS`() {
+        // Libellé réel : "Carte fnac le 12/04/26 cb.xxxxx9968 / origine : france / montant : 35,00 eur"
         val result = BredCsvParser.parse(
-            csvFormatA("10/05/2026;PAIEMENT CB LECLERC BORDEAUX;-65,30;EUR").inputStream()
+            csvFormatA("12/04/2026;Carte fnac le 12/04/26 cb.xxxxx9968 / origine : france / montant : 35,00 eur;-35,00;EUR").inputStream()
+        )
+        assertEquals(Category.LOISIRS, result[0].category)
+    }
+
+    @Test
+    fun `Carte SNCF-VOYAGEURS est catégorisée TRANSPORT`() {
+        val result = BredCsvParser.parse(
+            csvFormatA("20/04/2026;Carte sncf-voyageurs le 18/04/26 cb.xxxxx9968 / origine : france / montant : 401,60 eur;-401,60;EUR").inputStream()
+        )
+        assertEquals(Category.TRANSPORT, result[0].category)
+    }
+
+    @Test
+    fun `Carte BIOCOOP est catégorisée ALIMENTATION`() {
+        val result = BredCsvParser.parse(
+            csvFormatA("21/04/2026;Carte biocoop rouen le 20/04/26 cb.xxxxx5463 / origine : france / montant : 12,07 eur;-12,07;EUR").inputStream()
         )
         assertEquals(Category.ALIMENTATION, result[0].category)
     }
 
     @Test
-    fun `prélèvement EDF est catégorisé ABONNEMENTS`() {
+    fun `Prélèvement SEPA CANAL+ est catégorisé ABONNEMENTS`() {
+        // Libellé réel : "Prélèvement SEPA canal+ france prlv canal abonnement mensuel"
+        val result = BredCsvParser.parse(
+            csvFormatA("07/04/2026;Prélèvement SEPA canal+ france prlv canal abonnement mensuel;-69,99;EUR").inputStream()
+        )
+        assertEquals(Category.ABONNEMENTS, result[0].category)
+    }
+
+    @Test
+    fun `Prélèvement SEPA BOUYGUES est catégorisé ABONNEMENTS`() {
+        val result = BredCsvParser.parse(
+            csvFormatA("07/04/2026;Prélèvement SEPA bouygues telecom;-47,99;EUR").inputStream()
+        )
+        assertEquals(Category.ABONNEMENTS, result[0].category)
+    }
+
+    @Test
+    fun `Prélèvement EDF (ancien format PRLV) est catégorisé ABONNEMENTS`() {
         val result = BredCsvParser.parse(
             csvFormatA("05/05/2026;PRLV SEPA EDF ENERGIE;-120,00;EUR").inputStream()
         )
@@ -121,20 +155,55 @@ class BredCsvParserTest {
     }
 
     @Test
-    fun `virement sortant est catégorisé TRANSFERTS`() {
+    fun `Virement instantané émis est catégorisé TRANSFERTS`() {
+        // Libellé réel : "Virement instantané émis pamela gedeon"
         val result = BredCsvParser.parse(
-            csvFormatA("12/05/2026;VIR SEPA EMIS FAMILLE;-200,00;EUR").inputStream()
+            csvFormatA("10/04/2026;Virement instantané émis pamela gedeon;-90,00;EUR").inputStream()
         )
         assertEquals(Category.TRANSFERTS, result[0].category)
         assertEquals(TransactionType.EXPENSE, result[0].type)
     }
 
     @Test
-    fun `retrait DAB est catégorisé AUTRE`() {
+    fun `Virement instantané reçu est INCOME catégorisé AUTRE`() {
         val result = BredCsvParser.parse(
-            csvFormatA("08/05/2026;RETRAIT DAB PARIS 11;-100,00;EUR").inputStream()
+            csvFormatA("20/04/2026;Virement instantané reçu lydia solutions;377,00;EUR").inputStream()
+        )
+        assertEquals(TransactionType.INCOME, result[0].category.let { TransactionType.INCOME })
+        assertEquals(TransactionType.INCOME, result[0].type)
+        assertEquals(Category.AUTRE, result[0].category)
+    }
+
+    @Test
+    fun `Cotisation bancaire est catégorisée AUTRE`() {
+        val result = BredCsvParser.parse(
+            csvFormatA("20/04/2026;Cotisation cotisation bredacces;-24,01;EUR").inputStream()
         )
         assertEquals(Category.AUTRE, result[0].category)
+    }
+
+    @Test
+    fun `Prélèvement échéance (remboursement crédit) est catégorisé LOGEMENT`() {
+        val result = BredCsvParser.parse(
+            csvFormatA("07/04/2026;Prélèvement echéance 005 de votre pret personnel habitat;-2879,25;EUR").inputStream()
+        )
+        assertEquals(Category.LOGEMENT, result[0].category)
+    }
+
+    @Test
+    fun `Retrait espèces DAB est catégorisé AUTRE`() {
+        val result = BredCsvParser.parse(
+            csvFormatA("20/04/2026;Retrait d'espèces à un DAB bred rouen st marc2;-60,00;EUR").inputStream()
+        )
+        assertEquals(Category.AUTRE, result[0].category)
+    }
+
+    @Test
+    fun `virement sortant ancien format VIR est catégorisé TRANSFERTS`() {
+        val result = BredCsvParser.parse(
+            csvFormatA("12/05/2026;VIR SEPA EMIS FAMILLE;-200,00;EUR").inputStream()
+        )
+        assertEquals(Category.TRANSFERTS, result[0].category)
     }
 
     @Test
