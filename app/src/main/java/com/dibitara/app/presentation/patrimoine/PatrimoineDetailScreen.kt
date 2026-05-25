@@ -1,5 +1,6 @@
 package com.dibitara.app.presentation.patrimoine
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,13 +13,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.PatrimonyOverview
+import com.dibitara.app.domain.model.PatrimoineSnapshot
 import com.dibitara.app.presentation.common.DonutAvecLegende
 import com.dibitara.app.presentation.common.toCurrencyDisplay
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +70,7 @@ fun PatrimoineDetailScreen(
                 is PatrimoineDetailUiState.Success ->
                     PatrimoineDetailContent(
                         overview              = state.overview,
+                        history               = state.history,
                         onNavigateToBudget    = onNavigateToBudget,
                         onNavigateToSavings   = onNavigateToSavings,
                         onNavigateToInvestments = onNavigateToInvestments,
@@ -76,6 +84,7 @@ fun PatrimoineDetailScreen(
 @Composable
 private fun PatrimoineDetailContent(
     overview              : PatrimonyOverview,
+    history               : List<PatrimoineSnapshot>,
     onNavigateToBudget    : () -> Unit,
     onNavigateToSavings   : () -> Unit,
     onNavigateToInvestments: () -> Unit,
@@ -116,6 +125,9 @@ private fun PatrimoineDetailContent(
 
         // ── Répartition visuelle des actifs ─────────────────────────────────
         PatrimoineDonutCard(overview)
+
+        // ── Évolution mensuelle du patrimoine net ────────────────────────────
+        PatrimoineEvolutionCard(history = history, currency = overview.currency)
 
         // ── Décomposition des actifs ─────────────────────────────────────────
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -225,6 +237,116 @@ private fun PatrimoineDetailContent(
                     "= Patrimoine brut − Dettes",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                )
+            }
+        }
+    }
+}
+
+// ─── Graphique d'évolution mensuelle du patrimoine net ───────────────────────
+
+/**
+ * Carte affichant un sparkline du patrimoine net sur les derniers mois.
+ * Un snapshot est enregistré une fois par jour à l'ouverture de l'écran,
+ * puis agrégé en un point mensuel (dernier snapshot du mois).
+ * La carte reste masquée tant qu'il n'y a pas au moins 2 mois de données.
+ */
+@Composable
+private fun PatrimoineEvolutionCard(
+    history : List<PatrimoineSnapshot>,
+    currency: Currency
+) {
+    if (history.size < 2) return
+
+    val moisFormatter = DateTimeFormatter.ofPattern("MMM", Locale.FRENCH)
+    val values = history.map { it.patrimoineNetCents.toFloat() }
+    val min = values.min()
+    val max = values.max()
+    // Si tous les points sont identiques, on étire artificiellement la plage pour
+    // que la ligne reste au centre plutôt qu'en haut
+    val range = (max - min).takeIf { it > 0f } ?: (max.takeIf { it != 0f } ?: 1f)
+
+    val lineColor = MaterialTheme.colorScheme.primary
+    val fillColor = lineColor.copy(alpha = 0.12f)
+    val dotColor  = lineColor
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Évolution du patrimoine net", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "${history.size} mois de données",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp)
+            ) {
+                val w = size.width
+                val h = size.height
+                val xStep = if (values.size > 1) w / (values.size - 1) else w
+
+                // Calcule la coordonnée Y normalisée (0 = bas, h = haut)
+                fun yFor(v: Float) = h - ((v - min) / range * h).coerceIn(0f, h)
+
+                // Surface colorée sous la courbe
+                val fillPath = Path().apply {
+                    moveTo(0f, h)
+                    values.forEachIndexed { i, v -> lineTo(i * xStep, yFor(v)) }
+                    lineTo((values.size - 1) * xStep, h)
+                    close()
+                }
+                drawPath(fillPath, fillColor)
+
+                // Ligne de la courbe
+                val linePath = Path().apply {
+                    values.forEachIndexed { i, v ->
+                        val x = i * xStep
+                        val y = yFor(v)
+                        if (i == 0) moveTo(x, y) else lineTo(x, y)
+                    }
+                }
+                drawPath(linePath, lineColor, style = Stroke(width = 2.dp.toPx()))
+
+                // Points de données
+                values.forEachIndexed { i, v ->
+                    drawCircle(dotColor, radius = 3.dp.toPx(), center = Offset(i * xStep, yFor(v)))
+                }
+            }
+
+            // Étiquettes de l'axe X : mois abrégés
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                history.forEach { snapshot ->
+                    Text(
+                        snapshot.snapshotDate.format(moisFormatter).replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Repères de valeur : min et max visibles
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    min.toLong().toCurrencyDisplay(currency),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    max.toLong().toCurrencyDisplay(currency),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

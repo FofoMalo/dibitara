@@ -7,16 +7,19 @@ import com.dibitara.app.data.local.dao.*
 import com.dibitara.app.data.local.dao.CustomAssetDao
 import com.dibitara.app.data.local.dao.EmployeeSavingsDao
 import com.dibitara.app.data.local.dao.MonthlyVersementDao
+import com.dibitara.app.data.local.dao.PatrimoineSnapshotDao
 import com.dibitara.app.data.local.dao.PreciousMetalDao
 import com.dibitara.app.data.repository.*
 import com.dibitara.app.data.repository.CustomInvestmentRepositoryImpl
 import com.dibitara.app.data.repository.ExportRepositoryImpl
 import com.dibitara.app.data.repository.ImportRepositoryImpl
+import com.dibitara.app.data.repository.PatrimoineSnapshotRepositoryImpl
 import com.dibitara.app.data.repository.VersementRepositoryImpl
 import com.dibitara.app.domain.repository.*
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.ExportRepository
 import com.dibitara.app.domain.repository.ImportRepository
+import com.dibitara.app.domain.repository.PatrimoineSnapshotRepository
 import com.dibitara.app.domain.repository.VersementRepository
 import dagger.Binds
 import dagger.Module
@@ -45,7 +48,8 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_8_9,
                 DibitaraDatabase.MIGRATION_9_10,
                 DibitaraDatabase.MIGRATION_10_11,
-                DibitaraDatabase.MIGRATION_11_12
+                DibitaraDatabase.MIGRATION_11_12,
+                DibitaraDatabase.MIGRATION_12_13
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
@@ -63,6 +67,7 @@ object DatabaseModule {
     @Provides fun providePreciousMetalDao(db: DibitaraDatabase): PreciousMetalDao = db.preciousMetalDao()
     @Provides fun provideCustomAssetDao(db: DibitaraDatabase): CustomAssetDao = db.customAssetDao()
     @Provides fun provideEmployeeSavingsDao(db: DibitaraDatabase): EmployeeSavingsDao = db.employeeSavingsDao()
+    @Provides fun providePatrimoineSnapshotDao(db: DibitaraDatabase): PatrimoineSnapshotDao = db.patrimoineSnapshotDao()
 }
 
 @Module
@@ -80,4 +85,5 @@ abstract class RepositoryModule {
     @Binds abstract fun bindExportRepository(impl: ExportRepositoryImpl): ExportRepository
     @Binds abstract fun bindCustomInvestmentRepository(impl: CustomInvestmentRepositoryImpl): CustomInvestmentRepository
     @Binds abstract fun bindImportRepository(impl: ImportRepositoryImpl): ImportRepository
+    @Binds abstract fun bindPatrimoineSnapshotRepository(impl: PatrimoineSnapshotRepositoryImpl): PatrimoineSnapshotRepository
 }

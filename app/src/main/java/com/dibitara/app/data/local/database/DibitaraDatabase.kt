@@ -9,6 +9,7 @@ import com.dibitara.app.data.local.entity.*
 import com.dibitara.app.data.local.entity.CustomSubCategoryEntity
 import com.dibitara.app.data.local.entity.EmployeeSavingsEntity
 import com.dibitara.app.data.local.entity.MonthlyVersementEntity
+import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
 
 /**
  * Base de données Room locale.
@@ -31,9 +32,10 @@ import com.dibitara.app.data.local.entity.MonthlyVersementEntity
         MonthlyVersementEntity::class,
         PreciousMetalEntity::class,
         CustomAssetEntity::class,
-        EmployeeSavingsEntity::class
+        EmployeeSavingsEntity::class,
+        PatrimoineSnapshotEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -50,8 +52,24 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun preciousMetalDao(): PreciousMetalDao
     abstract fun customAssetDao(): CustomAssetDao
     abstract fun employeeSavingsDao(): EmployeeSavingsDao
+    abstract fun patrimoineSnapshotDao(): PatrimoineSnapshotDao
 
     companion object {
+        // Migration v12 → v13 : nouvelle table patrimoine_snapshots pour l'historique mensuel
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS patrimoine_snapshots (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        snapshotEpochDay INTEGER NOT NULL,
+                        patrimoineBrutCents INTEGER NOT NULL,
+                        patrimoineNetCents INTEGER NOT NULL,
+                        currency TEXT NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         // Migration v11 → v12 : colonne debtId sur real_estate_assets pour lier un crédit à un bien
         val MIGRATION_11_12 = object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {
