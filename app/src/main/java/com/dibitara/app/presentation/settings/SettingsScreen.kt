@@ -35,6 +35,7 @@ import com.dibitara.app.presentation.common.QrCodeImage
 @Composable
 fun SettingsScreen(
     onNavigateToImportTR: () -> Unit = {},
+    onNavigateToDuplicateCleanup: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val prefs by viewModel.preferences.collectAsState()
@@ -314,6 +315,13 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Importer depuis TradeRepublic")
+                }
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(
+                    onClick = onNavigateToDuplicateCleanup,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Nettoyer les doublons")
                 }
             }
 
