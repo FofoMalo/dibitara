@@ -7,16 +7,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Application bancaire Android à usage personnel, inspirée de **Finary**. L'objectif est de centraliser budget mensuel, suivi des dépenses, investissements et projections financières.
 
 **Stack cible :** Android natif (Kotlin), architecture MVVM + Clean Architecture.
-**Version courante :** v4.4.0 (versionCode 15) — Room v11.
+**Version courante :** v4.5.0 (versionCode 16) — Room v13.
 
 ## Fonctionnalités principales
 
 - Centralisation du budget mensuel et suivi des dépenses
 - Suivi des investissements (immo, SCPI, Airbnb, métaux précieux, actifs libres, épargne salariale)
+- Réconciliation dettes/biens immobiliers (équité nette par actif)
 - Export des données en CSV et JSON (partage via Intent Android)
 - Rappels et conseils sur les fonds disponibles
-- Devises supportées : Euro (€), Dollar ($), Franc CFA (XOF/XAF)
-- Projections graphiques (courbes, camemberts, histogrammes)
+- Devises supportées : Euro (€), Dollar ($), Franc CFA (XOF/XAF) avec conversion multi-devises
+- Projections trésorerie 30 jours et graphiques (courbes, camemberts, histogrammes)
+- Historique mensuel du patrimoine net avec sparkline
+- Détection et nettoyage des doublons de transactions
 - Authentification PIN + biométrie
 
 ## Build & Run Commands
@@ -60,7 +63,7 @@ Clean Architecture en 3 couches :
 
 Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCase → Repository → DataSource`.
 
-## Schéma Room — Version actuelle : v11
+## Schéma Room — Version actuelle : v13
 
 | Migration | Contenu |
 |-----------|---------|
@@ -73,17 +76,19 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 | v7 → v8 | Récurrences enrichies (`recurrenceFrequency`, `firstPaymentDateEpochDay`, `endDateEpochDay`) |
 | v8 → v9 | `sharesCount` Int→Real (SCPI parts fractionnées) |
 | v9 → v10 | Tables `precious_metals`, `custom_assets`, `employee_savings` |
-| v10 → v11 | Colonnes `importSource TEXT`, `externalId TEXT` sur `transactions` (import CSV TradeRepublic) |
+| v10 → v11 | Colonnes `importSource TEXT`, `externalId TEXT` sur `transactions` (déduplication import) |
+| v11 → v12 | Colonne `debtId INTEGER` sur `real_estate_assets` (réconciliation dettes/immo) |
+| v12 → v13 | Table `patrimoine_snapshots` (historique mensuel du patrimoine net) |
 
 ## Modèles métier clés (domain/model/)
 
-`Transaction`, `Budget`, `Debt`, `SavingsAccount`, `RealEstateAsset`, `ScpiInvestment`, `AirbnbRental`, `PatrimonyOverview`, `Currency`, `Category`, `SubCategory`, `CustomSubCategory`, `DebtType`, `SavingsType`, `Child`, `UserPreferences`, `MonthlyReport`, `CategoryExpense`, `MonthlyVersement`, `RecurrenceFrequency`, `UpcomingPayment`, `TransactionSuggestion`, `ExportData`, `ExportFormat`, `PreciousMetalAsset`, `CustomAsset`, `EmployeeSavings`, `MetalType`, `EmployeeSavingsType`, `ImportedTransaction`, `ImportResult`
+`Transaction`, `Budget`, `Debt`, `SavingsAccount`, `RealEstateAsset`, `ScpiInvestment`, `AirbnbRental`, `PatrimonyOverview`, `Currency`, `Category`, `SubCategory`, `CustomSubCategory`, `DebtType`, `SavingsType`, `Child`, `UserPreferences`, `MonthlyReport`, `CategoryExpense`, `MonthlyVersement`, `RecurrenceFrequency`, `UpcomingPayment`, `TransactionSuggestion`, `ExportData`, `ExportFormat`, `PreciousMetalAsset`, `CustomAsset`, `EmployeeSavings`, `MetalType`, `EmployeeSavingsType`, `ImportedTransaction`, `ImportResult`, `ExchangeRates`, `CurrencyConverter`, `DuplicateGroup`, `PatrimoineSnapshot`
 
 ## Conventions de développement
 
 - **Langue du code :** Kotlin uniquement.
 - **Commentaires :** en français, clairs et pédagogiques — le code est lu par un développeur junior.
-- **Chaque UseCase** ne fait qu'une seule chose (principe de responsabilité unique). ~69 UseCases au total.
+- **Chaque UseCase** ne fait qu'une seule chose (principe de responsabilité unique). ~80 UseCases au total.
 - **Les ViewModels** exposent des `StateFlow` ou `LiveData`, jamais de logique métier directe.
 - **Devises :** toujours stocker les montants en centimes (Long) avec la devise associée ; la conversion se fait dans la couche `domain`.
 - **Migrations Room :** chaque modification de schéma incrémente `version` d'exactement 1 et requiert une migration + le fichier `N.json` exporté. Ne jamais utiliser `fallbackToDestructiveMigration` en production.

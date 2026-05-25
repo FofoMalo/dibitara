@@ -24,7 +24,6 @@ import com.dibitara.app.presentation.investments.InvestmentsScreen
 import com.dibitara.app.presentation.savings.SavingsScreen
 import com.dibitara.app.presentation.patrimoine.PatrimoineDetailScreen
 import com.dibitara.app.presentation.report.MonthlyReportScreen
-import com.dibitara.app.presentation.importcsv.ImportScreen
 import com.dibitara.app.presentation.settings.DuplicateCleanupScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
 import com.dibitara.app.presentation.settings.SettingsViewModel
@@ -53,7 +52,6 @@ sealed class Screen(val route: String) {
     data object Settings          : Screen("settings")
     data object Report            : Screen("report")
     data object PatrimoineDetail  : Screen("patrimoine_detail")
-    data object ImportTR          : Screen("import_tr")
     data object DuplicateCleanup  : Screen("duplicate_cleanup")
 }
 
@@ -153,13 +151,7 @@ fun DibitaraNavGraph(
                 deepLinks = listOf(navDeepLink { uriPattern = "dibitara://settings" })
             ) {
                 SettingsScreen(
-                    onNavigateToImportTR       = { navController.navigate(Screen.ImportTR.route) },
                     onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) }
-                )
-            }
-            composable(Screen.ImportTR.route) {
-                ImportScreen(
-                    onNavigateBack = { navController.navigateUp() }
                 )
             }
             composable(Screen.DuplicateCleanup.route) {
