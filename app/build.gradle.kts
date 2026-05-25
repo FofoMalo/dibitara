@@ -191,6 +191,9 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.crashlytics)
 
+    // PDF — extraction de texte pour les relevés bancaires BRED
+    implementation(libs.pdfbox.android)
+
     // Réseau — taux de change (API Frankfurter)
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)

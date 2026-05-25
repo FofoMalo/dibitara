@@ -36,6 +36,7 @@ import com.dibitara.app.presentation.common.QrCodeImage
 fun SettingsScreen(
     onNavigateToImportTR: () -> Unit = {},
     onNavigateToImportBred: () -> Unit = {},
+    onNavigateToImportBredPdf: () -> Unit = {},
     onNavigateToDuplicateCleanup: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -315,7 +316,14 @@ fun SettingsScreen(
                     onClick = onNavigateToImportBred,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Importer depuis BRED")
+                    Text("Importer depuis BRED (CSV)")
+                }
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(
+                    onClick = onNavigateToImportBredPdf,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Importer relevé PDF BRED")
                 }
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(

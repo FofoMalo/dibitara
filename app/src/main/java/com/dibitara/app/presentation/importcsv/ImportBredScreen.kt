@@ -70,7 +70,7 @@ fun ImportBredScreen(
                 )
 
                 is ImportUiState.Succes -> EtapeSucces(
-                    resultat       = state,
+                    resultat       = state.resultat,
                     onTerminer     = onNavigateBack,
                     onNouvelImport = { viewModel.reinitialiser() }
                 )

@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.usecase.ImportResult
 import java.time.format.DateTimeFormatter
 
 /**
@@ -83,7 +84,7 @@ fun ImportScreen(
                 )
 
                 is ImportUiState.Succes -> EtapeSucces(
-                    resultat     = state,
+                    resultat     = state.resultat,
                     onTerminer   = onNavigateBack,
                     onNouvelImport = { viewModel.reinitialiser() }
                 )
@@ -102,7 +103,8 @@ fun ImportScreen(
 @Composable
 internal fun EtapeSelection(
     onChoisirFichier: () -> Unit,
-    banqueNom: String = "TradeRepublic"
+    banqueNom: String = "TradeRepublic",
+    formatFichier: String = "CSV"
 ) {
     Column(
         modifier = Modifier
@@ -125,7 +127,7 @@ internal fun EtapeSelection(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Sélectionnez l'export CSV de votre compte $banqueNom.\nLes doublons sont détectés automatiquement.",
+            text = "Sélectionnez l'export $formatFichier de votre compte $banqueNom.\nLes doublons sont détectés automatiquement.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -135,7 +137,7 @@ internal fun EtapeSelection(
             onClick = onChoisirFichier,
             modifier = Modifier.fillMaxWidth(0.7f)
         ) {
-            Text("Choisir un fichier CSV")
+            Text("Choisir un fichier $formatFichier")
         }
     }
 }
@@ -281,7 +283,7 @@ internal fun LigneTransaction(tx: ImportedTransaction) {
 
 @Composable
 internal fun EtapeSucces(
-    resultat: ImportUiState.Succes,
+    resultat: ImportResult,
     onTerminer: () -> Unit,
     onNouvelImport: () -> Unit
 ) {
@@ -303,12 +305,12 @@ internal fun EtapeSucces(
             fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         Text(
-            "${resultat.resultat.importees} transaction(s) importée(s)",
+            "${resultat.importees} transaction(s) importée(s)",
             style = MaterialTheme.typography.bodyLarge
         )
-        if (resultat.resultat.ignorees > 0) {
+        if (resultat.ignorees > 0) {
             Text(
-                "${resultat.resultat.ignorees} doublon(s) ignoré(s)",
+                "${resultat.ignorees} doublon(s) ignoré(s)",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

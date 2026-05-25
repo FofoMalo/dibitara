@@ -25,6 +25,7 @@ import com.dibitara.app.presentation.savings.SavingsScreen
 import com.dibitara.app.presentation.patrimoine.PatrimoineDetailScreen
 import com.dibitara.app.presentation.report.MonthlyReportScreen
 import com.dibitara.app.presentation.importcsv.ImportBredScreen
+import com.dibitara.app.presentation.importcsv.ImportBredPdfScreen
 import com.dibitara.app.presentation.importcsv.ImportScreen
 import com.dibitara.app.presentation.settings.DuplicateCleanupScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
@@ -56,6 +57,7 @@ sealed class Screen(val route: String) {
     data object PatrimoineDetail  : Screen("patrimoine_detail")
     data object ImportTR          : Screen("import_tr")
     data object ImportBred        : Screen("import_bred")
+    data object ImportBredPdf     : Screen("import_bred_pdf")
     data object DuplicateCleanup  : Screen("duplicate_cleanup")
 }
 
@@ -157,6 +159,7 @@ fun DibitaraNavGraph(
                 SettingsScreen(
                     onNavigateToImportTR         = { navController.navigate(Screen.ImportTR.route) },
                     onNavigateToImportBred       = { navController.navigate(Screen.ImportBred.route) },
+                    onNavigateToImportBredPdf    = { navController.navigate(Screen.ImportBredPdf.route) },
                     onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) }
                 )
             }
@@ -165,6 +168,9 @@ fun DibitaraNavGraph(
             }
             composable(Screen.ImportBred.route) {
                 ImportBredScreen(onNavigateBack = { navController.navigateUp() })
+            }
+            composable(Screen.ImportBredPdf.route) {
+                ImportBredPdfScreen(onNavigateBack = { navController.navigateUp() })
             }
             composable(Screen.DuplicateCleanup.route) {
                 DuplicateCleanupScreen(
