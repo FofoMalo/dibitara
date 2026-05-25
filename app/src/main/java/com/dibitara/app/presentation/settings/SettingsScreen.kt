@@ -35,6 +35,7 @@ import com.dibitara.app.presentation.common.QrCodeImage
 @Composable
 fun SettingsScreen(
     onNavigateToImportTR: () -> Unit = {},
+    onNavigateToImportBred: () -> Unit = {},
     onNavigateToDuplicateCleanup: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -310,6 +311,13 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onNavigateToImportBred,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Importer depuis BRED")
+                }
+                Spacer(Modifier.height(4.dp))
                 OutlinedButton(
                     onClick = onNavigateToImportTR,
                     modifier = Modifier.fillMaxWidth()

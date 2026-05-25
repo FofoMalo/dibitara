@@ -65,7 +65,8 @@ fun ImportScreen(
             when (val state = uiState) {
 
                 is ImportUiState.Initial -> EtapeSelection(
-                    onChoisirFichier = { filePickerLauncher.launch("*/*") }
+                    onChoisirFichier = { filePickerLauncher.launch("*/*") },
+                    banqueNom        = "TradeRepublic"
                 )
 
                 is ImportUiState.Chargement -> Box(
@@ -99,7 +100,10 @@ fun ImportScreen(
 // ─── Étape 1 : Sélection ─────────────────────────────────────────────────────
 
 @Composable
-private fun EtapeSelection(onChoisirFichier: () -> Unit) {
+internal fun EtapeSelection(
+    onChoisirFichier: () -> Unit,
+    banqueNom: String = "TradeRepublic"
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -121,7 +125,7 @@ private fun EtapeSelection(onChoisirFichier: () -> Unit) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Sélectionnez l'export CSV de votre compte TradeRepublic.\nLes doublons sont détectés automatiquement.",
+            text = "Sélectionnez l'export CSV de votre compte $banqueNom.\nLes doublons sont détectés automatiquement.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -139,7 +143,7 @@ private fun EtapeSelection(onChoisirFichier: () -> Unit) {
 // ─── Étape 2 : Preview ───────────────────────────────────────────────────────
 
 @Composable
-private fun EtapePreview(
+internal fun EtapePreview(
     transactions: List<ImportedTransaction>,
     onConfirmer: () -> Unit,
     onAnnuler: () -> Unit
@@ -203,7 +207,7 @@ private fun EtapePreview(
 }
 
 @Composable
-private fun StatChip(label: String, valeur: String, couleur: androidx.compose.ui.graphics.Color) {
+internal fun StatChip(label: String, valeur: String, couleur: androidx.compose.ui.graphics.Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(valeur, style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold, color = couleur)
@@ -213,7 +217,7 @@ private fun StatChip(label: String, valeur: String, couleur: androidx.compose.ui
 }
 
 @Composable
-private fun LigneTransaction(tx: ImportedTransaction) {
+internal fun LigneTransaction(tx: ImportedTransaction) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yy") }
     val montantStr = buildString {
         append(if (tx.type == TransactionType.INCOME) "+" else "-")
@@ -276,7 +280,7 @@ private fun LigneTransaction(tx: ImportedTransaction) {
 // ─── Étape 3 : Succès ────────────────────────────────────────────────────────
 
 @Composable
-private fun EtapeSucces(
+internal fun EtapeSucces(
     resultat: ImportUiState.Succes,
     onTerminer: () -> Unit,
     onNouvelImport: () -> Unit
@@ -326,7 +330,7 @@ private fun EtapeSucces(
 // ─── État d'erreur ────────────────────────────────────────────────────────────
 
 @Composable
-private fun EtapeErreur(message: String, onReessayer: () -> Unit) {
+internal fun EtapeErreur(message: String, onReessayer: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()

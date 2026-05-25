@@ -199,7 +199,7 @@ class TradeRepublicCsvParserTest {
         assertEquals(Category.INVESTISSEMENT, tx.category)
         assertEquals(1000L, tx.amountCents)
         assertEquals("Core MSCI World USD (Acc)", tx.note)
-        assertEquals("BUY", tx.trRawType)
+        assertEquals("BUY", tx.rawType)
     }
 
     // ─── Conversion des montants ───────────────────────────────────────────────

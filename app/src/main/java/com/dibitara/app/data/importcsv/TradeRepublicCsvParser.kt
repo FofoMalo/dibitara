@@ -99,7 +99,8 @@ object TradeRepublicCsvParser {
             type          = type,
             note          = determinerNote(trType, trCategory, champs),
             externalId    = externalId,
-            trRawType     = trType
+            rawType       = trType,
+            importSource  = "trade_republic"
         )
     }
 

@@ -37,7 +37,7 @@ class ImportTransactionsUseCaseTest {
             type        = TransactionType.EXPENSE,
             note        = "CARREFOUR",
             externalId  = externalId,
-            trRawType   = "CARD_TRANSACTION"
+            rawType     = "CARD_TRANSACTION"
         )
 
     // ─── verifierDoublons ─────────────────────────────────────────────────────
