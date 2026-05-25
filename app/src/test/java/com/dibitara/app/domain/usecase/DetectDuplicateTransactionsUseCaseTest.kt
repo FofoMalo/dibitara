@@ -47,7 +47,7 @@ class DetectDuplicateTransactionsUseCaseTest {
         assertEquals(1, groupes.size)
         assertEquals(2, groupes[0].transactions.size)
         // Par défaut on conserve la transaction avec le plus petit id
-        assertEquals(1L, groupes[0].keepId)
+        assertEquals(setOf(1L), groupes[0].keepIds)
     }
 
     @Test

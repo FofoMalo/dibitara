@@ -10,13 +10,17 @@ data class SavingsAccount(
     val monthlyContributionCents: Long,
     val currency: Currency,
     val childId: Long? = null,
-    val updatedAt: LocalDate
+    val updatedAt: LocalDate,
+    // Plafond légal ou personnalisé en centimes (null = pas de plafond configuré)
+    val plafondCents: Long? = null
 )
 
 enum class SavingsType(val displayName: String) {
     PEA              ("PEA"),
     ASSURANCE_VIE    ("Assurance vie"),
     LIVRET_A         ("Livret A"),
+    LDDS             ("LDDS"),
+    PEL              ("PEL"),
     PER              ("Plan Épargne Retraite"),
     ORANGE_MONEY     ("Orange Money"),
     COURTIER_EN_LIGNE("Courtier en ligne"),

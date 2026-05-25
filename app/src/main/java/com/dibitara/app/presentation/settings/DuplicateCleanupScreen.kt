@@ -75,7 +75,9 @@ fun DuplicateCleanupScreen(
                 if (state.groups.isEmpty()) {
                     EtatAucunDoublon(padding)
                 } else {
-                    val totalASupprimer = state.groups.sumOf { it.transactions.size - 1 }
+                    val totalASupprimer = state.groups.sumOf { group ->
+                        group.transactions.count { it.id !in group.keepIds }
+                    }
                     Column(modifier = Modifier.fillMaxSize().padding(padding)) {
                         Text(
                             "$totalASupprimer doublon${if (totalASupprimer > 1) "s" else ""} détecté${if (totalASupprimer > 1) "s" else ""}",
@@ -91,15 +93,15 @@ fun DuplicateCleanupScreen(
                             itemsIndexed(state.groups) { index, group ->
                                 DuplicateGroupCard(
                                     group = group,
-                                    onSelectionChange = { keepId -> viewModel.changerSelection(index, keepId) }
+                                    onToggleSelection = { txId -> viewModel.basculerSelection(index, txId) }
                                 )
                             }
                             item { Spacer(Modifier.height(8.dp)) }
                         }
-                        // Bouton d'action fixe en bas de l'écran
+                        // Bouton d'action fixe en bas de l'écran — désactivé s'il n'y a rien à supprimer
                         Button(
                             onClick = { viewModel.supprimerDoublons() },
-                            enabled = !state.suppressionEnCours,
+                            enabled = !state.suppressionEnCours && totalASupprimer > 0,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -155,10 +157,12 @@ private fun EtatAucunDoublon(padding: PaddingValues) {
 @Composable
 private fun DuplicateGroupCard(
     group: DuplicateGroup,
-    onSelectionChange: (Long) -> Unit
+    onToggleSelection: (Long) -> Unit
 ) {
     val premiereTx = group.transactions.first()
     val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH)
+    // Nombre de transactions qui seront supprimées dans ce groupe
+    val nbASupprimer = group.transactions.count { it.id !in group.keepIds }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -178,20 +182,27 @@ private fun DuplicateGroupCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (nbASupprimer == 0) {
+                Text(
+                    "Toutes cochées — aucune suppression pour ce groupe",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
 
             HorizontalDivider()
 
-            // Une ligne par transaction : radio + libellé + badge action
+            // Une ligne par transaction : case à cocher + libellé + badge action
             group.transactions.forEach { transaction ->
-                val estConservee = transaction.id == group.keepId
+                val estConservee = transaction.id in group.keepIds
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    RadioButton(
-                        selected = estConservee,
-                        onClick = { onSelectionChange(transaction.id) }
+                    Checkbox(
+                        checked = estConservee,
+                        onCheckedChange = { onToggleSelection(transaction.id) }
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(

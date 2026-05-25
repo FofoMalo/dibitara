@@ -79,13 +79,15 @@ class SavingsViewModel @Inject constructor(
         balanceStr: String,
         contributionStr: String,
         currency: Currency,
-        childId: Long?
+        childId: Long?,
+        plafondStr: String = ""
     ) {
         val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
             return
         }
         val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() }
         viewModelScope.launch {
             saveSavingsAccount(
                 SavingsAccount(
@@ -95,7 +97,8 @@ class SavingsViewModel @Inject constructor(
                     monthlyContributionCents = contribution,
                     currency = currency,
                     childId = childId,
-                    updatedAt = LocalDate.now()
+                    updatedAt = LocalDate.now(),
+                    plafondCents = plafond
                 )
             )
                 .onSuccess { _event.emit(SavingsEvent.Saved) }
@@ -110,13 +113,15 @@ class SavingsViewModel @Inject constructor(
         balanceStr: String,
         contributionStr: String,
         currency: Currency,
-        childId: Long?
+        childId: Long?,
+        plafondStr: String = ""
     ) {
         val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
             return
         }
         val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() }
         viewModelScope.launch {
             updateSavingsAccount(
                 account.copy(
@@ -126,7 +131,8 @@ class SavingsViewModel @Inject constructor(
                     monthlyContributionCents = contribution,
                     currency                 = currency,
                     childId                  = childId,
-                    updatedAt                = LocalDate.now()
+                    updatedAt                = LocalDate.now(),
+                    plafondCents             = plafond
                 )
             )
                 .onSuccess { _event.emit(SavingsEvent.Saved) }
@@ -196,13 +202,20 @@ class SavingsViewModel @Inject constructor(
             )
             saveVersement(versement)
                 .onSuccess {
+                    val soldeApres = account.currentBalanceCents + account.monthlyContributionCents
                     updateSavingsAccount(
                         account.copy(
-                            currentBalanceCents = account.currentBalanceCents + account.monthlyContributionCents,
+                            currentBalanceCents = soldeApres,
                             updatedAt           = now
                         )
                     )
-                    _event.emit(SavingsEvent.VersementApplique)
+                    // Avertir si le solde résultant dépasse le plafond configuré
+                    val plafond = account.plafondCents
+                    if (plafond != null && soldeApres > plafond) {
+                        _event.emit(SavingsEvent.AvertissementPlafond(account.label))
+                    } else {
+                        _event.emit(SavingsEvent.VersementApplique)
+                    }
                 }
                 .onFailure { _event.emit(SavingsEvent.Error("Vérifier les informations saisies")) }
         }
@@ -226,5 +239,7 @@ sealed class SavingsEvent {
     data object Deleted : SavingsEvent()
     data object ChildSaved : SavingsEvent()
     data object VersementApplique : SavingsEvent()
+    // Versement appliqué mais le nouveau solde dépasse le plafond configuré
+    data class AvertissementPlafond(val compteLabel: String) : SavingsEvent()
     data class Error(val message: String) : SavingsEvent()
 }

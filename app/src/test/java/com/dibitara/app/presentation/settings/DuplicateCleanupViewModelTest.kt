@@ -57,7 +57,7 @@ class DuplicateCleanupViewModelTest {
     }
 
     @Test
-    fun `groupes de doublons correctement exposés`() = runTest {
+    fun `groupes de doublons correctement exposés avec keepIds par défaut`() = runTest {
         val groupe = DuplicateGroup(listOf(tx1, tx2))
         every { detectDoublons() } returns flowOf(listOf(groupe))
         viewModel = DuplicateCleanupViewModel(detectDoublons, deleteTransaction)
@@ -67,28 +67,57 @@ class DuplicateCleanupViewModelTest {
 
         assertEquals(1, state.groups.size)
         assertEquals(2, state.groups[0].transactions.size)
-        assertEquals(1L, state.groups[0].keepId)
+        // Par défaut : seule la plus ancienne (id le plus petit) est conservée
+        assertEquals(setOf(1L), state.groups[0].keepIds)
     }
 
     @Test
-    fun `changerSelection met à jour le keepId du groupe`() = runTest {
-        val groupe = DuplicateGroup(listOf(tx1, tx2))
+    fun `basculerSelection ajoute un id absent de keepIds`() = runTest {
+        val groupe = DuplicateGroup(listOf(tx1, tx2)) // keepIds = {1L}
         every { detectDoublons() } returns flowOf(listOf(groupe))
         viewModel = DuplicateCleanupViewModel(detectDoublons, deleteTransaction)
 
         viewModel.uiState.first { it is DuplicateCleanupUiState.Success }
-        // On choisit de conserver tx2 au lieu de tx1
-        viewModel.changerSelection(groupIndex = 0, keepId = 2L)
+        // On coche également tx2 → les deux doivent être conservées
+        viewModel.basculerSelection(groupIndex = 0, transactionId = 2L)
 
         val state = viewModel.uiState.value as DuplicateCleanupUiState.Success
-        assertEquals(2L, state.groups[0].keepId)
+        assertEquals(setOf(1L, 2L), state.groups[0].keepIds)
     }
 
     @Test
-    fun `supprimerDoublons appelle deleteTransaction pour les non-conservés`() = runTest {
-        val groupe = DuplicateGroup(listOf(tx1, tx2), keepId = 1L)
+    fun `basculerSelection retire un id déjà dans keepIds`() = runTest {
+        // Groupe avec les deux transactions conservées au départ
+        val groupe = DuplicateGroup(listOf(tx1, tx2), keepIds = setOf(1L, 2L))
         every { detectDoublons() } returns flowOf(listOf(groupe))
-        // Après suppression, Room émettra une liste vide
+        viewModel = DuplicateCleanupViewModel(detectDoublons, deleteTransaction)
+
+        viewModel.uiState.first { it is DuplicateCleanupUiState.Success }
+        // On décoche tx2 → seule tx1 reste dans keepIds
+        viewModel.basculerSelection(groupIndex = 0, transactionId = 2L)
+
+        val state = viewModel.uiState.value as DuplicateCleanupUiState.Success
+        assertEquals(setOf(1L), state.groups[0].keepIds)
+    }
+
+    @Test
+    fun `basculerSelection ne retire pas le dernier id conservé`() = runTest {
+        val groupe = DuplicateGroup(listOf(tx1, tx2)) // keepIds = {1L}
+        every { detectDoublons() } returns flowOf(listOf(groupe))
+        viewModel = DuplicateCleanupViewModel(detectDoublons, deleteTransaction)
+
+        viewModel.uiState.first { it is DuplicateCleanupUiState.Success }
+        // Tenter de décocher le seul id conservé → doit être ignoré
+        viewModel.basculerSelection(groupIndex = 0, transactionId = 1L)
+
+        val state = viewModel.uiState.value as DuplicateCleanupUiState.Success
+        assertEquals(setOf(1L), state.groups[0].keepIds)
+    }
+
+    @Test
+    fun `supprimerDoublons supprime uniquement les transactions absentes de keepIds`() = runTest {
+        val groupe = DuplicateGroup(listOf(tx1, tx2), keepIds = setOf(1L))
+        every { detectDoublons() } returns flowOf(listOf(groupe))
         coEvery { deleteTransaction(tx2) } returns Result.success(Unit)
         viewModel = DuplicateCleanupViewModel(detectDoublons, deleteTransaction)
 
@@ -108,8 +137,28 @@ class DuplicateCleanupViewModelTest {
     }
 
     @Test
+    fun `supprimerDoublons ne supprime rien si toutes les transactions sont dans keepIds`() = runTest {
+        // Les deux transactions cochées → faux positif géré par l'utilisateur
+        val groupe = DuplicateGroup(listOf(tx1, tx2), keepIds = setOf(1L, 2L))
+        every { detectDoublons() } returns flowOf(listOf(groupe))
+        viewModel = DuplicateCleanupViewModel(detectDoublons, deleteTransaction)
+
+        viewModel.uiState.first { it is DuplicateCleanupUiState.Success }
+
+        val events = mutableListOf<DuplicateCleanupEvent>()
+        val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
+
+        viewModel.supprimerDoublons()
+        testScheduler.advanceUntilIdle()
+
+        coVerify(exactly = 0) { deleteTransaction(any()) }
+        assertTrue(events.any { it is DuplicateCleanupEvent.Supprime })
+        job.cancel()
+    }
+
+    @Test
     fun `supprimerDoublons émet Erreur si deleteTransaction échoue`() = runTest {
-        val groupe = DuplicateGroup(listOf(tx1, tx2), keepId = 1L)
+        val groupe = DuplicateGroup(listOf(tx1, tx2), keepIds = setOf(1L))
         every { detectDoublons() } returns flowOf(listOf(groupe))
         coEvery { deleteTransaction(tx2) } returns Result.failure(RuntimeException("DB error"))
         viewModel = DuplicateCleanupViewModel(detectDoublons, deleteTransaction)
