@@ -55,10 +55,14 @@ class ExpensesViewModel @Inject constructor(
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    // Mois actuellement affiché en mode "Ce mois" — navigable avec previousMonth()/nextMonth()
+    // Mois initial : depuis les args de navigation si on arrive de BudgetScreen, sinon mois courant
     private val now = LocalDate.now()
-    private val _selectedMonth = MutableStateFlow(now.monthValue)
-    private val _selectedYear  = MutableStateFlow(now.year)
+    private val _selectedMonth = MutableStateFlow(
+        savedStateHandle.get<String>("month")?.toIntOrNull() ?: now.monthValue
+    )
+    private val _selectedYear  = MutableStateFlow(
+        savedStateHandle.get<String>("year")?.toIntOrNull() ?: now.year
+    )
 
     val selectedMonth: StateFlow<Int> = _selectedMonth.asStateFlow()
     val selectedYear:  StateFlow<Int> = _selectedYear.asStateFlow()
@@ -229,8 +233,28 @@ class ExpensesViewModel @Inject constructor(
                     endDate = endDate
                 )
             )
-                .onSuccess { _event.emit(ExpensesEvent.Saved) }
+                .onSuccess {
+                    _event.emit(ExpensesEvent.Saved)
+                    // Si la catégorie a changé et la note est identifiable, proposer de tout recatégoriser
+                    if (category != original.category && note.isNotBlank()) {
+                        val autres = ucGetAll().first()
+                            .filter { it.id != original.id && it.note.trim() == note.trim() && it.category != category }
+                        if (autres.isNotEmpty()) {
+                            _event.emit(ExpensesEvent.RecategorizationProposee(autres.size, note, category))
+                        }
+                    }
+                }
                 .onFailure { _event.emit(ExpensesEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    /** Applique [newCategory] à toutes les transactions ayant exactement la même note. */
+    fun recategoriserParNote(note: String, newCategory: Category) {
+        viewModelScope.launch {
+            val aModifier = ucGetAll().first()
+                .filter { it.note.trim() == note.trim() && it.category != newCategory }
+            aModifier.forEach { ucUpdate(it.copy(category = newCategory)) }
+            _event.emit(ExpensesEvent.RecategorizationTerminee(aModifier.size))
         }
     }
 
@@ -315,4 +339,12 @@ sealed class ExpensesEvent {
     data object Saved   : ExpensesEvent()
     data object Deleted : ExpensesEvent()
     data class Error(val message: String) : ExpensesEvent()
+    /** Émis après updateExpense quand d'autres transactions partagent la même note. */
+    data class RecategorizationProposee(
+        val count      : Int,
+        val note       : String,
+        val newCategory: Category
+    ) : ExpensesEvent()
+    /** Émis après recategoriserParNote pour afficher un snackbar de confirmation. */
+    data class RecategorizationTerminee(val count: Int) : ExpensesEvent()
 }

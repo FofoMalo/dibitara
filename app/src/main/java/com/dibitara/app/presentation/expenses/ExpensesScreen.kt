@@ -55,6 +55,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     var showAddSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
+    var recatProposee by remember { mutableStateOf<ExpensesEvent.RecategorizationProposee?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Sous-catégories personnalisées — disponibles dès que le state est chargé
@@ -68,6 +69,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                     snackbarHostState.showSnackbar("Transaction enregistrée") }
                 is ExpensesEvent.Deleted -> snackbarHostState.showSnackbar("Transaction supprimée")
                 is ExpensesEvent.Error   -> snackbarHostState.showSnackbar(event.message)
+                is ExpensesEvent.RecategorizationProposee -> recatProposee = event
+                is ExpensesEvent.RecategorizationTerminee ->
+                    snackbarHostState.showSnackbar("${event.count} transaction(s) recatégorisée(s)")
             }
         }
     }
@@ -206,6 +210,29 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                     endDate = endDate)
             },
             onDismiss = { editingExpense = null }
+        )
+    }
+
+    // Dialog de recatégorisation en masse
+    recatProposee?.let { proposition ->
+        AlertDialog(
+            onDismissRequest = { recatProposee = null },
+            title = { Text("Recatégoriser") },
+            text  = {
+                Text(
+                    "${proposition.count} autre(s) transaction(s) ont la même note.\n" +
+                    "Appliquer « ${proposition.newCategory.displayName} » à toutes ?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.recategoriserParNote(proposition.note, proposition.newCategory)
+                    recatProposee = null
+                }) { Text("Appliquer à toutes") }
+            },
+            dismissButton = {
+                TextButton(onClick = { recatProposee = null }) { Text("Non") }
+            }
         )
     }
 }

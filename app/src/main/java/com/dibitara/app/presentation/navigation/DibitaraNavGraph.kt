@@ -37,14 +37,18 @@ sealed class Screen(val route: String) {
     data object Dashboard  : Screen("dashboard")
     data object Budget     : Screen("budget")
     // category et type sont des args optionnels pour pré-filtrer depuis BudgetScreen
-    data object Expenses   : Screen("expenses?category={category}&type={type}") {
-        fun withFilter(category: String? = null, type: String? = null): String {
+    data object Expenses   : Screen("expenses?category={category}&type={type}&month={month}&year={year}") {
+        fun withFilter(
+            category: String? = null,
+            type: String? = null,
+            month: Int? = null,
+            year: Int? = null
+        ): String {
             val args = buildString {
                 if (category != null) append("category=$category")
-                if (type != null) {
-                    if (isNotEmpty()) append("&")
-                    append("type=$type")
-                }
+                if (type != null) { if (isNotEmpty()) append("&"); append("type=$type") }
+                if (month != null) { if (isNotEmpty()) append("&"); append("month=$month") }
+                if (year != null)  { if (isNotEmpty()) append("&"); append("year=$year") }
             }
             return if (args.isNotEmpty()) "expenses?$args" else "expenses"
         }
@@ -135,8 +139,8 @@ fun DibitaraNavGraph(
             }
             composable(Screen.Budget.route) {
                 BudgetScreen(
-                    onNavigateToExpenses = { category, type ->
-                        navController.navigate(Screen.Expenses.withFilter(category, type))
+                    onNavigateToExpenses = { category, type, month, year ->
+                        navController.navigate(Screen.Expenses.withFilter(category, type, month, year))
                     }
                 )
             }
@@ -144,7 +148,9 @@ fun DibitaraNavGraph(
                 route = Screen.Expenses.route,
                 arguments = listOf(
                     navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null },
-                    navArgument("type")     { type = NavType.StringType; nullable = true; defaultValue = null }
+                    navArgument("type")     { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("month")    { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("year")     { type = NavType.StringType; nullable = true; defaultValue = null }
                 )
             ) { ExpensesScreen() }
             composable(Screen.Savings.route)     { SavingsScreen() }

@@ -41,8 +41,8 @@ import java.util.Locale
 
 @Composable
 fun BudgetScreen(
-    // category et type sont les noms d'enum (String) pour traverser la couche navigation sans import
-    onNavigateToExpenses: (category: String?, type: String?) -> Unit = { _, _ -> },
+    // category, type, month, year sont passés en String/Int pour traverser la couche navigation sans import
+    onNavigateToExpenses: (category: String?, type: String?, month: Int, year: Int) -> Unit = { _, _, _, _ -> },
     viewModel: BudgetViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -117,7 +117,7 @@ private fun BudgetContent(
     onNextMonth: () -> Unit,
     onEditBudget: () -> Unit,
     onDeleteBudget: () -> Unit,
-    onNavigateToExpenses: (category: String?, type: String?) -> Unit
+    onNavigateToExpenses: (category: String?, type: String?, month: Int, year: Int) -> Unit
 ) {
     val monthName = Month.of(state.month).getDisplayName(TextStyle.FULL, Locale.FRENCH)
         .replaceFirstChar { it.uppercase() }
@@ -179,7 +179,7 @@ private fun BudgetContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Revenus du mois", style = MaterialTheme.typography.titleMedium)
-                    TextButton(onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name) }) {
+                    TextButton(onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name, state.month, state.year) }) {
                         Text("Voir tout")
                     }
                 }
@@ -188,7 +188,7 @@ private fun BudgetContent(
                 RevenuRow(
                     transaction = tx,
                     currency = currency,
-                    onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name) }
+                    onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name, state.month, state.year) }
                 )
             }
         }
@@ -202,7 +202,7 @@ private fun BudgetContent(
                     customSubCategories = state.customSubCategories,
                     currency            = currency,
                     onCategoryClick     = { cat ->
-                        onNavigateToExpenses(cat.name, TransactionType.EXPENSE.name)
+                        onNavigateToExpenses(cat.name, TransactionType.EXPENSE.name, state.month, state.year)
                     }
                 )
             }
@@ -218,7 +218,7 @@ private fun BudgetContent(
                     category    = category,
                     amountCents = cents,
                     currency    = currency,
-                    onClick     = { onNavigateToExpenses(category.name, TransactionType.EXPENSE.name) }
+                    onClick     = { onNavigateToExpenses(category.name, TransactionType.EXPENSE.name, state.month, state.year) }
                 )
             }
         }
