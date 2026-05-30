@@ -145,50 +145,29 @@ private fun BudgetContent(
         }
 
         val currency = state.budget?.currency ?: Currency.EUR
+        val revenus  = state.transactions.filter { it.type == TransactionType.INCOME }
 
-        // Bilan réel — toujours affiché (même si tout est à 0)
+        // Carte fusionnée : bilan réel + objectif budget
         item {
-            BilanReelCard(
+            BilanBudgetCard(
                 revenusCents  = state.revenusCents,
                 depensesCents = state.depensesCents,
                 soldeCents    = state.soldeCents,
-                currency      = currency
+                budget        = state.budget,
+                currency      = currency,
+                onDefinirBudget = onEditBudget,
+                onDeleteBudget  = onDeleteBudget
             )
         }
 
-        // Objectif budget (optionnel — défini par l'utilisateur)
-        item {
-            if (state.budget != null) {
-                BudgetObjectifCard(
-                    budget        = state.budget,
-                    revenusCents  = state.revenusCents,
-                    onDelete      = onDeleteBudget
-                )
-            } else {
-                NoBudgetCard(onSetBudget = onEditBudget)
-            }
-        }
-
-        // Section revenus — cliquable → Expenses filtré par INCOME
-        val revenus = state.transactions.filter { it.type == TransactionType.INCOME }
+        // Revenus — une seule ligne compacte cliquable, pas de liste plate
         if (revenus.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Revenus du mois", style = MaterialTheme.typography.titleMedium)
-                    TextButton(onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name, state.month, state.year) }) {
-                        Text("Voir tout")
-                    }
-                }
-            }
-            items(revenus.sortedByDescending { it.amountCents }) { tx ->
-                RevenuRow(
-                    transaction = tx,
-                    currency = currency,
-                    onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name, state.month, state.year) }
+                RevenusCompactCard(
+                    count      = revenus.size,
+                    totalCents = state.revenusCents,
+                    currency   = currency,
+                    onClick    = { onNavigateToExpenses(null, TransactionType.INCOME.name, state.month, state.year) }
                 )
             }
         }
@@ -225,46 +204,154 @@ private fun BudgetContent(
     }
 }
 
-// ─── Bilan réel ───────────────────────────────────────────────────────────────
+// ─── Carte fusionnée Bilan + Budget ──────────────────────────────────────────
 
 /**
- * Carte toujours visible montrant le bilan réel du mois :
- * revenus (transactions INCOME) − dépenses (transactions EXPENSE) = solde.
- * C'est la réalité financière, indépendante du budget objectif.
+ * Carte unique regroupant le bilan réel du mois (revenus / dépenses / solde)
+ * et l'objectif budget (barre de progression + restant).
+ * Remplace les anciennes cartes BilanReelCard et BudgetObjectifCard.
  */
 @Composable
-private fun BilanReelCard(
-    revenusCents  : Long,
-    depensesCents : Long,
-    soldeCents    : Long,
-    currency      : Currency
+private fun BilanBudgetCard(
+    revenusCents    : Long,
+    depensesCents   : Long,
+    soldeCents      : Long,
+    budget          : Budget?,
+    currency        : Currency,
+    onDefinirBudget : () -> Unit,
+    onDeleteBudget  : () -> Unit
 ) {
     val soldePositif = soldeCents >= 0
-    val couleurSolde = if (soldePositif) MaterialTheme.colorScheme.primary
-                       else MaterialTheme.colorScheme.error
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                "Bilan du mois",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
+            // Ligne bilan : Revenus | Dépenses | Solde
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                 BilanColonne("Revenus",  revenusCents,  currency, MaterialTheme.colorScheme.primary)
                 BilanColonne("Dépenses", depensesCents, currency, MaterialTheme.colorScheme.error)
                 BilanColonne(
                     label      = "Solde",
                     valueCents = soldeCents,
                     currency   = currency,
-                    color      = couleurSolde,
+                    color      = if (soldePositif) MaterialTheme.colorScheme.primary
+                                 else MaterialTheme.colorScheme.error,
                     prefix     = if (soldePositif) "+" else ""
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f))
+
+            if (budget != null) {
+                val progress  = if (budget.allocatedCents > 0)
+                    budget.spentCents.toFloat() / budget.allocatedCents else 0f
+                val isOver    = budget.isOverBudget
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Budget ${budget.allocatedCents.toCurrencyDisplay(currency)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                    IconButton(onClick = onDeleteBudget, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Supprimer le budget",
+                            tint   = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color    = if (isOver) MaterialTheme.colorScheme.error
+                               else MaterialTheme.colorScheme.primary
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        "Dépensé : ${budget.spentCents.toCurrencyDisplay(currency)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        if (isOver) "Dépassé de ${(-budget.remainingCents).toCurrencyDisplay(currency)}"
+                        else "Restant : ${budget.remainingCents.toCurrencyDisplay(currency)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isOver) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Aucun objectif budget ce mois",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                    )
+                    TextButton(
+                        onClick = onDefinirBudget,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
+                        Text("Définir →", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ─── Revenus compacts ─────────────────────────────────────────────────────────
+
+/** Ligne unique cliquable résumant tous les revenus du mois — remplace la liste plate. */
+@Composable
+private fun RevenusCompactCard(
+    count      : Int,
+    totalCents : Long,
+    currency   : Currency,
+    onClick    : () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp, vertical = 14.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("Revenus", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "$count entrée${if (count > 1) "s" else ""}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    "+${totalCents.toCurrencyDisplay(currency)}",
+                    style      = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = MaterialTheme.colorScheme.primary
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Voir les revenus",
+                    modifier = Modifier.size(16.dp),
+                    tint     = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -295,162 +382,6 @@ private fun BilanColonne(
 }
 
 // ─── Objectif budget ──────────────────────────────────────────────────────────
-
-/** Ligne de la chaîne budgétaire : libellé à gauche, montant coloré à droite. */
-@Composable
-private fun BudgetLigne(
-    label: String,
-    valueCents: Long,
-    currency: Currency,
-    color: Color,
-    gras: Boolean = false
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            valueCents.toCurrencyDisplay(currency),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (gras) FontWeight.Bold else FontWeight.Normal,
-            color = color
-        )
-    }
-}
-
-/**
- * Carte d'objectif budgétaire.
- * Si des revenus ont été saisis, affiche la chaîne complète :
- *   Revenus − Budget alloué = Épargne prévue
- * puis la barre dépensé / alloué.
- */
-@Composable
-private fun BudgetObjectifCard(budget: Budget, revenusCents: Long, onDelete: () -> Unit) {
-    val progress = if (budget.allocatedCents > 0)
-        budget.spentCents.toFloat() / budget.allocatedCents else 0f
-    val isOver = budget.isOverBudget
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Objectif budget",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = "Supprimer le budget",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-
-            if (revenusCents > 0) {
-                // Chaîne : Revenus → Budget alloué → Épargne prévue
-                val epargnePrevueCents = revenusCents - budget.allocatedCents
-                val epargnePositive = epargnePrevueCents >= 0
-                BudgetLigne("Revenus", revenusCents, budget.currency,
-                    MaterialTheme.colorScheme.primary)
-                BudgetLigne("− Budget alloué", budget.allocatedCents, budget.currency,
-                    MaterialTheme.colorScheme.onSurface)
-                HorizontalDivider()
-                BudgetLigne(
-                    label      = "= Épargne prévue",
-                    valueCents = epargnePrevueCents,
-                    currency   = budget.currency,
-                    color      = if (epargnePositive) MaterialTheme.colorScheme.primary
-                                 else MaterialTheme.colorScheme.error,
-                    gras       = true
-                )
-            } else {
-                // Pas encore de revenus saisis — affichage simple de l'enveloppe
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Enveloppe allouée", style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(budget.allocatedCents.toCurrencyDisplay(budget.currency),
-                        style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-
-            // Barre de progression : combien du budget alloué a été dépensé
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth(),
-                color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-            )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("Dépensé", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(budget.spentCents.toCurrencyDisplay(budget.currency),
-                        color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Restant", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(budget.remainingCents.toCurrencyDisplay(budget.currency),
-                        color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-                }
-            }
-            if (isOver) {
-                Text(
-                    "⚠ Budget dépassé de ${(-budget.remainingCents).toCurrencyDisplay(budget.currency)}",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-    }
-}
-
-// ─── Ligne revenu individuelle ────────────────────────────────────────────────
-
-@Composable
-private fun RevenuRow(transaction: Transaction, currency: Currency, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = transaction.note.ifBlank { "Revenu" },
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = "+${transaction.amountCents.toCurrencyDisplay(currency)}",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-@Composable
-private fun NoBudgetCard(onSetBudget: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(20.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Aucun budget défini pour ce mois", style = MaterialTheme.typography.bodyLarge)
-            Button(onClick = onSetBudget) { Text("Définir un budget") }
-        }
-    }
-}
 
 @Composable
 private fun CategoryRow(category: Category, amountCents: Long, currency: Currency, onClick: () -> Unit) {
