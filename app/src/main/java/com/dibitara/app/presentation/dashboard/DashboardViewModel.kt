@@ -59,15 +59,17 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch { updateCardOrder(newOrder) }
     }
 
-    private val now = LocalDate.now()
-
-    val uiState: StateFlow<DashboardUiState> = combine(
-        getPatrimonyOverview(now.monthValue, now.year),
-        getSpendingHistory(),
-        getMonthlyReport(now.monthValue, now.year),
-        getUpcomingPayments(limit = 5),
-        getPreferences()
-    ) { overview, history, rapport, upcoming, prefs ->
+    val uiState: StateFlow<DashboardUiState> = run {
+        // Correction #5 : LocalDate.now() évalué à la création du ViewModel (non stocké),
+        // ce qui garantit que le mois courant est frais si le ViewModel est recréé.
+        val today = LocalDate.now()
+        combine(
+            getPatrimonyOverview(today.monthValue, today.year),
+            getSpendingHistory(),
+            getMonthlyReport(today.monthValue, today.year),
+            getUpcomingPayments(limit = 5),
+            getPreferences()
+        ) { overview, history, rapport, upcoming, prefs ->
         // combine ne supporte que 5 arguments : les deux autres flows sont mergés séparément
         Quintuple(overview, history, rapport, upcoming, prefs)
     }.combine(
@@ -93,6 +95,7 @@ class DashboardViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = DashboardUiState.Loading
         )
+    }
 
     /**
      * Applique la suggestion.

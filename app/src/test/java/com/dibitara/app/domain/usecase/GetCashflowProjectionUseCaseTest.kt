@@ -19,11 +19,13 @@ class GetCashflowProjectionUseCaseTest {
     private val budgetRepo      : BudgetRepository          = mockk()
     private val transactionRepo : TransactionRepository     = mockk()
     private val savingsRepo     : SavingsRepository         = mockk()
+    private val investmentRepo  : InvestmentRepository      = mockk()
+    private val debtRepo        : DebtRepository            = mockk()
     private val versementRepo   : VersementRepository       = mockk()
     private val prefsRepo       : UserPreferencesRepository = mockk()
 
     private val useCase = GetCashflowProjectionUseCase(
-        budgetRepo, transactionRepo, savingsRepo, versementRepo, prefsRepo
+        budgetRepo, transactionRepo, savingsRepo, investmentRepo, debtRepo, versementRepo, prefsRepo
     )
 
     private val today = LocalDate.of(2026, 5, 10)
@@ -34,6 +36,8 @@ class GetCashflowProjectionUseCaseTest {
         every { transactionRepo.getRecurring() }               returns flowOf(emptyList())
         every { transactionRepo.getByMonth(any(), any()) }     returns flowOf(emptyList())
         every { savingsRepo.getAll() }                         returns flowOf(emptyList())
+        every { investmentRepo.getAllScpi() }                   returns flowOf(emptyList())
+        every { debtRepo.getAll() }                            returns flowOf(emptyList())
         every { prefsRepo.get() }                              returns flowOf(UserPreferences(seuilFondsCents = 20_000L))
         coEvery { versementRepo.existsPourMois(any(), any(), any(), any()) } returns false
     }
@@ -312,6 +316,117 @@ class GetCashflowProjectionUseCaseTest {
         assertEquals(today.plusDays(30), result.pointsTimeline.last().date)
     }
 
+    // ─── Contributions SCPI (#3) ──────────────────────────────────────────────
+
+    @Test
+    fun `contribution SCPI non versée est déduite en fin de mois`() = runTest {
+        mockSoldeInitial(100_000L)
+        every { investmentRepo.getAllScpi() } returns flowOf(
+            listOf(buildScpi(id = 10L, monthlyContributionCents = 30_000L))
+        )
+        coEvery { versementRepo.existsPourMois(10L, CompteType.SCPI, any(), any()) } returns false
+
+        val result = useCase(today).first()
+
+        assertEquals(70_000L, result.soldeProjecte30jCents)
+    }
+
+    @Test
+    fun `contribution SCPI déjà versée ce mois n est pas déduite`() = runTest {
+        mockSoldeInitial(100_000L)
+        every { investmentRepo.getAllScpi() } returns flowOf(
+            listOf(buildScpi(id = 10L, monthlyContributionCents = 30_000L))
+        )
+        coEvery { versementRepo.existsPourMois(10L, CompteType.SCPI, any(), any()) } returns true
+
+        val result = useCase(today).first()
+
+        assertEquals(100_000L, result.soldeProjecte30jCents)
+    }
+
+    @Test
+    fun `épargne et SCPI non versées sont toutes les deux déduites`() = runTest {
+        mockSoldeInitial(200_000L)
+        every { savingsRepo.getAll() } returns flowOf(
+            listOf(buildSavings(id = 1L, monthlyContributionCents = 20_000L))
+        )
+        every { investmentRepo.getAllScpi() } returns flowOf(
+            listOf(buildScpi(id = 10L, monthlyContributionCents = 30_000L))
+        )
+
+        val result = useCase(today).first()
+
+        // 200 000 − 20 000 (épargne) − 30 000 (SCPI) = 150 000
+        assertEquals(150_000L, result.soldeProjecte30jCents)
+    }
+
+    // ─── Mensualités crédit (#4) ──────────────────────────────────────────────
+
+    @Test
+    fun `mensualité crédit déduite en fin du mois courant`() = runTest {
+        // today = 10 mai → fin mai = 31 mai (dans la fenêtre 30 jours)
+        mockSoldeInitial(150_000L)
+        every { debtRepo.getAll() } returns flowOf(
+            listOf(buildDebt(monthlyPaymentCents = 80_000L))
+        )
+
+        val result = useCase(today).first()
+
+        val point31Mai = result.pointsTimeline.first { it.date == LocalDate.of(2026, 5, 31) }
+        assertEquals(150_000L - 80_000L, point31Mai.soldeCents)
+    }
+
+    @Test
+    fun `mensualité crédit projetée deux fois si la fenêtre enjambe deux mois`() = runTest {
+        // today = 10 mai, horizon = 9 juin → fin mai (31/05) ET fin juin tronqué à 9/06
+        every { debtRepo.getAll() } returns flowOf(
+            listOf(buildDebt(monthlyPaymentCents = 80_000L))
+        )
+
+        val result = useCase(today).first()
+
+        // Deux prélèvements : le 31 mai et le 9 juin (= min(30 juin, horizon))
+        assertEquals(-2 * 80_000L, result.soldeProjecte30jCents)
+    }
+
+    @Test
+    fun `dette sans mensualité n est pas prise en compte`() = runTest {
+        mockSoldeInitial(50_000L)
+        every { debtRepo.getAll() } returns flowOf(
+            listOf(buildDebt(monthlyPaymentCents = 0L))
+        )
+
+        val result = useCase(today).first()
+
+        assertEquals(50_000L, result.soldeProjecte30jCents)
+    }
+
+    // ─── Correction du jour mensuel — plus de plafond fixe 28 (#8) ───────────
+
+    @Test
+    fun `prélèvement le 30 reste au 30 dans les mois de 30 jours`() = runTest {
+        // today = 10 mai (31 jours), prélèvement le 30 → doit tomber le 30 mai
+        val template = buildRecurrent(amountCents = 10_000L, recurrenceDay = 30)
+        val from = LocalDate.of(2026, 5, 10)
+        val to   = from.plusDays(30)
+
+        val dates = useCase.occurrencesInRange(template, from, to)
+
+        assertTrue(LocalDate.of(2026, 5, 30) in dates)
+    }
+
+    @Test
+    fun `prélèvement le 31 en février est ramené au 28`() = runTest {
+        val template = buildRecurrent(amountCents = 10_000L, recurrenceDay = 31)
+        val from = LocalDate.of(2026, 2, 1)
+        val to   = from.plusDays(30)
+
+        val dates = useCase.occurrencesInRange(template, from, to)
+
+        // Février 2026 = 28 jours (pas bissextile) → le 31 devient le 28
+        assertEquals(listOf(LocalDate.of(2026, 2, 28)), dates)
+    }
+
     // ─── occurrencesInRange ───────────────────────────────────────────────────
 
     @Nested
@@ -413,6 +528,30 @@ class GetCashflowProjectionUseCaseTest {
         recurrenceFrequency  = freq,
         firstPaymentDate     = firstPaymentDate,
         endDate              = endDate
+    )
+
+    private fun buildScpi(
+        id                       : Long = 1L,
+        monthlyContributionCents : Long = 0L
+    ) = ScpiInvestment(
+        id                       = id,
+        label                    = "SCPI test",
+        sharesCount              = 1.0,
+        shareValueCents          = 100_000L,
+        monthlyContributionCents = monthlyContributionCents,
+        currency                 = Currency.EUR,
+        updatedAt                = today
+    )
+
+    private fun buildDebt(
+        monthlyPaymentCents : Long = 0L
+    ) = Debt(
+        label               = "Crédit test",
+        totalCents          = 10_000_000L,
+        monthlyPaymentCents = monthlyPaymentCents,
+        currency            = Currency.EUR,
+        type                = DebtType.CREDIT_IMMO,
+        updatedAt           = today
     )
 
     private fun buildSavings(
