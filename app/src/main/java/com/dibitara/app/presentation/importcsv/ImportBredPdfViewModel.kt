@@ -5,7 +5,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.data.importcsv.BredPdfParser
+import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.ImportedTransaction
+import com.dibitara.app.domain.usecase.CategoriseurLibelle
 import com.dibitara.app.domain.usecase.ImportResult
 import com.dibitara.app.domain.usecase.ImportTransactionsUseCase
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -62,7 +64,7 @@ class ImportBredPdfViewModel @Inject constructor(
 
                 val avecDoublons = ucImport.verifierDoublons(resultat.transactions)
                 _uiState.value = ImportBredPdfUiState.Preview(
-                    transactions = avecDoublons,
+                    transactions = recategoriserAuto(avecDoublons),
                     soldes       = resultat.soldes,
                     annee        = resultat.annee
                 )
@@ -88,6 +90,29 @@ class ImportBredPdfViewModel @Inject constructor(
     fun reinitialiser() {
         _uiState.value = ImportBredPdfUiState.Initial
     }
+
+    /**
+     * Met à jour la catégorie d'une transaction dans le preview.
+     * N'affecte pas les transactions déjà importées ([alreadyImported] = true).
+     */
+    fun modifierCategorie(externalId: String, nouvelleCategorie: Category) {
+        val currentState = _uiState.value
+        if (currentState !is ImportBredPdfUiState.Preview) return
+        val updated = currentState.transactions.map { tx ->
+            if (tx.externalId == externalId && !tx.alreadyImported) {
+                tx.copy(category = nouvelleCategorie)
+            } else tx
+        }
+        _uiState.value = currentState.copy(transactions = updated)
+    }
+
+    private fun recategoriserAuto(transactions: List<ImportedTransaction>): List<ImportedTransaction> =
+        transactions.map { tx ->
+            if (!tx.alreadyImported && tx.category == Category.AUTRE) {
+                val suggestion = CategoriseurLibelle.suggererCategorie(tx.note)
+                if (suggestion != null) tx.copy(category = suggestion) else tx
+            } else tx
+        }
 }
 
 /** États possibles de l'écran d'import PDF BRED. */

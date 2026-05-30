@@ -69,9 +69,10 @@ fun ImportBredPdfScreen(
                 }
 
                 is ImportBredPdfUiState.Preview -> PreviewPdf(
-                    state      = state,
-                    onConfirmer = { viewModel.confirmerImport(state.transactions) },
-                    onAnnuler   = { viewModel.reinitialiser() }
+                    state               = state,
+                    onConfirmer         = { viewModel.confirmerImport(state.transactions) },
+                    onAnnuler           = { viewModel.reinitialiser() },
+                    onModifierCategorie = { id, cat -> viewModel.modifierCategorie(id, cat) }
                 )
 
                 is ImportBredPdfUiState.Succes -> EtapeSucces(
@@ -95,7 +96,8 @@ fun ImportBredPdfScreen(
 private fun PreviewPdf(
     state: ImportBredPdfUiState.Preview,
     onConfirmer: () -> Unit,
-    onAnnuler: () -> Unit
+    onAnnuler: () -> Unit,
+    onModifierCategorie: (externalId: String, category: com.dibitara.app.domain.model.Category) -> Unit = { _, _ -> }
 ) {
     val nouvelles = state.transactions.count { !it.alreadyImported }
     val doublons  = state.transactions.count {  it.alreadyImported }
@@ -131,7 +133,10 @@ private fun PreviewPdf(
             }
             // Liste des transactions
             items(state.transactions, key = { it.externalId }) { tx ->
-                LigneTransaction(tx)
+                LigneTransaction(
+                    tx = tx,
+                    onModifierCategorie = { cat -> onModifierCategorie(tx.externalId, cat) }
+                )
             }
         }
 

@@ -43,6 +43,7 @@ import java.util.Locale
 fun BudgetScreen(
     // category, type, month, year sont passés en String/Int pour traverser la couche navigation sans import
     onNavigateToExpenses: (category: String?, type: String?, month: Int, year: Int) -> Unit = { _, _, _, _ -> },
+    onNavigateToTrends: () -> Unit = {},
     viewModel: BudgetViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -70,7 +71,8 @@ fun BudgetScreen(
                         onNextMonth          = viewModel::nextMonth,
                         onEditBudget         = { showEditDialog = true },
                         onDeleteBudget       = { showDeleteDialog = true },
-                        onNavigateToExpenses = onNavigateToExpenses
+                        onNavigateToExpenses = onNavigateToExpenses,
+                        onNavigateToTrends   = onNavigateToTrends
                     )
             }
         }
@@ -117,7 +119,8 @@ private fun BudgetContent(
     onNextMonth: () -> Unit,
     onEditBudget: () -> Unit,
     onDeleteBudget: () -> Unit,
-    onNavigateToExpenses: (category: String?, type: String?, month: Int, year: Int) -> Unit
+    onNavigateToExpenses: (category: String?, type: String?, month: Int, year: Int) -> Unit,
+    onNavigateToTrends: () -> Unit = {}
 ) {
     val monthName = Month.of(state.month).getDisplayName(TextStyle.FULL, Locale.FRENCH)
         .replaceFirstChar { it.uppercase() }
@@ -199,6 +202,16 @@ private fun BudgetContent(
                     currency    = currency,
                     onClick     = { onNavigateToExpenses(category.name, TransactionType.EXPENSE.name, state.month, state.year) }
                 )
+            }
+        }
+
+        // Bouton de navigation vers l'écran des tendances
+        item {
+            TextButton(
+                onClick = onNavigateToTrends,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Voir les tendances sur 6 mois →")
             }
         }
     }

@@ -64,9 +64,10 @@ fun ImportBredScreen(
                 }
 
                 is ImportUiState.Preview -> EtapePreview(
-                    transactions = state.transactions,
-                    onConfirmer  = { viewModel.confirmerImport(state.transactions) },
-                    onAnnuler    = { viewModel.reinitialiser() }
+                    transactions        = state.transactions,
+                    onConfirmer         = { viewModel.confirmerImport(state.transactions) },
+                    onAnnuler           = { viewModel.reinitialiser() },
+                    onModifierCategorie = { id, cat -> viewModel.modifierCategorie(id, cat) }
                 )
 
                 is ImportUiState.Succes -> EtapeSucces(

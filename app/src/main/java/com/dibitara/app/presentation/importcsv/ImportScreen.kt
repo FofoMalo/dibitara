@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.ImportResult
@@ -78,9 +79,10 @@ fun ImportScreen(
                 }
 
                 is ImportUiState.Preview -> EtapePreview(
-                    transactions = state.transactions,
-                    onConfirmer  = { viewModel.confirmerImport(state.transactions) },
-                    onAnnuler    = { viewModel.reinitialiser() }
+                    transactions      = state.transactions,
+                    onConfirmer       = { viewModel.confirmerImport(state.transactions) },
+                    onAnnuler         = { viewModel.reinitialiser() },
+                    onModifierCategorie = { id, cat -> viewModel.modifierCategorie(id, cat) }
                 )
 
                 is ImportUiState.Succes -> EtapeSucces(
@@ -148,7 +150,8 @@ internal fun EtapeSelection(
 internal fun EtapePreview(
     transactions: List<ImportedTransaction>,
     onConfirmer: () -> Unit,
-    onAnnuler: () -> Unit
+    onAnnuler: () -> Unit,
+    onModifierCategorie: (externalId: String, category: Category) -> Unit = { _, _ -> }
 ) {
     val nouvelles = transactions.count { !it.alreadyImported }
     val doublons  = transactions.count {  it.alreadyImported }
@@ -178,7 +181,10 @@ internal fun EtapePreview(
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
             items(transactions, key = { it.externalId }) { tx ->
-                LigneTransaction(tx)
+                LigneTransaction(
+                    tx = tx,
+                    onModifierCategorie = { cat -> onModifierCategorie(tx.externalId, cat) }
+                )
             }
         }
 
@@ -218,8 +224,17 @@ internal fun StatChip(label: String, valeur: String, couleur: androidx.compose.u
     }
 }
 
+// Catégories proposables manuellement (on exclut INVESTISSEMENT et EPARGNE — auto-assignées)
+private val CATEGORIES_MANUELLES = Category.entries.filter {
+    it != Category.INVESTISSEMENT && it != Category.EPARGNE
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LigneTransaction(tx: ImportedTransaction) {
+internal fun LigneTransaction(
+    tx: ImportedTransaction,
+    onModifierCategorie: (Category) -> Unit = {}
+) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yy") }
     val montantStr = buildString {
         append(if (tx.type == TransactionType.INCOME) "+" else "-")
@@ -230,6 +245,8 @@ internal fun LigneTransaction(tx: ImportedTransaction) {
         MaterialTheme.colorScheme.primary
     else
         MaterialTheme.colorScheme.onSurface
+
+    var showCategoryMenu by remember { mutableStateOf(false) }
 
     ListItem(
         headlineContent = {
@@ -245,17 +262,49 @@ internal fun LigneTransaction(tx: ImportedTransaction) {
             )
         },
         supportingContent = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     tx.date.format(formatter),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    tx.category.displayName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // Catégorie éditable — chip tappable avec indicateur crayon
+                if (!tx.alreadyImported) {
+                    Box {
+                        SuggestionChip(
+                            onClick = { showCategoryMenu = true },
+                            label = {
+                                Text(
+                                    "${tx.category.displayName} ✎",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        )
+                        DropdownMenu(
+                            expanded = showCategoryMenu,
+                            onDismissRequest = { showCategoryMenu = false }
+                        ) {
+                            CATEGORIES_MANUELLES.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat.displayName) },
+                                    onClick = {
+                                        onModifierCategorie(cat)
+                                        showCategoryMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        tx.category.displayName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         trailingContent = {

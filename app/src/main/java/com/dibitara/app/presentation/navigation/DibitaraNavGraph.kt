@@ -31,6 +31,7 @@ import com.dibitara.app.presentation.importcsv.ImportScreen
 import com.dibitara.app.presentation.settings.DuplicateCleanupScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
 import com.dibitara.app.presentation.settings.SettingsViewModel
+import com.dibitara.app.presentation.trends.TrendsScreen
 
 sealed class Screen(val route: String) {
     data object Lock       : Screen("lock")
@@ -65,6 +66,7 @@ sealed class Screen(val route: String) {
     data object ImportBredPdf     : Screen("import_bred_pdf")
     data object DuplicateCleanup  : Screen("duplicate_cleanup")
     data object ProjectionDetail  : Screen("projection_detail")
+    data object Trends             : Screen("trends")
 }
 
 // Écrans qui affichent la barre de navigation inférieure
@@ -147,8 +149,12 @@ fun DibitaraNavGraph(
                 BudgetScreen(
                     onNavigateToExpenses = { category, type, month, year ->
                         navController.navigate(Screen.Expenses.withFilter(category, type, month, year))
-                    }
+                    },
+                    onNavigateToTrends = { navController.navigate(Screen.Trends.route) }
                 )
+            }
+            composable(Screen.Trends.route) {
+                TrendsScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable(
                 route = Screen.Expenses.route,

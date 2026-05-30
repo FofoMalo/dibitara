@@ -40,16 +40,16 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
         val libelle = transaction.note.lowercase().trim()
         if (libelle.isBlank()) return null
 
-        // Priorité aux règles de catégorie principale
-        for (regle in REGLES_MOTS_CLES) {
-            val motCorrespondant = regle.motsCles.firstOrNull { libelle.correspondMotCle(it) }
-            if (motCorrespondant != null) {
-                return RecategorizationSuggestion(
-                    transaction       = transaction,
-                    suggestedCategory = regle.categorie,
-                    matchedKeyword    = motCorrespondant
-                )
-            }
+        // Déléguer la catégorie principale à CategoriseurLibelle
+        val categoriePrincipale = CategoriseurLibelle.suggererCategorie(transaction.note)
+        if (categoriePrincipale != null) {
+            // Retrouver le mot-clé correspondant pour l'afficher dans la suggestion
+            val motCorrespondant = trouverMotCle(libelle, categoriePrincipale)
+            return RecategorizationSuggestion(
+                transaction       = transaction,
+                suggestedCategory = categoriePrincipale,
+                matchedKeyword    = motCorrespondant ?: ""
+            )
         }
 
         // Si aucune catégorie principale ne correspond, chercher une sous-catégorie d'AUTRE
@@ -69,84 +69,63 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
     }
 
     /**
+     * Retrouve le premier mot-clé qui correspond dans [libelle] (en minuscules) parmi
+     * les règles de [CategoriseurLibelle], filtré sur [categorie].
+     * Utilisé uniquement pour renseigner [RecategorizationSuggestion.matchedKeyword].
+     */
+    private fun trouverMotCle(libelle: String, categorie: Category): String? {
+        // On délègue la logique de matching à correspondMotCle local
+        return MOTS_CLES_PAR_CATEGORIE[categorie]
+            ?.firstOrNull { libelle.correspondMotCle(it) }
+    }
+
+    /**
      * Correspond un mot-clé dans le libellé (déjà en minuscules) :
      * - Expression multi-mots (contient un espace) → recherche substring classique.
      * - Mot seul → correspondance token exacte après découpage sur espaces et ponctuation
-     *   courante (point, slash, virgule…). Évite les faux positifs : "eau" ne matche plus
-     *   "cadeau", "gaz" ne matche plus "magasin". Le trait d'union est exclu du découpage
-     *   pour préserver les mots composés comme "station-service".
+     *   courante (point, slash, virgule…). Le trait d'union est exclu du découpage pour
+     *   préserver les mots composés comme "station-service".
      */
     private fun String.correspondMotCle(motCle: String): Boolean =
         if (motCle.contains(' ')) this.contains(motCle)
         else this.split(Regex("[\\s./,;:!?()|@]+")).any { it == motCle }
-
-    // Règle associant une liste de mots-clés à la catégorie principale à proposer
-    private data class RegleCategorisation(val motsCles: List<String>, val categorie: Category)
 
     // Règle associant une liste de mots-clés à une sous-catégorie d'AUTRE
     private data class RegleSousCategorie(val motsCles: List<String>, val sousCategorie: SubCategory)
 
     companion object {
         /**
-         * Dictionnaire de règles de recatégorisation.
-         * Correspondance via [correspondMotCle] : mot seul = token exact, expression = substring.
-         * L'ordre des règles importe : la première correspondance l'emporte.
-         * Les règles Mobile Money sont en tête pour que "orange money" soit testé
-         * avant le mot seul "orange" présent dans la règle ABONNEMENTS.
+         * Table inversée catégorie → mots-clés, dérivée de CategoriseurLibelle.
+         * Utilisée uniquement pour récupérer le mot-clé correspondant dans la suggestion.
          */
-        private val REGLES_MOTS_CLES = listOf(
-            // Mobile Money Afrique — doit précéder ABONNEMENTS ("orange" y est en mot seul)
-            RegleCategorisation(
-                listOf("orange money", "wave", "mtn momo", "mtn mobile", "moov money",
-                    "free money", "airtel money", "m-pesa"),
-                Category.TRANSFERTS
-            ),
-            RegleCategorisation(
-                listOf("leclerc", "carrefour", "lidl", "aldi", "intermarché", "casino", "monoprix",
-                    "franprix", "picard", "biocoop", "marché", "epicerie", "supermarché",
-                    "boulangerie", "shoprite", "citydia", "auchan"),
-                Category.ALIMENTATION
-            ),
-            RegleCategorisation(
-                listOf("loyer", "charges", "syndic", "copropriété", "électricité", "edf", "engie",
-                    "gaz", "eau", "veolia", "suez", "internet", "fibre"),
-                Category.LOGEMENT
-            ),
-            RegleCategorisation(
-                listOf("sncf", "ratp", "transilien", "uber", "essence", "péage", "autoroute",
-                    "parking", "station-service", "total", "bp", "shell", "vinci autoroutes"),
-                Category.TRANSPORT
-            ),
-            RegleCategorisation(
-                listOf("pharmacie", "médecin", "docteur", "hôpital", "clinique", "mutuelle",
-                    "ameli", "ophtalmo", "dentiste", "kiné", "infirmier"),
-                Category.SANTE
-            ),
-            RegleCategorisation(
-                listOf("netflix", "spotify", "deezer", "amazon prime", "disney+", "canal+",
-                    "sfr", "bouygues", "orange", "free mobile", "numéricable", "adobe",
-                    "microsoft 365", "icloud", "google one"),
-                Category.ABONNEMENTS
-            ),
-            RegleCategorisation(
-                listOf("gym", "fitness", "cinema", "cinéma", "théâtre", "musée", "piscine",
-                    "sport", "loisirs", "fnac", "culture", "concert", "festival", "hotel"),
-                Category.LOISIRS
-            ),
-            RegleCategorisation(
-                listOf("impôts", "dgfip", "caf", "cpam", "urssaf", "assurance habitation",
-                    "assurance auto", "allianz", "axa", "maif", "macif", "groupama"),
-                Category.IMPOTS_CHARGES
-            ),
-            RegleCategorisation(
-                listOf("virement", "sepa", "remise", "remboursement"),
-                Category.TRANSFERTS
-            ),
-            RegleCategorisation(
-                listOf("zara", "h&m", "uniqlo", "nike", "adidas", "décathlon", "vêtement",
-                    "chaussures", "habillement"),
-                Category.HABILLEMENT
-            )
+        private val MOTS_CLES_PAR_CATEGORIE: Map<Category, List<String>> = mapOf(
+            Category.TRANSFERTS to listOf("orange money", "wave", "mtn momo", "mtn mobile",
+                "moov money", "free money", "airtel money", "m-pesa",
+                "virement", "sepa", "remise", "remboursement"),
+            Category.ALIMENTATION to listOf("leclerc", "carrefour", "lidl", "aldi",
+                "intermarché", "casino", "monoprix", "franprix", "picard", "biocoop",
+                "marché", "epicerie", "supermarché", "boulangerie", "shoprite",
+                "citydia", "auchan"),
+            Category.LOGEMENT to listOf("loyer", "charges", "syndic", "copropriété",
+                "électricité", "edf", "engie", "gaz", "eau", "veolia", "suez",
+                "internet", "fibre"),
+            Category.TRANSPORT to listOf("sncf", "ratp", "transilien", "uber", "essence",
+                "péage", "autoroute", "parking", "station-service", "total", "bp",
+                "shell", "vinci autoroutes"),
+            Category.SANTE to listOf("pharmacie", "médecin", "docteur", "hôpital",
+                "clinique", "mutuelle", "ameli", "ophtalmo", "dentiste", "kiné",
+                "infirmier"),
+            Category.ABONNEMENTS to listOf("netflix", "spotify", "deezer", "amazon prime",
+                "disney+", "canal+", "sfr", "bouygues", "orange", "free mobile",
+                "numéricable", "adobe", "microsoft 365", "icloud", "google one"),
+            Category.LOISIRS to listOf("gym", "fitness", "cinema", "cinéma", "théâtre",
+                "musée", "piscine", "sport", "loisirs", "fnac", "culture", "concert",
+                "festival", "hotel"),
+            Category.IMPOTS_CHARGES to listOf("impôts", "dgfip", "caf", "cpam", "urssaf",
+                "assurance habitation", "assurance auto", "allianz", "axa", "maif",
+                "macif", "groupama"),
+            Category.HABILLEMENT to listOf("zara", "h&m", "uniqlo", "nike", "adidas",
+                "décathlon", "vêtement", "chaussures", "habillement")
         )
 
         /**
