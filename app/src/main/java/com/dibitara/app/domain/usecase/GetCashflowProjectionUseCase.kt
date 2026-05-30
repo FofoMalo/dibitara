@@ -9,11 +9,13 @@ import javax.inject.Inject
 /**
  * Calcule une projection de trésorerie sur 30 jours.
  *
- * Point de départ : [Budget.remainingCents] du mois courant (revenus - dépenses déjà saisies).
- * Engagements déduits :
- *   1. Paiements récurrents de type EXPENSE dont la prochaine occurrence tombe dans [today, today+30]
- *   2. Contributions épargne mensuelles ([SavingsAccount.monthlyContributionCents]) non encore
- *      versées ce mois-ci — placées en fin de mois courant dans la projection.
+ * Point de départ : revenus − dépenses réelles du mois courant, recalculés en temps réel
+ * depuis les transactions (pas depuis Budget.spentCents qui peut être périmé).
+ *
+ * Flux pris en compte sur [today, today+30] :
+ *   1. Transactions récurrentes EXPENSE → déduites du solde à chaque occurrence
+ *   2. Transactions récurrentes INCOME  → ajoutées au solde à chaque occurrence
+ *   3. Contributions épargne mensuelles non encore versées → déduites en fin de mois courant
  *
  * [today] est injectable pour permettre les tests sans mocker LocalDate.now().
  */
@@ -25,9 +27,9 @@ class GetCashflowProjectionUseCase @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository
 ) {
 
-    // Agrège les 4 flows réactifs en un seul objet intermédiaire pour le transform
     private data class Sources(
-        val budget: Budget?,
+        val soldeCourantCents: Long,
+        val currency: Currency,
         val recurring: List<Transaction>,
         val savings: List<SavingsAccount>,
         val seuilCents: Long
@@ -37,12 +39,24 @@ class GetCashflowProjectionUseCase @Inject constructor(
         combine(
             budgetRepository.getBudget(today.monthValue, today.year),
             transactionRepository.getRecurring(),
+            transactionRepository.getByMonth(today.monthValue, today.year),
             savingsRepository.getAll(),
             userPreferencesRepository.get()
-        ) { budget, recurring, savings, prefs ->
-            Sources(budget, recurring, savings, prefs.seuilFondsCents)
+        ) { budget, recurring, monthTransactions, savings, prefs ->
+            // Exclure les templates (isRecurring=true) pour ne compter que les transactions réelles.
+            // Correction #1 : on ne lit plus Budget.spentCents (potentiellement périmé en base)
+            // mais on recalcule le solde en temps réel depuis les transactions du mois.
+            val txReelles = monthTransactions.filter { !it.isRecurring }
+            val revenusCents  = txReelles.filter { it.type == TransactionType.INCOME  }.sumOf { it.amountCents }
+            val depensesCents = txReelles.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents }
+            Sources(
+                soldeCourantCents = revenusCents - depensesCents,
+                currency          = budget?.currency ?: Currency.EUR,
+                recurring         = recurring,
+                savings           = savings,
+                seuilCents        = prefs.seuilFondsCents
+            )
         }.transform { sources ->
-            // transform est suspend-aware : on peut appeler versementRepository.existsPourMois ici
             val contributionsEnAttente = sources.savings
                 .filter { it.monthlyContributionCents > 0 }
                 .filter { account ->
@@ -55,53 +69,56 @@ class GetCashflowProjectionUseCase @Inject constructor(
 
             emit(
                 buildProjection(
-                    budget              = sources.budget,
-                    recurring           = sources.recurring,
-                    pendingContribs     = contributionsEnAttente,
-                    seuilCents          = sources.seuilCents,
-                    today               = today
+                    soldeCourant    = sources.soldeCourantCents,
+                    currency        = sources.currency,
+                    recurring       = sources.recurring,
+                    pendingContribs = contributionsEnAttente,
+                    seuilCents      = sources.seuilCents,
+                    today           = today
                 )
             )
         }
 
     private fun buildProjection(
-        budget: Budget?,
+        soldeCourant: Long,
+        currency: Currency,
         recurring: List<Transaction>,
         pendingContribs: Long,
         seuilCents: Long,
         today: LocalDate
     ): CashflowProjection {
-        val soldeCourant = budget?.remainingCents ?: 0L
-        val currency = budget?.currency ?: Currency.EUR
         val horizon = today.plusDays(30)
 
-        // Regrouper les montants à déduire par date
-        val chargesParDate = mutableMapOf<LocalDate, Long>()
+        // Flux net par date : valeur positive = entrée d'argent, négative = sortie.
+        // Correction #2 : les récurrences INCOME sont désormais incluses (signe positif)
+        // et non plus ignorées par un filtre EXPENSE-only.
+        val fluxParDate = mutableMapOf<LocalDate, Long>()
 
         recurring
-            .filter { it.type == TransactionType.EXPENSE }
+            .filter { it.type == TransactionType.EXPENSE || it.type == TransactionType.INCOME }
             .filter { it.endDate == null || it.endDate >= today }
             .forEach { template ->
+                val signe = if (template.type == TransactionType.EXPENSE) -1L else +1L
                 occurrencesInRange(template, today, horizon).forEach { date ->
-                    chargesParDate[date] = (chargesParDate[date] ?: 0L) + template.amountCents
+                    fluxParDate[date] = (fluxParDate[date] ?: 0L) + signe * template.amountCents
                 }
             }
 
-        // Les contributions épargne en attente sont projetées en fin de mois courant
+        // Contributions épargne en attente : sortie d'argent projetée en fin de mois courant
         if (pendingContribs > 0) {
             val finMois = minOf(
                 LocalDate.of(today.year, today.monthValue, today.month.length(today.isLeapYear)),
                 horizon
             )
-            chargesParDate[finMois] = (chargesParDate[finMois] ?: 0L) + pendingContribs
+            fluxParDate[finMois] = (fluxParDate[finMois] ?: 0L) - pendingContribs
         }
 
-        // Construire la courbe jour par jour
+        // Courbe jour par jour : on accumule les flux (le signe est déjà dans la valeur)
         val points = mutableListOf<CashflowPoint>()
         var solde = soldeCourant
         for (i in 0..30) {
             val date = today.plusDays(i.toLong())
-            solde -= chargesParDate[date] ?: 0L
+            solde += fluxParDate[date] ?: 0L
             points.add(CashflowPoint(date, solde))
         }
 
