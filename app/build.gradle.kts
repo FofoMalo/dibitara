@@ -207,10 +207,14 @@ dependencies {
     testImplementation(libs.coroutines.test)
     testImplementation(libs.room.testing)
 
-    // Tests instrumentés (UI)
+    // Tests instrumentés (UI + Room intégration)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(libs.room.testing)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.coroutines.test)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 }
