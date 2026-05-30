@@ -232,6 +232,15 @@ private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) 
                 }
             }
 
+            // Hint si capital d'origine non renseigné (dettes migrées ou création sans ce champ)
+            if (debt.originalAmountCents == 0L) {
+                Text(
+                    "Ajoutez le capital d'origine (✎) pour voir la progression",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
+
             // Barre de progression si capital d'origine renseigné
             if (debt.originalAmountCents > 0 && debt.totalCents <= debt.originalAmountCents) {
                 val progress = 1f - (debt.totalCents.toFloat() / debt.originalAmountCents.toFloat())
