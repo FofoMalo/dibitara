@@ -13,6 +13,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -26,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
+import com.dibitara.app.domain.model.SimulateurCredit
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,8 +100,8 @@ fun DebtsScreen(
     if (showAddSheet) {
         AddDebtSheet(
             defaultCurrency = defaultCurrency,
-            onSave = { label, total, monthly, original, paymentDay, currency, type ->
-                viewModel.addDebt(label, total, monthly, original, paymentDay, currency, type)
+            onSave = { label, total, monthly, original, paymentDay, taux, currency, type ->
+                viewModel.addDebt(label, total, monthly, original, paymentDay, taux, currency, type)
             },
             onDismiss = { showAddSheet = false }
         )
@@ -108,8 +110,8 @@ fun DebtsScreen(
     debtToEdit?.let { debt ->
         EditDebtSheet(
             debt = debt,
-            onSave = { label, total, monthly, original, paymentDay, currency, type ->
-                viewModel.editDebt(debt, label, total, monthly, original, paymentDay, currency, type)
+            onSave = { label, total, monthly, original, paymentDay, taux, currency, type ->
+                viewModel.editDebt(debt, label, total, monthly, original, paymentDay, taux, currency, type)
             },
             onDismiss = { debtToEdit = null }
         )
@@ -191,7 +193,8 @@ private fun DebtsContent(
 
 @Composable
 private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) {
-    var showConfirm by remember { mutableStateOf(false) }
+    var showConfirm   by remember { mutableStateOf(false) }
+    var showSimulation by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -216,13 +219,21 @@ private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) 
                     )
                     if (debt.monthlyPaymentCents > 0) {
                         Text(
-                            "${debt.monthlyPaymentCents.toCurrencyDisplay(debt.currency)}/mois",
+                            "${debt.monthlyPaymentCents.toCurrencyDisplay(debt.currency)}/mois" +
+                                (debt.tauxInteret?.let { " · ${String.format("%.2f", it).replace('.', ',')} %" } ?: ""),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
                 Row {
+                    // Bouton simulation — affiché uniquement si le taux est renseigné
+                    if (debt.tauxInteret != null && debt.monthlyPaymentCents > 0) {
+                        IconButton(onClick = { showSimulation = true }) {
+                            Icon(Icons.Filled.Calculate, contentDescription = "Simuler remboursement anticipé",
+                                tint = MaterialTheme.colorScheme.tertiary)
+                        }
+                    }
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Filled.Edit, contentDescription = "Modifier", tint = MaterialTheme.colorScheme.primary)
                     }
@@ -232,7 +243,7 @@ private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) 
                 }
             }
 
-            // Hint si capital d'origine non renseigné (dettes migrées ou création sans ce champ)
+            // Hint si capital d'origine non renseigné
             if (debt.originalAmountCents == 0L) {
                 Text(
                     "Ajoutez le capital d'origine (✎) pour voir la progression",
@@ -268,7 +279,20 @@ private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) 
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            // Hint simulation si taux non renseigné
+            if (debt.tauxInteret == null && debt.type == DebtType.CREDIT_IMMO) {
+                Text(
+                    "Ajoutez le taux d'intérêt (✎) pour simuler un remboursement anticipé",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
         }
+    }
+
+    if (showSimulation && debt.tauxInteret != null) {
+        SimulationSheet(debt = debt, onDismiss = { showSimulation = false })
     }
 
     if (showConfirm) {
@@ -304,7 +328,7 @@ private fun DebtTypeChip(type: DebtType) {
 @Composable
 private fun AddDebtSheet(
     defaultCurrency: Currency = Currency.EUR,
-    onSave: (label: String, total: String, monthly: String, original: String, paymentDay: Int?, currency: Currency, type: DebtType) -> Unit,
+    onSave: (label: String, total: String, monthly: String, original: String, paymentDay: Int?, taux: String, currency: Currency, type: DebtType) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf("") }
@@ -312,6 +336,7 @@ private fun AddDebtSheet(
     var monthly by remember { mutableStateOf("") }
     var original by remember { mutableStateOf("") }
     var paymentDayStr by remember { mutableStateOf("") }
+    var tauxStr by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var selectedType by remember { mutableStateOf(DebtType.CREDIT_IMMO) }
     var typeExpanded by remember { mutableStateOf(false) }
@@ -404,6 +429,16 @@ private fun AddDebtSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            OutlinedTextField(
+                value = tauxStr,
+                onValueChange = { tauxStr = it },
+                label = { Text("Taux d'intérêt annuel en % (ex : 1,85)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
                 OutlinedTextField(
                     value = "${selectedCurrency.name} (${selectedCurrency.symbol})",
@@ -424,7 +459,7 @@ private fun AddDebtSheet(
             }
 
             Button(
-                onClick = { onSave(label, total, monthly, original, paymentDayInt, selectedCurrency, selectedType) },
+                onClick = { onSave(label, total, monthly, original, paymentDayInt, tauxStr, selectedCurrency, selectedType) },
                 enabled = label.isNotBlank() && total.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true && !paymentDayError,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
@@ -436,7 +471,7 @@ private fun AddDebtSheet(
 @Composable
 private fun EditDebtSheet(
     debt: Debt,
-    onSave: (label: String, total: String, monthly: String, original: String, paymentDay: Int?, currency: Currency, type: DebtType) -> Unit,
+    onSave: (label: String, total: String, monthly: String, original: String, paymentDay: Int?, taux: String, currency: Currency, type: DebtType) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(debt.label) }
@@ -444,6 +479,7 @@ private fun EditDebtSheet(
     var monthly by remember { mutableStateOf(if (debt.monthlyPaymentCents > 0) (debt.monthlyPaymentCents.toDouble() / 100.0).toString() else "") }
     var original by remember { mutableStateOf(if (debt.originalAmountCents > 0) (debt.originalAmountCents.toDouble() / 100.0).toString() else "") }
     var paymentDayStr by remember { mutableStateOf(debt.paymentDay?.toString() ?: "") }
+    var tauxStr by remember { mutableStateOf(debt.tauxInteret?.let { String.format("%.2f", it).replace('.', ',') } ?: "") }
     var selectedCurrency by remember { mutableStateOf(debt.currency) }
     var selectedType by remember { mutableStateOf(debt.type) }
     var typeExpanded by remember { mutableStateOf(false) }
@@ -528,11 +564,21 @@ private fun EditDebtSheet(
                 value = paymentDayStr,
                 onValueChange = { paymentDayStr = it },
                 label = { Text("Jour de prélèvement (1-28, optionnel)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true,
                 isError = paymentDayError,
                 supportingText = if (paymentDayError) { { Text("Entrez un jour entre 1 et 28") } } else null,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = tauxStr,
+                onValueChange = { tauxStr = it },
+                label = { Text("Taux d'intérêt annuel en % (ex : 1,85)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -556,7 +602,7 @@ private fun EditDebtSheet(
             }
 
             Button(
-                onClick = { onSave(label, total, monthly, original, paymentDayInt, selectedCurrency, selectedType) },
+                onClick = { onSave(label, total, monthly, original, paymentDayInt, tauxStr, selectedCurrency, selectedType) },
                 enabled = label.isNotBlank() && total.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true && !paymentDayError,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer") }
@@ -564,3 +610,127 @@ private fun EditDebtSheet(
     }
 }
 
+// ─── Simulation remboursement anticipé ───────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SimulationSheet(debt: Debt, onDismiss: () -> Unit) {
+    val taux = debt.tauxInteret ?: return
+    var montantStr by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
+
+    val montantCents = montantStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+    val resultat = if (montantCents > 0) {
+        SimulateurCredit.simuler(
+            capitalRestantCents        = debt.totalCents,
+            tauxAnnuelPct              = taux,
+            mensualiteCents            = debt.monthlyPaymentCents,
+            remboursementAnticipeCents = montantCents
+        )
+    } else null
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Simulation — Remboursement anticipé", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "${debt.label} · ${String.format("%.2f", taux).replace('.', ',')} % · " +
+                    "${debt.totalCents.toCurrencyDisplay(debt.currency)} restant",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OutlinedTextField(
+                value = montantStr,
+                onValueChange = { montantStr = it },
+                label = { Text("Montant du remboursement anticipé (${debt.currency.symbol})") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (resultat != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SimLigne("Durée actuelle",
+                            "${resultat.moisActuels} mois (${resultat.moisActuels / 12} ans ${resultat.moisActuels % 12} mois)")
+                        SimLigne("Durée après RA",
+                            "${resultat.moisApres} mois (${resultat.moisApres / 12} ans ${resultat.moisApres % 12} mois)")
+                        HorizontalDivider()
+                        SimLigneValeur("Mois économisés",
+                            "${resultat.moisEconomises} mois",
+                            MaterialTheme.colorScheme.primary)
+                        SimLigneValeur("Intérêts économisés",
+                            resultat.interetsEconomisesCents.toCurrencyDisplay(debt.currency),
+                            MaterialTheme.colorScheme.primary)
+                        resultat.nouvelleEcheanceAnneeMois?.let { (annee, mois) ->
+                            val nomMois = java.time.Month.of(mois)
+                                .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.FRENCH)
+                                .replaceFirstChar { it.uppercase() }
+                            SimLigneValeur("Nouvelle échéance", "$nomMois $annee",
+                                MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                }
+
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Intérêts totaux restants", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Sans RA", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(resultat.interetsTotauxActuelsCents.toCurrencyDisplay(debt.currency),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error)
+                            }
+                            Text("→", modifier = Modifier.align(Alignment.CenterVertically))
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Avec RA", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(resultat.interetsTotauxApresCents.toCurrencyDisplay(debt.currency),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            } else if (montantStr.isNotBlank()) {
+                Text("Données insuffisantes (vérifiez le taux et la mensualité).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimLigne(label: String, valeur: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+        Text(valeur, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun SimLigneValeur(label: String, valeur: String, color: androidx.compose.ui.graphics.Color) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+        Text(valeur, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold, color = color)
+    }
+}

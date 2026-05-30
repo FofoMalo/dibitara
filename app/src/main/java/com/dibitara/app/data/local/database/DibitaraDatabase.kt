@@ -35,7 +35,7 @@ import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
         EmployeeSavingsEntity::class,
         PatrimoineSnapshotEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -55,6 +55,13 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun patrimoineSnapshotDao(): PatrimoineSnapshotDao
 
     companion object {
+        // Migration v15 → v16 : taux d'intérêt annuel sur debts (branche florent/prive)
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE debts ADD COLUMN tauxInteret REAL")
+            }
+        }
+
         // Migration v14 → v15 : colonnes paymentDay et originalAmountCents sur debts
         val MIGRATION_14_15 = object : Migration(14, 15) {
             override fun migrate(db: SupportSQLiteDatabase) {

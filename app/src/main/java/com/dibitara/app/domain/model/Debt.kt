@@ -11,7 +11,8 @@ data class Debt(
     val type: DebtType,
     val updatedAt: LocalDate,
     val paymentDay: Int? = null,           // jour du mois (1-28), null si inconnu
-    val originalAmountCents: Long = 0L     // capital au départ du crédit, 0 si non renseigné
+    val originalAmountCents: Long = 0L,    // capital au départ du crédit, 0 si non renseigné
+    val tauxInteret: Double? = null        // taux annuel en % (ex : 1.85 pour 1,85 %)
 )
 
 enum class DebtType(val displayName: String) {

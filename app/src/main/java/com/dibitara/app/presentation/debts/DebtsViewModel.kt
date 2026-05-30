@@ -62,6 +62,7 @@ class DebtsViewModel @Inject constructor(
         monthlyStr: String,
         originalStr: String = "",
         paymentDay: Int? = null,
+        tauxStr: String = "",
         currency: Currency,
         type: DebtType
     ) {
@@ -69,8 +70,9 @@ class DebtsViewModel @Inject constructor(
             viewModelScope.launch { _event.emit(DebtsEvent.Error("Montant total invalide")) }
             return
         }
-        val monthlyCents = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val monthlyCents  = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         val originalCents = originalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val taux          = tauxStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
         viewModelScope.launch {
             saveDebt(
                 Debt(
@@ -79,6 +81,7 @@ class DebtsViewModel @Inject constructor(
                     monthlyPaymentCents = monthlyCents,
                     originalAmountCents = originalCents,
                     paymentDay          = paymentDay,
+                    tauxInteret         = taux,
                     currency            = currency,
                     type                = type,
                     updatedAt           = LocalDate.now()
@@ -103,12 +106,14 @@ class DebtsViewModel @Inject constructor(
         monthlyStr: String,
         originalStr: String,
         paymentDay: Int?,
+        tauxStr: String = "",
         currency: Currency,
         type: DebtType
     ) {
-        val totalCents = totalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: return
-        val monthlyCents = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val totalCents    = totalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: return
+        val monthlyCents  = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         val originalCents = originalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val taux          = tauxStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
         viewModelScope.launch {
             saveDebt(
                 debt.copy(
@@ -117,6 +122,7 @@ class DebtsViewModel @Inject constructor(
                     monthlyPaymentCents = monthlyCents,
                     originalAmountCents = originalCents,
                     paymentDay          = paymentDay,
+                    tauxInteret         = taux,
                     currency            = currency,
                     type                = type,
                     updatedAt           = LocalDate.now()

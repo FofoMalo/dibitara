@@ -18,7 +18,8 @@ data class DebtEntity(
     val type: String,
     val updatedAtEpochDay: Long,
     val paymentDay: Int? = null,
-    val originalAmountCents: Long = 0L
+    val originalAmountCents: Long = 0L,
+    val tauxInteret: Double? = null
 ) {
     fun toDomain() = Debt(
         id = id,
@@ -29,7 +30,8 @@ data class DebtEntity(
         type = safeValueOf(type, DebtType.CREDIT_IMMO),
         updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay),
         paymentDay = paymentDay,
-        originalAmountCents = originalAmountCents
+        originalAmountCents = originalAmountCents,
+        tauxInteret = tauxInteret
     )
 
     companion object {
@@ -42,7 +44,8 @@ data class DebtEntity(
             type = d.type.name,
             updatedAtEpochDay = d.updatedAt.toEpochDay(),
             paymentDay = d.paymentDay,
-            originalAmountCents = d.originalAmountCents
+            originalAmountCents = d.originalAmountCents,
+            tauxInteret = d.tauxInteret
         )
     }
 }
