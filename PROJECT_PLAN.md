@@ -277,6 +277,23 @@ Pyramide de tests (situation actuelle) :
 | Sprint 17 | BUG-SCPI parts fractionnées (sharesCount Int→Real) — Room v9 | ✅ Terminé | v4.1.0 |
 | Sprint 18 | Export CSV + JSON toutes données — FileProvider — section Paramètres | ✅ Terminé | v4.2.0 |
 | Sprint 19 | Investissements personnalisés (métaux, actifs libres, épargne salariale) — Room v10 | ✅ Terminé | v4.3.0 |
+| Sprint 20 | Import CSV TradeRepublic (Room v11 : importSource, externalId) | ✅ Terminé | v4.4.0 |
+| Sprint 21 | Import CSV BRED — BredCsvParser, écran dédié | ✅ Terminé | v4.4.0 |
+| Sprint 22 | Cartes dashboard réordonnables + notifications mensuelles | ✅ Terminé | v4.4.1 |
+| Sprint 23 | Conversion multi-devises patrimoine et rapport mensuel | ✅ Terminé | v4.4.0 |
+| Sprint 24 | Affichage multi-devises UI (épargne, dettes, investissements) | ✅ Terminé | v4.4.0 |
+| Sprint 25 | Graphique répartition patrimoine dans PatrimoineDetail | ✅ Terminé | v4.4.0 |
+| Sprint 26 | Réconciliation dettes/immobilier — Room v12 (debtId sur real_estate_assets) | ✅ Terminé | v4.4.0 |
+| Sprint 27 | Détection et nettoyage des doublons de transactions | ✅ Terminé | v4.4.0 |
+| Sprint 28 | Historique du patrimoine net — sparkline — Room v13 | ✅ Terminé | v4.4.0 |
+| Sprint 29 | Assets launcher v2, filtrage transactions par période SQL | ✅ Terminé | v4.4.0 |
+| Sprint 30 | Import relevé PDF BRED (pdfbox-android) + amélioration BredCsvParser | ✅ Terminé | v4.4.0 |
+| Sprint 31 | Plafond épargne (Room v14) + multi-select nettoyage doublons | ✅ Terminé | v4.4.0 |
+| Sprint 32 | Import relevé PDF BRED (pdfbox-android) | ✅ Terminé | v4.4.0 |
+| Sprint 33 | Recatégorisation en masse + contexte mois Budget→Dépenses | ✅ Terminé | v4.4.0 |
+| Sprint 34 | Recatégorisation word-boundary, sous-catégories AUTRE, Mobile Money Afrique, EDUCATION, TRANSFERTS_FAMILIAUX, XOF fixe, CFA sans décimales | ✅ Terminé | v4.5.0 |
+| Sprint 35 | Projection 30j : 6 correctifs (solde réel, revenus récurrents, SCPI, crédits, jour précis, now) + écran détail + Dettes (édition, progression, paymentDay) — Room v15 | ✅ Terminé | v4.5.0 |
+| Sprint 35b | Vue Budget simplifiée : bilan + objectif fusionnés, revenus compacts | ✅ Terminé | v4.5.0 |
 
 ---
 
