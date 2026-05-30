@@ -2,6 +2,7 @@ package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.CategoryExpense
+import com.dibitara.app.domain.model.CategoryVariation
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CurrencyConverter
 import com.dibitara.app.domain.model.MonthlyReport
@@ -88,6 +89,38 @@ class GetMonthlyReportUseCase @Inject constructor(
                 .sortedByDescending { it.totalCents }
                 .take(5)
 
+            // Taux d'épargne = (revenus - dépenses) * 100 / revenus (null si aucun revenu)
+            val tauxEpargnePct = if (revenus > 0)
+                ((revenus - depenses) * 100 / revenus).toInt()
+            else null
+
+            // Dépenses du mois courant par catégorie (clé = nom de catégorie)
+            val depensesCourantesParCat = current
+                .filter { it.type == TransactionType.EXPENSE }
+                .groupBy { it.category }
+                .mapValues { (_, txs) -> txs.sumOf { it.amountCents.cvt(it.currency) } }
+
+            // Dépenses du mois précédent par catégorie
+            val depensesPrecedentesParCat = previous
+                .filter { it.type == TransactionType.EXPENSE }
+                .groupBy { it.category }
+                .mapValues { (_, txs) -> txs.sumOf { it.amountCents.cvt(it.currency) } }
+
+            // Variation par catégorie — top 5 par variation absolue, catégories du mois courant uniquement
+            val variationParCategorie = depensesCourantesParCat
+                .map { (cat, currentCents) ->
+                    val previousCents = depensesPrecedentesParCat[cat] ?: 0L
+                    CategoryVariation(
+                        category      = cat,
+                        displayLabel  = cat.displayName,
+                        currentCents  = currentCents,
+                        variationCents = currentCents - previousCents
+                    )
+                }
+                .filter { it.variationCents != 0L }
+                .sortedByDescending { kotlin.math.abs(it.variationCents) }
+                .take(5)
+
             MonthlyReport(
                 month                   = month,
                 year                    = year,
@@ -97,7 +130,9 @@ class GetMonthlyReportUseCase @Inject constructor(
                 soldeCents              = revenus - depenses,
                 budget                  = budget,
                 topCategories           = topCategories,
-                variationDepensesCents  = depenses - depensesPrecedent
+                variationDepensesCents  = depenses - depensesPrecedent,
+                tauxEpargnePct          = tauxEpargnePct,
+                variationParCategorie   = variationParCategorie
             )
         }
     }

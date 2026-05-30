@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.dibitara.app.domain.model.Category
+import com.dibitara.app.domain.model.CategoryVariation
 import com.dibitara.app.domain.model.MonthlyReport
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
@@ -111,6 +111,29 @@ private fun BilanCard(report: MonthlyReport) {
                     color = if (report.soldeCents >= 0) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.error
                 )
+            }
+
+            // Taux d'épargne — affiché uniquement si les revenus sont > 0
+            report.tauxEpargnePct?.let { taux ->
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Taux d'épargne ce mois",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "$taux %",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (taux >= 0) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }
@@ -219,6 +242,48 @@ private fun TopCategoriesCard(report: MonthlyReport) {
                     )
                 }
             }
+
+            // Variations M/M-1 par catégorie (top 5 par amplitude)
+            if (report.variationParCategorie.isNotEmpty()) {
+                HorizontalDivider()
+                Text("Variations M/M-1", style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                report.variationParCategorie.forEach { variation ->
+                    VariationParCategorieRow(variation, report)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VariationParCategorieRow(variation: CategoryVariation, report: MonthlyReport) {
+    val hausse = variation.variationCents > 0
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(variation.displayLabel, style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f))
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Icon(
+                imageVector = if (hausse) Icons.AutoMirrored.Filled.TrendingUp
+                              else Icons.AutoMirrored.Filled.TrendingDown,
+                contentDescription = null,
+                tint = if (hausse) MaterialTheme.colorScheme.error
+                       else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = if (hausse) "+${variation.variationCents.toCurrencyDisplay(report.currency)}"
+                       else "-${(-variation.variationCents).toCurrencyDisplay(report.currency)}",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = if (hausse) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

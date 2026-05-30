@@ -28,14 +28,16 @@ class NotificationHelper @Inject constructor(
 ) {
 
     companion object {
-        const val CANAL_BUDGET   = "canal_budget"
-        const val CANAL_DETTES   = "canal_dettes"
-        const val CANAL_FONDS    = "canal_fonds"
-        const val CANAL_MENSUEL  = "canal_mensuel"
+        const val CANAL_BUDGET         = "canal_budget"
+        const val CANAL_DETTES         = "canal_dettes"
+        const val CANAL_FONDS          = "canal_fonds"
+        const val CANAL_MENSUEL        = "canal_mensuel"
+        const val CANAL_CONTRIBUTIONS  = "canal_contributions"
 
-        private const val NOTIF_ID_BUDGET  = 1001
-        private const val NOTIF_ID_FONDS   = 3001
-        private const val NOTIF_ID_MENSUEL = 4001
+        private const val NOTIF_ID_BUDGET         = 1001
+        private const val NOTIF_ID_FONDS          = 3001
+        private const val NOTIF_ID_MENSUEL        = 4001
+        const val          NOTIF_ID_CONTRIBUTIONS = 5001
     }
 
     init {
@@ -62,6 +64,10 @@ class NotificationHelper @Inject constructor(
         manager.createNotificationChannel(
             NotificationChannel(CANAL_MENSUEL, "Bilan mensuel", NotificationManager.IMPORTANCE_DEFAULT)
                 .apply { description = "Résumé du mois écoulé envoyé en début de mois" }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CANAL_CONTRIBUTIONS, "Versements à faire", NotificationManager.IMPORTANCE_DEFAULT)
+                .apply { description = "Rappel de versements mensuels épargne/SCPI non effectués" }
         )
     }
 
@@ -153,6 +159,22 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .build()
         envoyerSiAutorise(NOTIF_ID_MENSUEL, notification)
+    }
+
+    /**
+     * Rappel de fin de mois : N versements épargne/SCPI non encore effectués.
+     * Affiché uniquement dans les 5 derniers jours du mois (décision du ViewModel).
+     */
+    fun envoyerRappelContributions(count: Int, totalCents: Long) {
+        val notification = NotificationCompat.Builder(context, CANAL_CONTRIBUTIONS)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Versements à faire")
+            .setContentText("$count versement(s) à faire · Total : ${totalCents / 100}€")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+
+        envoyerSiAutorise(NOTIF_ID_CONTRIBUTIONS, notification)
     }
 
     // ─── Helpers privés ───────────────────────────────────────────────────────

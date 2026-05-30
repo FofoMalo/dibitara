@@ -5,12 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.usecase.CheckAvailableFundsUseCase
 import com.dibitara.app.domain.usecase.CheckBudgetNotificationUseCase
 import com.dibitara.app.domain.usecase.CheckDebtRemindersUseCase
+import com.dibitara.app.domain.usecase.CheckPendingContributionsUseCase
 import com.dibitara.app.domain.usecase.GenerateRecurringUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.presentation.common.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 /**
@@ -22,12 +24,13 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class AppViewModel @Inject constructor(
-    private val generateRecurring: GenerateRecurringUseCase,
-    private val checkBudget: CheckBudgetNotificationUseCase,
-    private val checkDebtReminders: CheckDebtRemindersUseCase,
-    private val checkAvailableFunds: CheckAvailableFundsUseCase,
-    private val getPreferences: GetUserPreferencesUseCase,
-    private val notificationHelper: NotificationHelper
+    private val generateRecurring          : GenerateRecurringUseCase,
+    private val checkBudget                : CheckBudgetNotificationUseCase,
+    private val checkDebtReminders         : CheckDebtRemindersUseCase,
+    private val checkAvailableFunds        : CheckAvailableFundsUseCase,
+    private val checkPendingContributions  : CheckPendingContributionsUseCase,
+    private val getPreferences             : GetUserPreferencesUseCase,
+    private val notificationHelper         : NotificationHelper
 ) : ViewModel() {
 
     init {
@@ -75,6 +78,17 @@ class AppViewModel @Inject constructor(
                 soldeCents = soldeCents,
                 seuilCents = prefs.seuilFondsCents
             )
+        }
+
+        // 4. Contributions en attente en fin de mois ?
+        //    Déclenchée uniquement dans les 5 derniers jours du mois
+        val today = LocalDate.now()
+        val lastDayOfMonth = today.month.length(today.isLeapYear)
+        if (today.dayOfMonth >= lastDayOfMonth - 4) {
+            val pending = checkPendingContributions(today.monthValue, today.year)
+            if (pending.count > 0) {
+                notificationHelper.envoyerRappelContributions(pending.count, pending.totalCents)
+            }
         }
     }
 }

@@ -135,6 +135,44 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                 )
             }
 
+            // Chip rapide "À catégoriser" — visible si des transactions AUTRE existent
+            val currentExpenses = (uiState as? ExpensesUiState.Success)?.expenses ?: emptyList()
+            val autreCount = currentExpenses.count {
+                it.category == Category.AUTRE && it.type == TransactionType.EXPENSE
+            }
+            val isCategoriserSelected = filter.category == Category.AUTRE
+            if (autreCount > 0 || isCategoriserSelected) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    FilterChip(
+                        selected = isCategoriserSelected,
+                        onClick = {
+                            if (isCategoriserSelected) {
+                                viewModel.updateFilter(filter.copy(category = null))
+                            } else {
+                                viewModel.updateFilter(
+                                    filter.copy(
+                                        category = Category.AUTRE,
+                                        transactionType = null
+                                    )
+                                )
+                            }
+                        },
+                        label = { Text("À catégoriser · $autreCount") },
+                        colors = if (autreCount > 0 && !isCategoriserSelected) {
+                            FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
+                        } else {
+                            FilterChipDefaults.filterChipColors()
+                        }
+                    )
+                }
+            }
+
             // Liste des transactions
             Box(modifier = Modifier.fillMaxSize()) {
                 when (val state = uiState) {

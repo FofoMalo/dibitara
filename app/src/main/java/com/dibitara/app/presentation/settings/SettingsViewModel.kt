@@ -8,6 +8,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.dibitara.app.data.worker.MonthlyReportNotificationWorker
+import com.dibitara.app.data.worker.WeeklyRecapWorker
 import com.dibitara.app.domain.model.Currency
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dibitara.app.domain.model.ExchangeRates
@@ -176,8 +177,17 @@ class SettingsViewModel @Inject constructor(
                     ExistingPeriodicWorkPolicy.UPDATE,
                     request
                 )
+                val weeklyRequest = PeriodicWorkRequestBuilder<WeeklyRecapWorker>(
+                    7, TimeUnit.DAYS
+                ).build()
+                workManager.enqueueUniquePeriodicWork(
+                    WeeklyRecapWorker.NOM_TRAVAIL_UNIQUE,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    weeklyRequest
+                )
             } else {
                 workManager.cancelUniqueWork(MonthlyReportNotificationWorker.NOM_TRAVAIL_UNIQUE)
+                workManager.cancelUniqueWork(WeeklyRecapWorker.NOM_TRAVAIL_UNIQUE)
             }
         }
     }
