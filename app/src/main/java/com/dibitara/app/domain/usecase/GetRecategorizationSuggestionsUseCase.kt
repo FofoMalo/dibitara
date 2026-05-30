@@ -2,6 +2,7 @@ package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.RecategorizationSuggestion
+import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
@@ -39,8 +40,9 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
         val libelle = transaction.note.lowercase().trim()
         if (libelle.isBlank()) return null
 
+        // Priorité aux règles de catégorie principale
         for (regle in REGLES_MOTS_CLES) {
-            val motCorrespondant = regle.motsCles.firstOrNull { libelle.contains(it) }
+            val motCorrespondant = regle.motsCles.firstOrNull { libelle.correspondMotCle(it) }
             if (motCorrespondant != null) {
                 return RecategorizationSuggestion(
                     transaction       = transaction,
@@ -49,27 +51,65 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
                 )
             }
         }
+
+        // Si aucune catégorie principale ne correspond, chercher une sous-catégorie d'AUTRE
+        for (regle in REGLES_SOUS_CATEGORIES) {
+            val motCorrespondant = regle.motsCles.firstOrNull { libelle.correspondMotCle(it) }
+            if (motCorrespondant != null) {
+                return RecategorizationSuggestion(
+                    transaction          = transaction,
+                    suggestedCategory    = Category.AUTRE,
+                    matchedKeyword       = motCorrespondant,
+                    suggestedSubCategory = regle.sousCategorie
+                )
+            }
+        }
+
         return null
     }
 
-    // Règle associant une liste de mots-clés à la catégorie à proposer
+    /**
+     * Correspond un mot-clé dans le libellé (déjà en minuscules) :
+     * - Expression multi-mots (contient un espace) → recherche substring classique.
+     * - Mot seul → correspondance token exacte après découpage sur espaces et ponctuation
+     *   courante (point, slash, virgule…). Évite les faux positifs : "eau" ne matche plus
+     *   "cadeau", "gaz" ne matche plus "magasin". Le trait d'union est exclu du découpage
+     *   pour préserver les mots composés comme "station-service".
+     */
+    private fun String.correspondMotCle(motCle: String): Boolean =
+        if (motCle.contains(' ')) this.contains(motCle)
+        else this.split(Regex("[\\s./,;:!?()|@]+")).any { it == motCle }
+
+    // Règle associant une liste de mots-clés à la catégorie principale à proposer
     private data class RegleCategorisation(val motsCles: List<String>, val categorie: Category)
+
+    // Règle associant une liste de mots-clés à une sous-catégorie d'AUTRE
+    private data class RegleSousCategorie(val motsCles: List<String>, val sousCategorie: SubCategory)
 
     companion object {
         /**
          * Dictionnaire de règles de recatégorisation.
-         * Les mots-clés sont comparés en minuscules contre [Transaction.note].
+         * Correspondance via [correspondMotCle] : mot seul = token exact, expression = substring.
          * L'ordre des règles importe : la première correspondance l'emporte.
+         * Les règles Mobile Money sont en tête pour que "orange money" soit testé
+         * avant le mot seul "orange" présent dans la règle ABONNEMENTS.
          */
         private val REGLES_MOTS_CLES = listOf(
+            // Mobile Money Afrique — doit précéder ABONNEMENTS ("orange" y est en mot seul)
+            RegleCategorisation(
+                listOf("orange money", "wave", "mtn momo", "mtn mobile", "moov money",
+                    "free money", "airtel money", "m-pesa"),
+                Category.TRANSFERTS
+            ),
             RegleCategorisation(
                 listOf("leclerc", "carrefour", "lidl", "aldi", "intermarché", "casino", "monoprix",
-                    "franprix", "picard", "biocoop", "marché", "epicerie", "supermarché", "boulangerie"),
+                    "franprix", "picard", "biocoop", "marché", "epicerie", "supermarché",
+                    "boulangerie", "shoprite", "citydia", "auchan"),
                 Category.ALIMENTATION
             ),
             RegleCategorisation(
                 listOf("loyer", "charges", "syndic", "copropriété", "électricité", "edf", "engie",
-                    "gaz", "eau", "veolia", "suez", "orange money home", "internet", "fibre"),
+                    "gaz", "eau", "veolia", "suez", "internet", "fibre"),
                 Category.LOGEMENT
             ),
             RegleCategorisation(
@@ -90,7 +130,7 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
             ),
             RegleCategorisation(
                 listOf("gym", "fitness", "cinema", "cinéma", "théâtre", "musée", "piscine",
-                    "sport", "loisirs", "fnac", "culture", "concert", "festival"),
+                    "sport", "loisirs", "fnac", "culture", "concert", "festival", "hotel"),
                 Category.LOISIRS
             ),
             RegleCategorisation(
@@ -106,6 +146,24 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
                 listOf("zara", "h&m", "uniqlo", "nike", "adidas", "décathlon", "vêtement",
                     "chaussures", "habillement"),
                 Category.HABILLEMENT
+            )
+        )
+
+        /**
+         * Dictionnaire de règles de sous-catégorisation dans AUTRE.
+         * Utilisé uniquement quand aucune règle de catégorie principale ne correspond.
+         * DIVERS est exclu : c'est la valeur de refus, pas une suggestion automatique.
+         */
+        private val REGLES_SOUS_CATEGORIES = listOf(
+            RegleSousCategorie(
+                listOf("cadeau", "cadeaux", "anniversaire", "noël", "noel", "fête"),
+                SubCategory.CADEAUX
+            ),
+            RegleSousCategorie(
+                listOf("frais bancaires", "commission bancaire", "cotisation carte",
+                    "agios", "découvert", "frais de tenue", "frais de dossier",
+                    "ecobank", "uba", "coris bank"),
+                SubCategory.FRAIS_BANCAIRES
             )
         )
     }

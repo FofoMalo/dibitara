@@ -147,11 +147,12 @@ class BredCsvParserTest {
     }
 
     @Test
-    fun `Prélèvement EDF (ancien format PRLV) est catégorisé ABONNEMENTS`() {
+    fun `Prélèvement EDF (ancien format PRLV) est catégorisé LOGEMENT`() {
+        // EDF classé en LOGEMENT (énergie = maintien du foyer) et non en ABONNEMENTS
         val result = BredCsvParser.parse(
             csvFormatA("05/05/2026;PRLV SEPA EDF ENERGIE;-120,00;EUR").inputStream()
         )
-        assertEquals(Category.ABONNEMENTS, result[0].category)
+        assertEquals(Category.LOGEMENT, result[0].category)
     }
 
     @Test

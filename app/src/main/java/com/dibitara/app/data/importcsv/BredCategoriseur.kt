@@ -41,13 +41,20 @@ internal object BredCategoriseur {
     private val MOTS_ABONNEMENTS = setOf(
         "SFR", "ORANGE", "FREE MOBILE", "BOUYGUES TELECOM", "LA POSTE MOBILE",
         "ADOBE", "MICROSOFT", "GOOGLE", "APPLE.COM", "APPLE ", "OVH", "AMAZON WEB",
-        "CANAL PLUS", "CANAL+", "MEDIAPART", "LIBERATION", "OUEST FRANCE",
-        "EDF", "ENGIE", "VEOLIA", "SUEZ", "ENEDIS", "EAU DE PARIS", "SAUR",
-        "GENERALI", "KEREIS", "APICIL", "MAIF", "AXA", "MACIF", "MGEN"
+        "CANAL PLUS", "CANAL+", "MEDIAPART", "LIBERATION", "OUEST FRANCE"
     )
+    // Énergie et eau classées en LOGEMENT : nature budgétaire (maintien du foyer),
+    // pas en ABONNEMENTS qui est réservé aux services numériques/téléphonie.
     private val MOTS_LOGEMENT = setOf(
         "LOYER", "SYNDIC", "CHARGES COPROPRIETE", "LEROY MERLIN", "CASTORAMA",
-        "IKEA", "BUT ", "CONFORAMA", "MAISONS DU MONDE", "BRICORAMA"
+        "IKEA", "BUT ", "CONFORAMA", "MAISONS DU MONDE", "BRICORAMA",
+        "EDF", "ENGIE", "VEOLIA", "SUEZ", "ENEDIS", "EAU DE PARIS", "SAUR"
+    )
+    // Assurances classées en IMPOTS_CHARGES : obligations légales et protection
+    // patrimoniale, distinctes des abonnements de services numériques.
+    private val MOTS_IMPOTS = setOf(
+        "GENERALI", "KEREIS", "APICIL", "MAIF", "AXA", "MACIF", "MGEN",
+        "IMPOTS", "DGFIP", "URSSAF", "CAF "
     )
 
     // ─── Catégorisation ───────────────────────────────────────────────────────
@@ -94,6 +101,7 @@ internal object BredCategoriseur {
         MOTS_HABILLEMENT.any  { n.contains(it) } -> Category.HABILLEMENT
         MOTS_ABONNEMENTS.any  { n.contains(it) } -> Category.ABONNEMENTS
         MOTS_LOGEMENT.any     { n.contains(it) } -> Category.LOGEMENT
+        MOTS_IMPOTS.any       { n.contains(it) } -> Category.IMPOTS_CHARGES
         else                                      -> null
     }
 

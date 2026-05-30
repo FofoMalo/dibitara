@@ -48,12 +48,14 @@ enum class Category(val displayName: String) {
     ABONNEMENTS   ("Abonnements"),     // téléphonie, streaming, internet, logiciels
     INVESTISSEMENT("Investissement"),
     EPARGNE       ("Épargne"),
-    ENFANT        ("Enfant"),
-    HABILLEMENT   ("Habillement"),
-    IMPOTS_CHARGES("Impôts & charges"),
-    ASSURANCES    ("Assurances"),
-    TRANSFERTS    ("Transferts"),
-    AUTRE         ("Autre")            // toujours en dernier — fallback de safeValueOf
+    ENFANT             ("Enfant"),
+    EDUCATION          ("Éducation"),       // frais de scolarité, fournitures, formation
+    HABILLEMENT        ("Habillement"),
+    IMPOTS_CHARGES     ("Impôts & charges"),
+    ASSURANCES         ("Assurances"),
+    TRANSFERTS         ("Transferts"),
+    TRANSFERTS_FAMILIAUX("Transferts famille"), // envois famille élargie, tontines, njangi
+    AUTRE              ("Autre")            // toujours en dernier — fallback de safeValueOf
 }
 
 // Sous-catégories prédéfinies, utilisées uniquement quand category == AUTRE

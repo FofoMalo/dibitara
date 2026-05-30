@@ -711,7 +711,10 @@ private fun RecategorizationCard(
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text  = "Autre → ${suggestion.suggestedCategory.displayName}",
+                        text  = if (suggestion.suggestedSubCategory != null)
+                            "Autre → ${suggestion.suggestedSubCategory.displayName}"
+                        else
+                            "Autre → ${suggestion.suggestedCategory.displayName}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

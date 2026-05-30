@@ -95,17 +95,23 @@ class DashboardViewModel @Inject constructor(
         )
 
     /**
-     * Applique la suggestion : change la catégorie et efface la sous-catégorie.
-     * La transaction disparaît des suggestions car elle n'est plus dans Category.AUTRE.
+     * Applique la suggestion.
+     * - Si [suggestedSubCategory] est non-null : reste dans AUTRE mais pose la sous-catégorie.
+     *   La transaction disparaît des suggestions car subCategory != null.
+     * - Sinon : change la catégorie principale et efface la sous-catégorie.
+     *   La transaction disparaît des suggestions car elle n'est plus dans Category.AUTRE.
      */
     fun appliquerRecategorisation(suggestion: RecategorizationSuggestion) {
         viewModelScope.launch {
-            updateTransaction(
+            val updated = if (suggestion.suggestedSubCategory != null) {
+                suggestion.transaction.copy(subCategory = suggestion.suggestedSubCategory)
+            } else {
                 suggestion.transaction.copy(
                     category    = suggestion.suggestedCategory,
                     subCategory = null
                 )
-            )
+            }
+            updateTransaction(updated)
         }
     }
 

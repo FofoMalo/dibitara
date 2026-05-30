@@ -25,15 +25,17 @@ class ExchangeRateRepositoryImpl @Inject constructor(
 
     companion object {
         val KEY_USD  = doublePreferencesKey("exchange_usd_par_eur")
-        val KEY_XOF  = doublePreferencesKey("exchange_xof_par_eur")
         val KEY_TIME = longPreferencesKey("exchange_timestamp")
 
         // Durée de validité du cache : 1 heure
         const val CACHE_DUREE_MS = 60 * 60 * 1_000L
 
-        // Taux de secours si aucun cache et réseau indisponible
+        // Taux de secours USD si réseau indisponible
         const val USD_FALLBACK = 1.09
-        const val XOF_FALLBACK = 655.96
+
+        // XOF (et XAF) sont indexés sur l'euro à parité fixe depuis 1999 (traité de Maastricht).
+        // Frankfurter ne les expose pas — inutile d'appeler le réseau pour ces devises.
+        const val XOF_TAUX_FIXE = 655.957
     }
 
     override suspend fun getRates(): Result<ExchangeRates> {
@@ -41,33 +43,27 @@ class ExchangeRateRepositoryImpl @Inject constructor(
         val timestamp = prefs[KEY_TIME] ?: 0L
         val maintenant = System.currentTimeMillis()
 
-        // Retourne le cache s'il est encore frais
+        // Retourne le cache s'il est encore frais (USD uniquement — XOF est une constante)
         if (maintenant - timestamp < CACHE_DUREE_MS) {
             val usd = prefs[KEY_USD] ?: USD_FALLBACK
-            val xof = prefs[KEY_XOF] ?: XOF_FALLBACK
-            return Result.success(ExchangeRates(usd, xof, timestamp))
+            return Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, timestamp))
         }
 
-        // Appel réseau
+        // Appel réseau pour USD uniquement
         return try {
             val response = api.getLatest()
             val usd = response.rates["USD"] ?: USD_FALLBACK
-            val xof = response.rates["XOF"] ?: XOF_FALLBACK
 
-            // Sauvegarde en cache
             dataStore.edit { p ->
                 p[KEY_USD]  = usd
-                p[KEY_XOF]  = xof
                 p[KEY_TIME] = maintenant
             }
 
-            Result.success(ExchangeRates(usd, xof, maintenant))
+            Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, maintenant))
         } catch (e: Exception) {
-            // Si le réseau échoue mais qu'on a un vieux cache, on le retourne quand même
             val usd = prefs[KEY_USD] ?: USD_FALLBACK
-            val xof = prefs[KEY_XOF] ?: XOF_FALLBACK
             if (prefs[KEY_USD] != null) {
-                Result.success(ExchangeRates(usd, xof, timestamp))
+                Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, timestamp))
             } else {
                 Result.failure(e)
             }
@@ -77,7 +73,7 @@ class ExchangeRateRepositoryImpl @Inject constructor(
     override fun getRatesFlow(): Flow<ExchangeRates> = dataStore.data.map { prefs ->
         ExchangeRates(
             usdParEur  = prefs[KEY_USD] ?: USD_FALLBACK,
-            xofParEur  = prefs[KEY_XOF] ?: XOF_FALLBACK,
+            xofParEur  = XOF_TAUX_FIXE,
             horodatage = prefs[KEY_TIME] ?: 0L
         )
     }
