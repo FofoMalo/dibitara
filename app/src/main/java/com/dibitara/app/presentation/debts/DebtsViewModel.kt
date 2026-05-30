@@ -60,6 +60,8 @@ class DebtsViewModel @Inject constructor(
         label: String,
         totalStr: String,
         monthlyStr: String,
+        originalStr: String = "",
+        paymentDay: Int? = null,
         currency: Currency,
         type: DebtType
     ) {
@@ -68,15 +70,18 @@ class DebtsViewModel @Inject constructor(
             return
         }
         val monthlyCents = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val originalCents = originalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
         viewModelScope.launch {
             saveDebt(
                 Debt(
-                    label = label,
-                    totalCents = totalCents,
+                    label               = label,
+                    totalCents          = totalCents,
                     monthlyPaymentCents = monthlyCents,
-                    currency = currency,
-                    type = type,
-                    updatedAt = LocalDate.now()
+                    originalAmountCents = originalCents,
+                    paymentDay          = paymentDay,
+                    currency            = currency,
+                    type                = type,
+                    updatedAt           = LocalDate.now()
                 )
             )
                 .onSuccess { _event.emit(DebtsEvent.Saved) }
@@ -88,6 +93,37 @@ class DebtsViewModel @Inject constructor(
         viewModelScope.launch {
             deleteDebt(debt)
             _event.emit(DebtsEvent.Deleted)
+        }
+    }
+
+    fun editDebt(
+        debt: Debt,
+        label: String,
+        totalStr: String,
+        monthlyStr: String,
+        originalStr: String,
+        paymentDay: Int?,
+        currency: Currency,
+        type: DebtType
+    ) {
+        val totalCents = totalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: return
+        val monthlyCents = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val originalCents = originalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        viewModelScope.launch {
+            saveDebt(
+                debt.copy(
+                    label               = label,
+                    totalCents          = totalCents,
+                    monthlyPaymentCents = monthlyCents,
+                    originalAmountCents = originalCents,
+                    paymentDay          = paymentDay,
+                    currency            = currency,
+                    type                = type,
+                    updatedAt           = LocalDate.now()
+                )
+            )
+                .onSuccess { _event.emit(DebtsEvent.Saved) }
+                .onFailure { _event.emit(DebtsEvent.Error(it.message ?: "Erreur")) }
         }
     }
 }

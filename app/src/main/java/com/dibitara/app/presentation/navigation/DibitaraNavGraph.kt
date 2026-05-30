@@ -23,6 +23,7 @@ import com.dibitara.app.presentation.debts.DebtsScreen
 import com.dibitara.app.presentation.investments.InvestmentsScreen
 import com.dibitara.app.presentation.savings.SavingsScreen
 import com.dibitara.app.presentation.patrimoine.PatrimoineDetailScreen
+import com.dibitara.app.presentation.projection.ProjectionDetailScreen
 import com.dibitara.app.presentation.report.MonthlyReportScreen
 import com.dibitara.app.presentation.importcsv.ImportBredScreen
 import com.dibitara.app.presentation.importcsv.ImportBredPdfScreen
@@ -63,6 +64,7 @@ sealed class Screen(val route: String) {
     data object ImportBred        : Screen("import_bred")
     data object ImportBredPdf     : Screen("import_bred_pdf")
     data object DuplicateCleanup  : Screen("duplicate_cleanup")
+    data object ProjectionDetail  : Screen("projection_detail")
 }
 
 // Écrans qui affichent la barre de navigation inférieure
@@ -134,8 +136,12 @@ fun DibitaraNavGraph(
                     onNavigateToBudget       = { navController.navigate(Screen.Budget.route) },
                     onNavigateToSavings      = { navController.navigate(Screen.Savings.route) },
                     onNavigateToInvestments  = { navController.navigate(Screen.Investments.route) },
-                    onNavigateToPatrimoine   = { navController.navigate(Screen.PatrimoineDetail.route) }
+                    onNavigateToPatrimoine   = { navController.navigate(Screen.PatrimoineDetail.route) },
+                    navController            = navController
                 )
+            }
+            composable(Screen.ProjectionDetail.route) {
+                ProjectionDetailScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable(Screen.Budget.route) {
                 BudgetScreen(

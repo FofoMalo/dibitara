@@ -15,7 +15,8 @@ data class CashflowProjection(
     val soldeProjecte30jCents: Long,
     val jourPassageSeuilNegatif: LocalDate?,
     val pointsTimeline: List<CashflowPoint>,
-    val currency: Currency
+    val currency: Currency,
+    val evenementsAVenir: List<EventProjecte> = emptyList()
 )
 
 /**

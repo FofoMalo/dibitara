@@ -35,7 +35,7 @@ import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
         EmployeeSavingsEntity::class,
         PatrimoineSnapshotEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -55,6 +55,14 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun patrimoineSnapshotDao(): PatrimoineSnapshotDao
 
     companion object {
+        // Migration v14 → v15 : colonnes paymentDay et originalAmountCents sur debts
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE debts ADD COLUMN paymentDay INTEGER")
+                db.execSQL("ALTER TABLE debts ADD COLUMN originalAmountCents INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         // Migration v13 → v14 : colonne plafondCents sur savings_accounts pour le suivi du plafond légal
         val MIGRATION_13_14 = object : Migration(13, 14) {
             override fun migrate(db: SupportSQLiteDatabase) {

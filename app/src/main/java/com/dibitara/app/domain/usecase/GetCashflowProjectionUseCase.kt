@@ -67,38 +67,33 @@ class GetCashflowProjectionUseCase @Inject constructor(
             sources.copy(scpi = scpi, debts = debts)
         }.transform { sources ->
 
-            val epargneContribs = sources.savings
+            val epargneNonVersee = sources.savings
                 .filter { it.monthlyContributionCents > 0 }
                 .filter { account ->
                     !versementRepository.existsPourMois(
                         account.id, CompteType.EPARGNE, today.year, today.monthValue
                     )
                 }
-                .sumOf { it.monthlyContributionCents }
 
             // Même logique que l'épargne : contributions SCPI non encore versées ce mois
-            val scpiContribs = sources.scpi
+            val scpiNonVersee = sources.scpi
                 .filter { it.monthlyContributionCents > 0 }
                 .filter { scpi ->
                     !versementRepository.existsPourMois(
                         scpi.id, CompteType.SCPI, today.year, today.monthValue
                     )
                 }
-                .sumOf { it.monthlyContributionCents }
-
-            val totalDebtPayments = sources.debts
-                .filter { it.monthlyPaymentCents > 0 }
-                .sumOf { it.monthlyPaymentCents }
 
             emit(
                 buildProjection(
-                    soldeCourant      = sources.soldeCourantCents,
-                    currency          = sources.currency,
-                    recurring         = sources.recurring,
-                    pendingContribs   = epargneContribs + scpiContribs,
-                    debtPaymentCents  = totalDebtPayments,
-                    seuilCents        = sources.seuilCents,
-                    today             = today
+                    soldeCourant     = sources.soldeCourantCents,
+                    currency         = sources.currency,
+                    recurring        = sources.recurring,
+                    epargneNonVersee = epargneNonVersee,
+                    scpiNonVersee    = scpiNonVersee,
+                    dettes           = sources.debts,
+                    seuilCents       = sources.seuilCents,
+                    today            = today
                 )
             )
         }
@@ -107,38 +102,86 @@ class GetCashflowProjectionUseCase @Inject constructor(
         soldeCourant: Long,
         currency: Currency,
         recurring: List<Transaction>,
-        pendingContribs: Long,
-        debtPaymentCents: Long,
+        epargneNonVersee: List<SavingsAccount>,
+        scpiNonVersee: List<ScpiInvestment>,
+        dettes: List<Debt>,
         seuilCents: Long,
         today: LocalDate
     ): CashflowProjection {
         val horizon = today.plusDays(30)
         val fluxParDate = mutableMapOf<LocalDate, Long>()
+        val evenements  = mutableListOf<EventProjecte>()
 
         recurring
             .filter { it.type == TransactionType.EXPENSE || it.type == TransactionType.INCOME }
             .filter { it.endDate == null || it.endDate >= today }
             .forEach { template ->
                 val signe = if (template.type == TransactionType.EXPENSE) -1L else +1L
+                val sensFlux = if (template.type == TransactionType.EXPENSE) SensFlux.SORTIE else SensFlux.ENTREE
                 occurrencesInRange(template, today, horizon).forEach { date ->
                     fluxParDate[date] = (fluxParDate[date] ?: 0L) + signe * template.amountCents
+                    evenements.add(
+                        EventProjecte(
+                            date         = date,
+                            label        = template.note.ifBlank { "Transaction récurrente" },
+                            montantCents = template.amountCents,
+                            sens         = sensFlux
+                        )
+                    )
                 }
             }
 
-        // Contributions épargne + SCPI non versées → fin du mois courant
-        if (pendingContribs > 0) {
-            val finMoisCourant = minOf(dernierJourDuMois(today), horizon)
-            fluxParDate[finMoisCourant] = (fluxParDate[finMoisCourant] ?: 0L) - pendingContribs
+        // Contributions épargne non versées → fin du mois courant
+        val finMoisCourant = minOf(dernierJourDuMois(today), horizon)
+        epargneNonVersee.forEach { savings ->
+            fluxParDate[finMoisCourant] = (fluxParDate[finMoisCourant] ?: 0L) - savings.monthlyContributionCents
+            evenements.add(
+                EventProjecte(
+                    date         = finMoisCourant,
+                    label        = "Versement ${savings.label}",
+                    montantCents = savings.monthlyContributionCents,
+                    sens         = SensFlux.SORTIE
+                )
+            )
+        }
+
+        // Contributions SCPI non versées → fin du mois courant
+        scpiNonVersee.forEach { scpi ->
+            fluxParDate[finMoisCourant] = (fluxParDate[finMoisCourant] ?: 0L) - scpi.monthlyContributionCents
+            evenements.add(
+                EventProjecte(
+                    date         = finMoisCourant,
+                    label        = "Versement SCPI ${scpi.label}",
+                    montantCents = scpi.monthlyContributionCents,
+                    sens         = SensFlux.SORTIE
+                )
+            )
         }
 
         // Mensualités crédit : une occurrence par mois dans la fenêtre [today, horizon].
-        // Placées en fin de mois faute de connaître le jour exact de prélèvement.
-        if (debtPaymentCents > 0) {
+        // Si paymentDay est renseigné on l'utilise, sinon on place en fin de mois.
+        dettes.filter { it.monthlyPaymentCents > 0 }.forEach { debt ->
             var debutMois = today.withDayOfMonth(1)
             while (debutMois <= horizon) {
+                val lastDayOfMonth = debutMois.month.length(debutMois.isLeapYear)
                 val finMois = minOf(dernierJourDuMois(debutMois), horizon)
-                if (finMois >= today) {
-                    fluxParDate[finMois] = (fluxParDate[finMois] ?: 0L) - debtPaymentCents
+                val datePaiement = if (debt.paymentDay != null) {
+                    val jour = debt.paymentDay.coerceAtMost(lastDayOfMonth)
+                    val candidate = java.time.LocalDate.of(debutMois.year, debutMois.monthValue, jour)
+                    minOf(candidate, horizon)
+                } else {
+                    finMois
+                }
+                if (datePaiement >= today) {
+                    fluxParDate[datePaiement] = (fluxParDate[datePaiement] ?: 0L) - debt.monthlyPaymentCents
+                    evenements.add(
+                        EventProjecte(
+                            date         = datePaiement,
+                            label        = "Mensualité ${debt.label}",
+                            montantCents = debt.monthlyPaymentCents,
+                            sens         = SensFlux.SORTIE
+                        )
+                    )
                 }
                 debutMois = debutMois.plusMonths(1)
             }
@@ -157,7 +200,8 @@ class GetCashflowProjectionUseCase @Inject constructor(
             soldeProjecte30jCents   = points.last().soldeCents,
             jourPassageSeuilNegatif = points.firstOrNull { it.soldeCents < seuilCents }?.date,
             pointsTimeline          = points,
-            currency                = currency
+            currency                = currency,
+            evenementsAVenir        = evenements.sortedBy { it.date }
         )
     }
 

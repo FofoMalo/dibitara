@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
@@ -21,6 +22,7 @@ import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.RecurrenceFrequency
 import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.presentation.common.toCurrencyDisplay
+import com.dibitara.app.presentation.navigation.Screen
 import java.time.format.DateTimeFormatter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -51,6 +53,7 @@ fun DashboardScreen(
     onNavigateToSavings      : () -> Unit = {},
     onNavigateToInvestments  : () -> Unit = {},
     onNavigateToPatrimoine   : () -> Unit = {},
+    navController            : NavHostController? = null,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -85,7 +88,8 @@ fun DashboardScreen(
                     onToggleEditMode            = { viewModel.toggleEditMode() },
                     onMoveCard                  = { from, to -> viewModel.moveCard(from, to) },
                     onApplyRecategorization     = { viewModel.appliquerRecategorisation(it) },
-                    onRefuseRecategorization    = { viewModel.refuserRecategorisation(it) }
+                    onRefuseRecategorization    = { viewModel.refuserRecategorisation(it) },
+                    onVoirDetailProjection      = { navController?.navigate(Screen.ProjectionDetail.route) }
                 )
             }
         }
@@ -111,7 +115,8 @@ private fun DashboardContent(
     onToggleEditMode            : () -> Unit                        = {},
     onMoveCard                  : (fromKey: String, toKey: String) -> Unit = { _, _ -> },
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
-    onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit
+    onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
+    onVoirDetailProjection      : () -> Unit                        = {}
 ) {
     val lazyListState = rememberLazyListState()
     val reorderState  = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -170,7 +175,8 @@ private fun DashboardContent(
                         onNavigateToSavings     = onNavigateToSavings,
                         onNavigateToInvestments = onNavigateToInvestments,
                         onApplyRecategorization = onApplyRecategorization,
-                        onRefuseRecategorization = onRefuseRecategorization
+                        onRefuseRecategorization = onRefuseRecategorization,
+                        onVoirDetailProjection  = onVoirDetailProjection
                     )
                 }
             }
@@ -199,7 +205,8 @@ private fun DashboardCardSlot(
     onNavigateToSavings         : () -> Unit,
     onNavigateToInvestments     : () -> Unit,
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
-    onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit
+    onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
+    onVoirDetailProjection      : () -> Unit = {}
 ) {
     // En mode édition, chaque carte affiche une poignée de déplacement à droite
     if (isEditMode) {
@@ -210,7 +217,8 @@ private fun DashboardCardSlot(
                     cashflowProjection, recategorizationSuggestions,
                     onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
                     onNavigateToSavings, onNavigateToInvestments,
-                    onApplyRecategorization, onRefuseRecategorization
+                    onApplyRecategorization, onRefuseRecategorization,
+                    onVoirDetailProjection
                 )
             }
             Icon(
@@ -226,7 +234,8 @@ private fun DashboardCardSlot(
             cashflowProjection, recategorizationSuggestions,
             onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
             onNavigateToSavings, onNavigateToInvestments,
-            onApplyRecategorization, onRefuseRecategorization
+            onApplyRecategorization, onRefuseRecategorization,
+            onVoirDetailProjection
         )
     }
 }
@@ -246,7 +255,8 @@ private fun DashboardCardContent(
     onNavigateToSavings         : () -> Unit,
     onNavigateToInvestments     : () -> Unit,
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
-    onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit
+    onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
+    onVoirDetailProjection      : () -> Unit = {}
 ) {
     when (card) {
         DashboardCard.METRIQUES_BUDGET_EPARGNE ->
@@ -268,7 +278,7 @@ private fun DashboardCardContent(
                 onClick = onNavigateToDebts)
         DashboardCard.CASHFLOW_PROJECTION ->
             if (cashflowProjection != null)
-                CashflowProjectionCard(projection = cashflowProjection)
+                CashflowProjectionCard(projection = cashflowProjection, onVoirDetail = onVoirDetailProjection)
         DashboardCard.RAPPORT_GRAPHIQUE ->
             if (rapportMensuel != null)
                 RapportSyntheseCard(rapport = rapportMensuel, onVoirDetail = onNavigateToReport)
@@ -621,7 +631,7 @@ private fun moisAbrege(month: Int): String = when (month) {
 // ─── Carte projection de trésorerie ──────────────────────────────────────────
 
 @Composable
-private fun CashflowProjectionCard(projection: CashflowProjection) {
+private fun CashflowProjectionCard(projection: CashflowProjection, onVoirDetail: () -> Unit = {}) {
     val enDanger = projection.jourPassageSeuilNegatif != null
     val containerColor = if (enDanger) MaterialTheme.colorScheme.errorContainer
                          else MaterialTheme.colorScheme.secondaryContainer
@@ -671,6 +681,20 @@ private fun CashflowProjectionCard(projection: CashflowProjection) {
                     text  = "Solde sous le seuil à partir du ${projection.jourPassageSeuilNegatif!!.format(dateFmt)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            TextButton(
+                onClick = onVoirDetail,
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Voir le détail", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.width(2.dp))
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
                 )
             }
         }
