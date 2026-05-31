@@ -1,8 +1,8 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 4.0 — 2026-05-22  
-> Statut : **En développement actif** — v4.3.0 sur main — Room v10
+> Version du document : 4.1 — 2026-05-31  
+> Statut : **En développement actif** — v4.3.0 sur main — Room v16 (perso/florent)
 
 ---
 
@@ -294,6 +294,10 @@ Pyramide de tests (situation actuelle) :
 | Sprint 34 | Recatégorisation word-boundary, sous-catégories AUTRE, Mobile Money Afrique, EDUCATION, TRANSFERTS_FAMILIAUX, XOF fixe, CFA sans décimales | ✅ Terminé | v4.5.0 |
 | Sprint 35 | Projection 30j : 6 correctifs (solde réel, revenus récurrents, SCPI, crédits, jour précis, now) + écran détail + Dettes (édition, progression, paymentDay) — Room v15 | ✅ Terminé | v4.5.0 |
 | Sprint 35b | Vue Budget simplifiée : bilan + objectif fusionnés, revenus compacts | ✅ Terminé | v4.5.0 |
+| Sprint 36 | Recatégorisation à l'import (CategoriseurLibelle, SuggestionChip) + écran Tendances 6 mois par catégorie | ✅ Terminé | v4.5.0 |
+| Sprint 37 | Notifications contributions (CheckPendingContributionsUseCase, WeeklyRecapWorker) + chip "À catégoriser" + taux d'épargne et variations M/M-1 dans rapport | ✅ Terminé | v4.5.0 |
+| Sprint 37b | Tests d'intégration Room : TransactionDao, DebtDao, Migration v14→v15 | ✅ Terminé | v4.5.0 |
+| Sprint 38 | Taux d'intérêt (tauxInteret REAL) + simulateur remboursement anticipé sur les dettes — Room v16 | ✅ Terminé | v4.5.0 |
 
 ---
 
@@ -517,6 +521,7 @@ Avant de proposer ou d'implémenter une migration, je dois vérifier et signaler
 | 3.8 | 2026-05-20 | Florent | Sprint 15 marqué terminé — PR #7 mergée, v3.2.0 |
 | 3.9 | 2026-05-20 | Florent | Sprint 16 FEAT-RECUR livré — Room v7→v8, récurrences enrichies, vue prochains paiements, v4.0.0 |
 | 4.0 | 2026-05-22 | Florent | Sprints 17-19 ajoutés — Room v10, export CSV/JSON, investissements personnalisés, v4.3.0 |
+| 4.1 | 2026-05-31 | Florent | Sprints 36-38 ajoutés — recatégorisation import, Tendances 6 mois, notifications contributions, tests intégration Room, taux d'intérêt dettes (Room v16) |
 
 ---
 
