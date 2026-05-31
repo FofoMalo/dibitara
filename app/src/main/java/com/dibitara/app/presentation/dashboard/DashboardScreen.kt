@@ -431,11 +431,12 @@ private fun MetricCard(
 
 @Composable
 private fun DebtsCard(totalCents: Long, currency: Currency, onClick: () -> Unit) {
+    // tertiaryContainer : une dette en cours est une information neutre, pas une alerte
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
         colors = CardDefaults.cardColors(
-            containerColor = if (totalCents > 0) MaterialTheme.colorScheme.errorContainer
+            containerColor = if (totalCents > 0) MaterialTheme.colorScheme.tertiaryContainer
                             else MaterialTheme.colorScheme.surface
         )
     ) {
@@ -445,15 +446,19 @@ private fun DebtsCard(totalCents: Long, currency: Currency, onClick: () -> Unit)
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Dettes & crédits", style = MaterialTheme.typography.titleSmall)
+                Text("Dettes & crédits", style = MaterialTheme.typography.titleSmall,
+                    color = if (totalCents > 0) MaterialTheme.colorScheme.onTertiaryContainer
+                            else MaterialTheme.colorScheme.onSurface)
                 Text("Appuyez pour gérer", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = if (totalCents > 0)
+                        MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
                 totalCents.toCurrencyDisplay(currency),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (totalCents > 0) MaterialTheme.colorScheme.error
+                color = if (totalCents > 0) MaterialTheme.colorScheme.onTertiaryContainer
                         else MaterialTheme.colorScheme.onSurface
             )
         }
@@ -497,9 +502,10 @@ private fun RapportSyntheseCard(rapport: MonthlyReport, onVoirDetail: () -> Unit
             }
 
             // Bilan sur une ligne : Revenus / Dépenses / Solde
+            // Dépenses en secondary (neutre) : dépenser est normal. Red réservé au solde négatif.
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                 BilanMini("Revenus",  rapport.revenusCents,  rapport.currency, MaterialTheme.colorScheme.primary)
-                BilanMini("Dépenses", rapport.depensesCents, rapport.currency, MaterialTheme.colorScheme.error)
+                BilanMini("Dépenses", rapport.depensesCents, rapport.currency, MaterialTheme.colorScheme.secondary)
                 BilanMini(
                     label      = "Solde",
                     valueCents = rapport.soldeCents,
@@ -589,21 +595,22 @@ private fun UpcomingPaymentsCard(payments: List<UpcomingPayment>) {
                         )
                     }
                     Column(horizontalAlignment = Alignment.End) {
+                        // Montant en neutre : un prélèvement planifié n'est pas une urgence
                         Text(
                             text = upcoming.template.amountCents.toCurrencyDisplay(upcoming.template.currency),
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.error
+                            fontWeight = FontWeight.SemiBold
                         )
                         val label = when {
                             upcoming.daysUntil == 0L -> "Aujourd'hui"
                             upcoming.daysUntil == 1L -> "Demain"
                             else                     -> "Dans ${upcoming.daysUntil}j"
                         }
+                        // Red uniquement si c'est aujourd'hui ou demain (urgence réelle)
                         Text(
                             text = label,
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (upcoming.daysUntil <= 3)
+                            color = if (upcoming.daysUntil <= 1)
                                 MaterialTheme.colorScheme.error
                             else
                                 MaterialTheme.colorScheme.onSurfaceVariant
