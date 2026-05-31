@@ -38,6 +38,7 @@ fun DebtsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val defaultCurrency by viewModel.defaultCurrency.collectAsState()
+    val confirmedDebtIds by viewModel.confirmedDebtIds.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var debtToEdit by remember { mutableStateOf<Debt?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -52,6 +53,10 @@ fun DebtsScreen(
                 }
                 is DebtsEvent.Deleted -> snackbarHostState.showSnackbar("Dette supprimée")
                 is DebtsEvent.Error   -> snackbarHostState.showSnackbar(event.message)
+                is DebtsEvent.VersementConfirme -> {
+                    val montant = event.montantCents.toCurrencyDisplay(event.currency)
+                    snackbarHostState.showSnackbar("Versement confirmé — capital réduit de $montant")
+                }
             }
         }
     }
@@ -86,12 +91,14 @@ fun DebtsScreen(
                     )
                 is DebtsUiState.Success ->
                     DebtsContent(
-                        debts             = state.debts,
-                        totalCents        = state.totalCents,
-                        totalMonthlyCents = state.totalMonthlyCents,
-                        summaryCurrency   = state.summaryCurrency,
-                        onDelete          = viewModel::removeDebt,
-                        onEdit            = { debt -> debtToEdit = debt }
+                        debts                  = state.debts,
+                        totalCents             = state.totalCents,
+                        totalMonthlyCents      = state.totalMonthlyCents,
+                        summaryCurrency        = state.summaryCurrency,
+                        confirmedDebtIds       = confirmedDebtIds,
+                        onDelete               = viewModel::removeDebt,
+                        onEdit                 = { debt -> debtToEdit = debt },
+                        onConfirmerVersement   = viewModel::confirmerVersement
                     )
             }
         }
@@ -120,24 +127,26 @@ fun DebtsScreen(
 
 @Composable
 private fun DebtsContent(
-    debts             : List<Debt>,
-    totalCents        : Long,
-    totalMonthlyCents : Long,
-    summaryCurrency   : Currency,
-    onDelete          : (Debt) -> Unit,
-    onEdit            : (Debt) -> Unit = {}
+    debts                : List<Debt>,
+    totalCents           : Long,
+    totalMonthlyCents    : Long,
+    summaryCurrency      : Currency,
+    confirmedDebtIds     : Set<Long> = emptySet(),
+    onDelete             : (Debt) -> Unit,
+    onEdit               : (Debt) -> Unit = {},
+    onConfirmerVersement : (Debt) -> Unit = {}
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Carte récapitulative
+        // Carte récapitulative — tertiaryContainer, pas errorContainer (une dette n'est pas une urgence)
         if (debts.isNotEmpty()) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -147,25 +156,25 @@ private fun DebtsContent(
                             Text(
                                 "Total restant dû",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                             )
                             Text(
                                 totalCents.toCurrencyDisplay(summaryCurrency),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
                             )
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
                                 "Mensualités",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                             )
                             Text(
                                 "${totalMonthlyCents.toCurrencyDisplay(summaryCurrency)}/mois",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
                             )
                         }
                     }
@@ -185,15 +194,27 @@ private fun DebtsContent(
             }
         } else {
             items(debts, key = { it.id }) { debt ->
-                DebtCard(debt = debt, onDelete = { onDelete(debt) }, onEdit = { onEdit(debt) })
+                DebtCard(
+                    debt                 = debt,
+                    isConfirmedThisSession = debt.id in confirmedDebtIds,
+                    onDelete             = { onDelete(debt) },
+                    onEdit               = { onEdit(debt) },
+                    onConfirmerVersement = { onConfirmerVersement(debt) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) {
-    var showConfirm   by remember { mutableStateOf(false) }
+private fun DebtCard(
+    debt                   : Debt,
+    isConfirmedThisSession : Boolean = false,
+    onDelete               : () -> Unit,
+    onEdit                 : () -> Unit = {},
+    onConfirmerVersement   : () -> Unit = {}
+) {
+    var showConfirm    by remember { mutableStateOf(false) }
     var showSimulation by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -211,11 +232,11 @@ private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) 
                         DebtTypeChip(type = debt.type)
                         Text(debt.label, style = MaterialTheme.typography.bodyLarge)
                     }
+                    // Couleur neutre : le capital restant n'est pas une alerte permanente
                     Text(
                         "Restant dû : ${debt.totalCents.toCurrencyDisplay(debt.currency)}",
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.error
+                        fontWeight = FontWeight.SemiBold
                     )
                     if (debt.monthlyPaymentCents > 0) {
                         Text(
@@ -270,11 +291,22 @@ private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) 
                 }
             }
 
-            // Échéance estimée
+            // Échéance estimée — affichée en date lisible plutôt qu'en mois bruts
             if (debt.monthlyPaymentCents > 0 && debt.totalCents > 0) {
                 val nbMois = (debt.totalCents / debt.monthlyPaymentCents).toInt()
+                val texteEcheance = when {
+                    nbMois <= 0  -> "presque remboursé"
+                    nbMois < 12  -> "dans $nbMois mois"
+                    else -> {
+                        val echeance = java.time.LocalDate.now().plusMonths(nbMois.toLong())
+                        val nomMois  = echeance.month
+                            .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.FRENCH)
+                            .replaceFirstChar { it.uppercase() }
+                        "Fin $nomMois ${echeance.year}"
+                    }
+                }
                 Text(
-                    "Échéance estimée : dans $nbMois mois",
+                    "Échéance estimée : $texteEcheance",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -287,6 +319,26 @@ private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) 
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
+            }
+
+            // Bouton de confirmation du prélèvement mensuel
+            // Affiché si le jour de prélèvement est renseigné et qu'on est dans la fenêtre du mois
+            // (3 jours avant → fin du mois), et que l'utilisateur n'a pas déjà confirmé cette session
+            val payDay = debt.paymentDay
+            if (payDay != null && debt.monthlyPaymentCents > 0 && !isConfirmedThisSession) {
+                val aujourd_hui = java.time.LocalDate.now()
+                val jourActuel  = aujourd_hui.dayOfMonth
+                if (jourActuel >= (payDay - 3).coerceAtLeast(1)) {
+                    val nomMois = aujourd_hui.month
+                        .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.FRENCH)
+                        .replaceFirstChar { it.uppercase() }
+                    OutlinedButton(
+                        onClick = onConfirmerVersement,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Valider le prélèvement du $payDay $nomMois")
+                    }
+                }
             }
         }
     }
@@ -313,13 +365,13 @@ private fun DebtCard(debt: Debt, onDelete: () -> Unit, onEdit: () -> Unit = {}) 
 private fun DebtTypeChip(type: DebtType) {
     Surface(
         shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.errorContainer
+        color = MaterialTheme.colorScheme.tertiaryContainer
     ) {
         Text(
             type.displayName,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onErrorContainer
+            color = MaterialTheme.colorScheme.onTertiaryContainer
         )
     }
 }

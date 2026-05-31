@@ -56,6 +56,10 @@ class DebtsViewModel @Inject constructor(
     private val _event = MutableSharedFlow<DebtsEvent>()
     val event: SharedFlow<DebtsEvent> = _event.asSharedFlow()
 
+    // Dettes dont le versement du mois a été confirmé dans cette session (pas de table Room)
+    private val _confirmedDebtIds = MutableStateFlow<Set<Long>>(emptySet())
+    val confirmedDebtIds: StateFlow<Set<Long>> = _confirmedDebtIds.asStateFlow()
+
     fun addDebt(
         label: String,
         totalStr: String,
@@ -88,6 +92,19 @@ class DebtsViewModel @Inject constructor(
                 )
             )
                 .onSuccess { _event.emit(DebtsEvent.Saved) }
+                .onFailure { _event.emit(DebtsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun confirmerVersement(debt: Debt) {
+        if (debt.monthlyPaymentCents <= 0 || debt.totalCents <= 0) return
+        val nouveauTotal = (debt.totalCents - debt.monthlyPaymentCents).coerceAtLeast(0L)
+        viewModelScope.launch {
+            saveDebt(debt.copy(totalCents = nouveauTotal, updatedAt = LocalDate.now()))
+                .onSuccess {
+                    _confirmedDebtIds.value = _confirmedDebtIds.value + debt.id
+                    _event.emit(DebtsEvent.VersementConfirme(debt.monthlyPaymentCents, debt.currency))
+                }
                 .onFailure { _event.emit(DebtsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -149,4 +166,5 @@ sealed class DebtsEvent {
     data object Saved : DebtsEvent()
     data object Deleted : DebtsEvent()
     data class Error(val message: String) : DebtsEvent()
+    data class VersementConfirme(val montantCents: Long, val currency: Currency) : DebtsEvent()
 }
