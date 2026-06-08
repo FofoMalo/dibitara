@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dibitara.app.data.local.dao.*
 import com.dibitara.app.data.local.entity.*
+import com.dibitara.app.data.local.entity.CategorizationRuleEntity
 import com.dibitara.app.data.local.entity.CustomSubCategoryEntity
 import com.dibitara.app.data.local.entity.EmployeeSavingsEntity
 import com.dibitara.app.data.local.entity.MonthlyVersementEntity
@@ -33,9 +34,10 @@ import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
         PreciousMetalEntity::class,
         CustomAssetEntity::class,
         EmployeeSavingsEntity::class,
-        PatrimoineSnapshotEntity::class
+        PatrimoineSnapshotEntity::class,
+        CategorizationRuleEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -53,8 +55,27 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun customAssetDao(): CustomAssetDao
     abstract fun employeeSavingsDao(): EmployeeSavingsDao
     abstract fun patrimoineSnapshotDao(): PatrimoineSnapshotDao
+    abstract fun categorizationRuleDao(): CategorizationRuleDao
 
     companion object {
+        // Migration v16 → v17 : nouvelle table categorization_rules pour l'apprentissage des catégorisations manuelles
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS categorization_rules (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        noteExact TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        subCategory TEXT,
+                        customSubCategoryId INTEGER
+                    )
+                """.trimIndent())
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_categorization_rules_noteExact ON categorization_rules(noteExact)"
+                )
+            }
+        }
+
         // Migration v15 → v16 : taux d'intérêt annuel sur debts (branche florent/prive)
         val MIGRATION_15_16 = object : Migration(15, 16) {
             override fun migrate(db: SupportSQLiteDatabase) {

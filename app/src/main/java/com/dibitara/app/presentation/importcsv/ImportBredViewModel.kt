@@ -8,6 +8,7 @@ import com.dibitara.app.data.importcsv.BredCsvParser
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.usecase.CategoriseurLibelle
+import com.dibitara.app.domain.usecase.GetRuleForNoteUseCase
 import com.dibitara.app.domain.usecase.ImportTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,7 +29,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ImportBredViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val ucImport: ImportTransactionsUseCase
+    private val ucImport: ImportTransactionsUseCase,
+    private val ucGetRule: GetRuleForNoteUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ImportUiState>(ImportUiState.Initial)
@@ -89,9 +91,13 @@ class ImportBredViewModel @Inject constructor(
         _uiState.value = ImportUiState.Initial
     }
 
-    private fun recategoriserAuto(transactions: List<ImportedTransaction>): List<ImportedTransaction> =
+    private suspend fun recategoriserAuto(transactions: List<ImportedTransaction>): List<ImportedTransaction> =
         transactions.map { tx ->
             if (!tx.alreadyImported && tx.category == Category.AUTRE) {
+                // 1. Règle apprise par l'utilisateur (priorité absolue — exact match)
+                val regle = ucGetRule(tx.note)
+                if (regle != null) return@map tx.copy(category = regle.category)
+                // 2. Dictionnaire générique
                 val suggestion = CategoriseurLibelle.suggererCategorie(tx.note)
                 if (suggestion != null) tx.copy(category = suggestion) else tx
             } else tx

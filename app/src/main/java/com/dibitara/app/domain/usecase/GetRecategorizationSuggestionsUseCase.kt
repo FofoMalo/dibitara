@@ -4,6 +4,8 @@ import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.repository.CategorizationRuleRepository
 import com.dibitara.app.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,23 +26,36 @@ import javax.inject.Inject
  * [today] est injectable pour les tests.
  */
 class GetRecategorizationSuggestionsUseCase @Inject constructor(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val ruleRepository: CategorizationRuleRepository
 ) {
     operator fun invoke(today: LocalDate = LocalDate.now()): Flow<List<RecategorizationSuggestion>> {
         val debut = today.minusDays(90)
         return transactionRepository.getByDateRange(debut, today).map { transactions ->
             transactions
-                .filter { it.category == Category.AUTRE && it.subCategory == null }
+                // Les revenus ne peuvent pas être recatégorisés depuis l'UI (champs masqués)
+                .filter { it.category == Category.AUTRE && it.subCategory == null && it.type == TransactionType.EXPENSE }
                 .mapNotNull { trouverSuggestion(it) }
                 .distinctBy { it.transaction.id }
         }
     }
 
-    private fun trouverSuggestion(transaction: Transaction): RecategorizationSuggestion? {
+    private suspend fun trouverSuggestion(transaction: Transaction): RecategorizationSuggestion? {
         val libelle = transaction.note.lowercase().trim()
         if (libelle.isBlank()) return null
 
-        // Déléguer la catégorie principale à CategoriseurLibelle
+        // 1. Vérifier d'abord les règles apprises par l'utilisateur (priorité absolue)
+        val regleApprise = ruleRepository.getRuleForNote(transaction.note)
+        if (regleApprise != null) {
+            return RecategorizationSuggestion(
+                transaction          = transaction,
+                suggestedCategory    = regleApprise.category,
+                matchedKeyword       = transaction.note.trim(),
+                suggestedSubCategory = regleApprise.subCategory
+            )
+        }
+
+        // 2. Déléguer la catégorie principale à CategoriseurLibelle (dictionnaire générique)
         val categoriePrincipale = CategoriseurLibelle.suggererCategorie(transaction.note)
         if (categoriePrincipale != null) {
             // Retrouver le mot-clé correspondant pour l'afficher dans la suggestion
@@ -143,6 +158,11 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
                     "agios", "découvert", "frais de tenue", "frais de dossier",
                     "ecobank", "uba", "coris bank"),
                 SubCategory.FRAIS_BANCAIRES
+            ),
+            RegleSousCategorie(
+                listOf("restaurant", "bar", "café", "cafe", "bistro", "brasserie",
+                    "pizzeria", "kebab", "burger", "sushi", "snack", "terrasse"),
+                SubCategory.BAR_ET_RESTAURANT
             )
         )
     }

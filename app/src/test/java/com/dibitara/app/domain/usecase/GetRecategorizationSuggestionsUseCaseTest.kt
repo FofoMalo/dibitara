@@ -5,7 +5,9 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.repository.CategorizationRuleRepository
 import com.dibitara.app.domain.repository.TransactionRepository
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.first
@@ -18,7 +20,11 @@ import java.time.LocalDate
 class GetRecategorizationSuggestionsUseCaseTest {
 
     private val transactionRepo: TransactionRepository = mockk()
-    private val useCase = GetRecategorizationSuggestionsUseCase(transactionRepo)
+    private val ruleRepo: CategorizationRuleRepository = mockk<CategorizationRuleRepository>().also {
+        // Par défaut, aucune règle apprise — les tests existants testent uniquement le dictionnaire
+        coEvery { it.getRuleForNote(any()) } returns null
+    }
+    private val useCase = GetRecategorizationSuggestionsUseCase(transactionRepo, ruleRepo)
     private val today = LocalDate.of(2026, 5, 10)
 
     // ─── Cas sans suggestion ──────────────────────────────────────────────────

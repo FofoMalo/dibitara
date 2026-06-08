@@ -60,7 +60,8 @@ enum class Category(val displayName: String) {
 
 // Sous-catégories prédéfinies, utilisées uniquement quand category == AUTRE
 enum class SubCategory(val displayName: String) {
-    CADEAUX        ("Cadeaux"),
-    FRAIS_BANCAIRES("Frais bancaires"),
-    DIVERS         ("Divers")          // toujours en dernier — fallback de safeValueOf
+    CADEAUX          ("Cadeaux"),
+    FRAIS_BANCAIRES  ("Frais bancaires"),
+    BAR_ET_RESTAURANT("Bar & restaurant"),
+    DIVERS           ("Divers")          // toujours en dernier — fallback de safeValueOf
 }

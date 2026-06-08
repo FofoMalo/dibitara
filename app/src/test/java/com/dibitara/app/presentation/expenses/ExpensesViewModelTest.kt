@@ -15,6 +15,7 @@ import com.dibitara.app.domain.usecase.GetTransactionSuggestionsUseCase
 import com.dibitara.app.domain.usecase.GetTransactionsByDateRangeUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
+import com.dibitara.app.domain.usecase.UpsertCategorizationRuleUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
 import androidx.lifecycle.SavedStateHandle
 import io.mockk.coEvery
@@ -48,6 +49,7 @@ class ExpensesViewModelTest {
     private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase  = mockk(relaxed = true)
     private val ucGetPreferences         : GetUserPreferencesUseCase       = mockk()
     private val ucGetSuggestions         : GetTransactionSuggestionsUseCase = mockk()
+    private val ucUpsertRule             : UpsertCategorizationRuleUseCase = mockk(relaxed = true)
 
     private lateinit var viewModel: ExpensesViewModel
 
@@ -70,7 +72,7 @@ class ExpensesViewModelTest {
             ucGetMonthlyTransactions, ucGetByDateRange, ucGetAll,
             ucAdd, ucUpdate, ucDelete,
             ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
-            ucGetPreferences, ucGetSuggestions,
+            ucGetPreferences, ucGetSuggestions, ucUpsertRule,
             savedState
         )
 

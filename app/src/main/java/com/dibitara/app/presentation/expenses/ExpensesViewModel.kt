@@ -20,6 +20,7 @@ import com.dibitara.app.domain.usecase.GetTransactionSuggestionsUseCase
 import com.dibitara.app.domain.usecase.GetTransactionsByDateRangeUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
+import com.dibitara.app.domain.usecase.UpsertCategorizationRuleUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
 import androidx.lifecycle.SavedStateHandle
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,6 +44,7 @@ class ExpensesViewModel @Inject constructor(
     private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase,
     private val ucGetPreferences         : GetUserPreferencesUseCase,
     private val ucGetSuggestions         : GetTransactionSuggestionsUseCase,
+    private val ucUpsertRule             : UpsertCategorizationRuleUseCase,
     savedStateHandle                     : SavedStateHandle
 ) : ViewModel() {
 
@@ -189,7 +191,10 @@ class ExpensesViewModel @Inject constructor(
                     endDate = endDate
                 )
             )
-                .onSuccess { _event.emit(ExpensesEvent.Saved) }
+                .onSuccess {
+                    ucUpsertRule(note, type, category, subCategory, customSubCategoryId)
+                    _event.emit(ExpensesEvent.Saved)
+                }
                 .onFailure { _event.emit(ExpensesEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -234,6 +239,7 @@ class ExpensesViewModel @Inject constructor(
                 )
             )
                 .onSuccess {
+                    ucUpsertRule(note, type, category, subCategory, customSubCategoryId)
                     _event.emit(ExpensesEvent.Saved)
                     // Si la catégorie a changé et la note est identifiable, proposer de tout recatégoriser
                     if (category != original.category && note.isNotBlank()) {

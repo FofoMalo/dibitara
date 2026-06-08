@@ -135,10 +135,15 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                 )
             }
 
-            // Chip rapide "À catégoriser" — visible si des transactions AUTRE existent
+            // Chip rapide "À catégoriser" — visible si des dépenses AUTRE sans sous-catégorie existent
             val currentExpenses = (uiState as? ExpensesUiState.Success)?.expenses ?: emptyList()
             val autreCount = currentExpenses.count {
-                it.category == Category.AUTRE && it.type == TransactionType.EXPENSE
+                // Ne compte que les dépenses sans aucune sous-catégorie (prédéfinie ou custom)
+                // Les revenus sont exclus : ils sont stockés en AUTRE par design mais ne sont pas catégorisables
+                it.category == Category.AUTRE
+                    && it.type == TransactionType.EXPENSE
+                    && it.subCategory == null
+                    && it.customSubCategoryId == null
             }
             val isCategoriserSelected = filter.category == Category.AUTRE
             if (autreCount > 0 || isCategoriserSelected) {
@@ -156,7 +161,8 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                                 viewModel.updateFilter(
                                     filter.copy(
                                         category = Category.AUTRE,
-                                        transactionType = null
+                                        // Forcer EXPENSE pour ne jamais afficher les revenus dans ce filtre
+                                        transactionType = TransactionType.EXPENSE
                                     )
                                 )
                             }
