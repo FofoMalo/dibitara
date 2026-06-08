@@ -6,10 +6,13 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.DeleteBudgetUseCase
+import com.dibitara.app.domain.usecase.DeleteCategoryEnvelopeUseCase
+import com.dibitara.app.domain.usecase.GetCategoryEnvelopesUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyBudgetUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
 import com.dibitara.app.domain.usecase.SetBudgetUseCase
+import com.dibitara.app.domain.usecase.UpsertCategoryEnvelopeUseCase
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -29,12 +32,15 @@ import java.time.LocalDate
 class BudgetViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
-    private val getMonthlyBudget: GetMonthlyBudgetUseCase = mockk()
-    private val getMonthlyTransactions: GetMonthlyTransactionsUseCase = mockk()
-    private val setBudget: SetBudgetUseCase = mockk()
-    private val deleteBudget: DeleteBudgetUseCase = mockk()
-    private val getCustomSubCategories: GetCustomSubCategoriesUseCase = mockk()
-    private lateinit var viewModel: BudgetViewModel
+    private val getMonthlyBudget      : GetMonthlyBudgetUseCase       = mockk()
+    private val getMonthlyTransactions : GetMonthlyTransactionsUseCase  = mockk()
+    private val setBudget              : SetBudgetUseCase               = mockk()
+    private val deleteBudget           : DeleteBudgetUseCase            = mockk()
+    private val getCustomSubCategories : GetCustomSubCategoriesUseCase  = mockk()
+    private val getEnveloppes          : GetCategoryEnvelopesUseCase    = mockk()
+    private val upsertEnveloppe        : UpsertCategoryEnvelopeUseCase  = mockk(relaxed = true)
+    private val deleteEnveloppe        : DeleteCategoryEnvelopeUseCase  = mockk(relaxed = true)
+    private lateinit var viewModel     : BudgetViewModel
 
     private val now = LocalDate.now()
 
@@ -44,11 +50,17 @@ class BudgetViewModelTest {
         every { getMonthlyBudget(any(), any()) } returns flowOf(null)
         every { getMonthlyTransactions(any(), any()) } returns flowOf(emptyList())
         every { getCustomSubCategories() } returns flowOf(emptyList())
-        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget, getCustomSubCategories)
+        every { getEnveloppes() } returns flowOf(emptyList())
+        viewModel = buildViewModel()
     }
 
     @AfterEach
     fun tearDown() { Dispatchers.resetMain() }
+
+    private fun buildViewModel() = BudgetViewModel(
+        getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget,
+        getCustomSubCategories, getEnveloppes, upsertEnveloppe, deleteEnveloppe
+    )
 
     @Test
     fun `état initial expose Success avec budget null`() = runTest {
@@ -87,7 +99,7 @@ class BudgetViewModelTest {
         )
         every { getMonthlyBudget(any(), any()) } returns flowOf(budget)
         every { getMonthlyTransactions(any(), any()) } returns flowOf(depenses)
-        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget, getCustomSubCategories)
+        viewModel = buildViewModel()
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success
@@ -113,7 +125,7 @@ class BudgetViewModelTest {
         )
         every { getMonthlyBudget(any(), any()) } returns flowOf(null)
         every { getMonthlyTransactions(any(), any()) } returns flowOf(transactions)
-        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget, getCustomSubCategories)
+        viewModel = buildViewModel()
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success
@@ -135,7 +147,7 @@ class BudgetViewModelTest {
                 date = LocalDate.now())
         )
         every { getMonthlyTransactions(any(), any()) } returns flowOf(transactions)
-        viewModel = BudgetViewModel(getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget, getCustomSubCategories)
+        viewModel = buildViewModel()
 
         val job = launch { viewModel.uiState.collect {} }
         val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success

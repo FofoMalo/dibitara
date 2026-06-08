@@ -9,6 +9,7 @@ import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.dibitara.app.R
+import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.MonthlyReport
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -159,6 +160,24 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .build()
         envoyerSiAutorise(NOTIF_ID_MENSUEL, notification)
+    }
+
+    /**
+     * Alerte enveloppe par catégorie : dépassement de 80 % ou du plafond.
+     * L'ID est dérivé de l'ordinal de la catégorie (7000+) pour éviter toute collision.
+     */
+    fun envoyerAlerteEnveloppe(category: Category, depenseCents: Long, plafondCents: Long) {
+        val taux     = if (plafondCents > 0) depenseCents.toFloat() / plafondCents else 0f
+        val titre    = if (taux >= 1f) "Enveloppe dépassée" else "Enveloppe à ${(taux * 100).toInt()} %"
+        val texte    = "${category.displayName} : ${depenseCents / 100}€ / ${plafondCents / 100}€"
+        val notification = NotificationCompat.Builder(context, CANAL_BUDGET)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(titre)
+            .setContentText(texte)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+        envoyerSiAutorise(7000 + category.ordinal, notification)
     }
 
     /**

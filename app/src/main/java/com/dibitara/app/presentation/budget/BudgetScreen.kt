@@ -27,9 +27,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.filled.Add
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Category
+import com.dibitara.app.domain.model.CategoryEnvelope
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.EnveloppeStatus
 import com.dibitara.app.presentation.common.DonutAvecLegende
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.domain.model.CustomSubCategory
@@ -47,8 +50,12 @@ fun BudgetScreen(
     viewModel: BudgetViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showEditDialog   by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog        by remember { mutableStateOf(false) }
+    var showDeleteDialog      by remember { mutableStateOf(false) }
+    // null = création d'une nouvelle enveloppe ; non-null = édition d'une enveloppe existante
+    var enveloppeEnEdition    by remember { mutableStateOf<EnveloppeStatus?>(null) }
+    var showEnveloppeDialog   by remember { mutableStateOf(false) }
+    var enveloppeASupprimer   by remember { mutableStateOf<CategoryEnvelope?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -72,7 +79,18 @@ fun BudgetScreen(
                         onEditBudget         = { showEditDialog = true },
                         onDeleteBudget       = { showDeleteDialog = true },
                         onNavigateToExpenses = onNavigateToExpenses,
-                        onNavigateToTrends   = onNavigateToTrends
+                        onNavigateToTrends   = onNavigateToTrends,
+                        onAjouterEnveloppe   = {
+                            enveloppeEnEdition  = null
+                            showEnveloppeDialog = true
+                        },
+                        onEditerEnveloppe    = { statut ->
+                            enveloppeEnEdition  = statut
+                            showEnveloppeDialog = true
+                        },
+                        onSupprimerEnveloppe = { envelope ->
+                            enveloppeASupprimer = envelope
+                        }
                     )
             }
         }
@@ -110,6 +128,45 @@ fun BudgetScreen(
             }
         )
     }
+
+    if (showEnveloppeDialog) {
+        val currency = (uiState as? BudgetUiState.Success)?.budget?.currency ?: Currency.EUR
+        SetEnveloppeDialog(
+            enveloppeExistante = enveloppeEnEdition?.envelope,
+            deviseDefaut       = currency,
+            onConfirm = { amountStr, category, devise ->
+                viewModel.sauvegarderEnveloppe(enveloppeEnEdition?.envelope, amountStr, category, devise)
+                showEnveloppeDialog = false
+                enveloppeEnEdition  = null
+            },
+            onDismiss = {
+                showEnveloppeDialog = false
+                enveloppeEnEdition  = null
+            }
+        )
+    }
+
+    val aSupprimer = enveloppeASupprimer
+    if (aSupprimer != null) {
+        AlertDialog(
+            onDismissRequest = { enveloppeASupprimer = null },
+            title = { Text("Supprimer l'enveloppe") },
+            text  = { Text("Supprimer l'enveloppe « ${aSupprimer.category.displayName} » ? Le plafond ne sera plus suivi.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.supprimerEnveloppe(aSupprimer)
+                        enveloppeASupprimer = null
+                    }
+                ) {
+                    Text("Supprimer", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { enveloppeASupprimer = null }) { Text("Annuler") }
+            }
+        )
+    }
 }
 
 @Composable
@@ -120,7 +177,10 @@ private fun BudgetContent(
     onEditBudget: () -> Unit,
     onDeleteBudget: () -> Unit,
     onNavigateToExpenses: (category: String?, type: String?, month: Int, year: Int) -> Unit,
-    onNavigateToTrends: () -> Unit = {}
+    onNavigateToTrends: () -> Unit = {},
+    onAjouterEnveloppe: () -> Unit = {},
+    onEditerEnveloppe: (EnveloppeStatus) -> Unit = {},
+    onSupprimerEnveloppe: (CategoryEnvelope) -> Unit = {}
 ) {
     val monthName = Month.of(state.month).getDisplayName(TextStyle.FULL, Locale.FRENCH)
         .replaceFirstChar { it.uppercase() }
@@ -201,6 +261,41 @@ private fun BudgetContent(
                     amountCents = cents,
                     currency    = currency,
                     onClick     = { onNavigateToExpenses(category.name, TransactionType.EXPENSE.name, state.month, state.year) }
+                )
+            }
+        }
+
+        // Section enveloppes budgétaires par catégorie
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Text("Enveloppes par catégorie", style = MaterialTheme.typography.titleMedium)
+                IconButton(onClick = onAjouterEnveloppe) {
+                    Icon(Icons.Filled.Add, contentDescription = "Ajouter une enveloppe")
+                }
+            }
+        }
+        if (state.enveloppeStatuts.isEmpty()) {
+            item {
+                Text(
+                    "Aucune enveloppe définie — appuyez sur + pour en créer une.",
+                    style  = MaterialTheme.typography.bodySmall,
+                    color  = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+        } else {
+            items(state.enveloppeStatuts) { statut ->
+                EnveloppeCard(
+                    statut     = statut,
+                    currency   = currency,
+                    onEditer   = { onEditerEnveloppe(statut) },
+                    onSupprimer = { onSupprimerEnveloppe(statut.envelope) }
                 )
             }
         }
@@ -588,6 +683,181 @@ private fun CategoryDonutChart(
     }
 }
 
+
+// ─── Enveloppe budgétaire ─────────────────────────────────────────────────────
+
+/**
+ * Carte d'une enveloppe : nom catégorie, barre de progression colorée,
+ * montant dépensé / plafond, boutons éditer / supprimer.
+ *
+ * Couleur de la barre :
+ *  - Vert  (<80 %)  → Primary
+ *  - Orange (80-99 %) → Tertiary (ou Custom color)
+ *  - Rouge  (≥100 %) → Error
+ */
+@Composable
+private fun EnveloppeCard(
+    statut     : EnveloppeStatus,
+    currency   : Currency,
+    onEditer   : () -> Unit,
+    onSupprimer: () -> Unit
+) {
+    val couleurBarre = when {
+        statut.isDepasse -> MaterialTheme.colorScheme.error
+        statut.isAlerte  -> Color(0xFFE68A00)  // orange — pas dans le colorScheme M3 par défaut
+        else             -> MaterialTheme.colorScheme.primary
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Text(
+                    statut.envelope.category.displayName,
+                    style      = MaterialTheme.typography.titleSmall,
+                    modifier   = Modifier.weight(1f)
+                )
+                Row {
+                    IconButton(onClick = onEditer, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Modifier l'enveloppe", modifier = Modifier.size(16.dp))
+                    }
+                    IconButton(onClick = onSupprimer, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Supprimer l'enveloppe",
+                            modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { statut.taux.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color    = couleurBarre
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Dépensé : ${statut.depenseCents.toCurrencyDisplay(currency)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    if (statut.isDepasse)
+                        "Dépassé de ${(statut.depenseCents - statut.envelope.plafondCents).toCurrencyDisplay(currency)}"
+                    else
+                        "Plafond : ${statut.envelope.plafondCents.toCurrencyDisplay(currency)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (statut.isDepasse) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dialog de création / édition d'une enveloppe.
+ * Si [enveloppeExistante] est non-null, le champ catégorie est pré-rempli et verrouillé.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SetEnveloppeDialog(
+    enveloppeExistante: CategoryEnvelope?,
+    deviseDefaut      : Currency,
+    onConfirm         : (amountStr: String, category: Category, currency: Currency) -> Unit,
+    onDismiss         : () -> Unit
+) {
+    // Catégories disponibles — on exclut AUTRE car elle regroupe les "divers" non classés
+    val categoriesDisponibles = Category.entries.filter { it != Category.AUTRE }
+
+    var amount           by remember { mutableStateOf(enveloppeExistante?.let { "%.2f".format(it.plafondCents / 100.0).replace(',', '.') } ?: "") }
+    var selectedCategory by remember { mutableStateOf(enveloppeExistante?.category ?: categoriesDisponibles.first()) }
+    var selectedCurrency by remember { mutableStateOf(enveloppeExistante?.currency ?: deviseDefaut) }
+    var expandedCat      by remember { mutableStateOf(false) }
+    var expandedDev      by remember { mutableStateOf(false) }
+    val focusManager     = LocalFocusManager.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (enveloppeExistante != null) "Modifier l'enveloppe" else "Nouvelle enveloppe") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.imePadding()) {
+                // Sélecteur de catégorie (verrouillé en édition)
+                ExposedDropdownMenuBox(expanded = expandedCat, onExpandedChange = {
+                    if (enveloppeExistante == null) expandedCat = it
+                }) {
+                    OutlinedTextField(
+                        value         = selectedCategory.displayName,
+                        onValueChange = {},
+                        readOnly      = true,
+                        label         = { Text("Catégorie") },
+                        trailingIcon  = {
+                            if (enveloppeExistante == null) ExposedDropdownMenuDefaults.TrailingIcon(expandedCat)
+                        },
+                        modifier      = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+                    if (enveloppeExistante == null) {
+                        ExposedDropdownMenu(expanded = expandedCat, onDismissRequest = { expandedCat = false }) {
+                            categoriesDisponibles.forEach { cat ->
+                                DropdownMenuItem(
+                                    text    = { Text(cat.displayName) },
+                                    onClick = { selectedCategory = cat; expandedCat = false }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Montant
+                OutlinedTextField(
+                    value          = amount,
+                    onValueChange  = { amount = it },
+                    label          = { Text("Plafond mensuel") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    singleLine     = true,
+                    modifier       = Modifier.fillMaxWidth()
+                )
+
+                // Devise
+                ExposedDropdownMenuBox(expanded = expandedDev, onExpandedChange = { expandedDev = it }) {
+                    OutlinedTextField(
+                        value         = "${selectedCurrency.name} (${selectedCurrency.symbol})",
+                        onValueChange = {},
+                        readOnly      = true,
+                        label         = { Text("Devise") },
+                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expandedDev) },
+                        modifier      = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = expandedDev, onDismissRequest = { expandedDev = false }) {
+                        Currency.entries.forEach { currency ->
+                            DropdownMenuItem(
+                                text    = { Text("${currency.name} (${currency.symbol})") },
+                                onClick = { selectedCurrency = currency; expandedDev = false }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(amount, selectedCategory, selectedCurrency) },
+                enabled = amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true
+            ) { Text("Valider") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
+    )
+}
 
 private fun categoryBreakdown(transactions: List<Transaction>): List<Pair<Category, Long>> =
     transactions

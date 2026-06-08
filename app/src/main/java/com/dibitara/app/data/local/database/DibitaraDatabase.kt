@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dibitara.app.data.local.dao.*
 import com.dibitara.app.data.local.entity.*
 import com.dibitara.app.data.local.entity.CategorizationRuleEntity
+import com.dibitara.app.data.local.entity.CategoryEnvelopeEntity
 import com.dibitara.app.data.local.entity.CustomSubCategoryEntity
 import com.dibitara.app.data.local.entity.EmployeeSavingsEntity
 import com.dibitara.app.data.local.entity.MonthlyVersementEntity
@@ -35,9 +36,10 @@ import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
         CustomAssetEntity::class,
         EmployeeSavingsEntity::class,
         PatrimoineSnapshotEntity::class,
-        CategorizationRuleEntity::class
+        CategorizationRuleEntity::class,
+        CategoryEnvelopeEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -56,8 +58,26 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun employeeSavingsDao(): EmployeeSavingsDao
     abstract fun patrimoineSnapshotDao(): PatrimoineSnapshotDao
     abstract fun categorizationRuleDao(): CategorizationRuleDao
+    abstract fun categoryEnvelopeDao(): CategoryEnvelopeDao
 
     companion object {
+        // Migration v17 → v18 : nouvelle table category_envelopes pour les enveloppes budgétaires par catégorie
+        val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS category_envelopes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        category TEXT NOT NULL,
+                        plafondCents INTEGER NOT NULL,
+                        currency TEXT NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_category_envelopes_category ON category_envelopes(category)"
+                )
+            }
+        }
+
         // Migration v16 → v17 : nouvelle table categorization_rules pour l'apprentissage des catégorisations manuelles
         val MIGRATION_16_17 = object : Migration(16, 17) {
             override fun migrate(db: SupportSQLiteDatabase) {

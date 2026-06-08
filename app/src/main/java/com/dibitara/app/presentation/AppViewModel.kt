@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.usecase.CheckAvailableFundsUseCase
 import com.dibitara.app.domain.usecase.CheckBudgetNotificationUseCase
 import com.dibitara.app.domain.usecase.CheckDebtRemindersUseCase
+import com.dibitara.app.domain.usecase.CheckEnveloppeDepassementUseCase
 import com.dibitara.app.domain.usecase.CheckPendingContributionsUseCase
 import com.dibitara.app.domain.usecase.GenerateRecurringUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
@@ -29,6 +30,7 @@ class AppViewModel @Inject constructor(
     private val checkDebtReminders         : CheckDebtRemindersUseCase,
     private val checkAvailableFunds        : CheckAvailableFundsUseCase,
     private val checkPendingContributions  : CheckPendingContributionsUseCase,
+    private val checkEnveloppes            : CheckEnveloppeDepassementUseCase,
     private val getPreferences             : GetUserPreferencesUseCase,
     private val notificationHelper         : NotificationHelper
 ) : ViewModel() {
@@ -89,6 +91,16 @@ class AppViewModel @Inject constructor(
             if (pending.count > 0) {
                 notificationHelper.envoyerRappelContributions(pending.count, pending.totalCents)
             }
+        }
+
+        // 5. Enveloppes budgétaires dépassant 80 % ce mois ?
+        val enveloppesEnAlerte = checkEnveloppes(seuilTaux = 0.8f)
+        enveloppesEnAlerte.forEach { statut ->
+            notificationHelper.envoyerAlerteEnveloppe(
+                category     = statut.envelope.category,
+                depenseCents = statut.depenseCents,
+                plafondCents = statut.envelope.plafondCents
+            )
         }
     }
 }

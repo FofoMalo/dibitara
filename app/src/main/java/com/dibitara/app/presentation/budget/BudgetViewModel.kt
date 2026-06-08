@@ -3,15 +3,21 @@ package com.dibitara.app.presentation.budget
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.Budget
+import com.dibitara.app.domain.model.Category
+import com.dibitara.app.domain.model.CategoryEnvelope
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
+import com.dibitara.app.domain.model.EnveloppeStatus
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.DeleteBudgetUseCase
+import com.dibitara.app.domain.usecase.DeleteCategoryEnvelopeUseCase
+import com.dibitara.app.domain.usecase.GetCategoryEnvelopesUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyBudgetUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
 import com.dibitara.app.domain.usecase.SetBudgetUseCase
+import com.dibitara.app.domain.usecase.UpsertCategoryEnvelopeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -20,11 +26,14 @@ import javax.inject.Inject
 
 @HiltViewModel
 class BudgetViewModel @Inject constructor(
-    private val getMonthlyBudget: GetMonthlyBudgetUseCase,
+    private val getMonthlyBudget      : GetMonthlyBudgetUseCase,
     private val getMonthlyTransactions: GetMonthlyTransactionsUseCase,
-    private val setBudget: SetBudgetUseCase,
-    private val deleteBudget: DeleteBudgetUseCase,
-    private val getCustomSubCategories: GetCustomSubCategoriesUseCase
+    private val setBudget             : SetBudgetUseCase,
+    private val deleteBudget          : DeleteBudgetUseCase,
+    private val getCustomSubCategories: GetCustomSubCategoriesUseCase,
+    private val getEnveloppes         : GetCategoryEnvelopesUseCase,
+    private val upsertEnveloppe       : UpsertCategoryEnvelopeUseCase,
+    private val deleteEnveloppe       : DeleteCategoryEnvelopeUseCase
 ) : ViewModel() {
 
     private val now = LocalDate.now()
@@ -44,14 +53,28 @@ class BudgetViewModel @Inject constructor(
             combine(
                 getMonthlyBudget(month, year),
                 getMonthlyTransactions(month, year),
-                getCustomSubCategories()
-            ) { budget, transactions, customSubCats ->
+                getCustomSubCategories(),
+                getEnveloppes()
+            ) { budget, transactions, customSubCats, enveloppes ->
                 val depensesCents = transactions
                     .filter { it.type == TransactionType.EXPENSE }
                     .sumOf { it.amountCents }
                 val revenusCents = transactions
                     .filter { it.type == TransactionType.INCOME }
                     .sumOf { it.amountCents }
+
+                // Calcule le taux dépensé par catégorie pour croiser avec les enveloppes
+                val depenseParCategorie = transactions
+                    .filter { it.type == TransactionType.EXPENSE }
+                    .groupBy { it.category }
+                    .mapValues { entry -> entry.value.sumOf { it.amountCents } }
+
+                val enveloppeStatuts = enveloppes.map { env ->
+                    val depense = depenseParCategorie[env.category] ?: 0L
+                    val taux    = if (env.plafondCents > 0) depense.toFloat() / env.plafondCents else 0f
+                    EnveloppeStatus(envelope = env, depenseCents = depense, taux = taux)
+                }.sortedByDescending { it.taux }
+
                 BudgetUiState.Success(
                     budget              = budget?.copy(spentCents = depensesCents),
                     transactions        = transactions,
@@ -60,7 +83,8 @@ class BudgetViewModel @Inject constructor(
                     year                = year,
                     revenusCents        = revenusCents,
                     depensesCents       = depensesCents,
-                    soldeCents          = revenusCents - depensesCents
+                    soldeCents          = revenusCents - depensesCents,
+                    enveloppeStatuts    = enveloppeStatuts
                 ) as BudgetUiState
             }
         }
@@ -86,6 +110,24 @@ class BudgetViewModel @Inject constructor(
     fun supprimerBudget() {
         val budget = (uiState.value as? BudgetUiState.Success)?.budget ?: return
         viewModelScope.launch { deleteBudget(budget) }
+    }
+
+    fun sauvegarderEnveloppe(enveloppeExistante: CategoryEnvelope?, amountStr: String, category: Category, currency: Currency) {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: return
+        viewModelScope.launch {
+            upsertEnveloppe(
+                CategoryEnvelope(
+                    id           = enveloppeExistante?.id ?: 0L,
+                    category     = category,
+                    plafondCents = cents,
+                    currency     = currency
+                )
+            )
+        }
+    }
+
+    fun supprimerEnveloppe(envelope: CategoryEnvelope) {
+        viewModelScope.launch { deleteEnveloppe(envelope) }
     }
 
     fun saveBudget(amountEuros: String, currency: Currency) {
@@ -115,15 +157,17 @@ sealed class BudgetUiState {
     data class Success(
         val budget              : Budget?,
         val transactions        : List<Transaction>,
-        val customSubCategories : List<CustomSubCategory> = emptyList(),
+        val customSubCategories : List<CustomSubCategory>  = emptyList(),
         val month               : Int,
         val year                : Int,
         /** Somme des transactions INCOME du mois. */
-        val revenusCents        : Long = 0L,
+        val revenusCents        : Long                     = 0L,
         /** Somme des transactions EXPENSE du mois. */
-        val depensesCents       : Long = 0L,
+        val depensesCents       : Long                     = 0L,
         /** revenusCents − depensesCents — peut être négatif. */
-        val soldeCents          : Long = 0L
+        val soldeCents          : Long                     = 0L,
+        /** Statuts calculés des enveloppes par catégorie pour ce mois, triés par taux décroissant. */
+        val enveloppeStatuts    : List<EnveloppeStatus>    = emptyList()
     ) : BudgetUiState()
     data class Error(val message: String) : BudgetUiState()
 }
