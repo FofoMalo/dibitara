@@ -69,11 +69,19 @@ class BudgetViewModel @Inject constructor(
                     .groupBy { it.category }
                     .mapValues { entry -> entry.value.sumOf { it.amountCents } }
 
-                val enveloppeStatuts = enveloppes.map { env ->
-                    val depense = depenseParCategorie[env.category] ?: 0L
-                    val taux    = if (env.plafondCents > 0) depense.toFloat() / env.plafondCents else 0f
-                    EnveloppeStatus(envelope = env, depenseCents = depense, taux = taux)
-                }.sortedByDescending { it.taux }
+                // Les enveloppes ne sont affichées que pour le mois courant et les mois futurs.
+                // Pour les mois passés, les plafonds n'existaient pas encore — les afficher
+                // serait trompeur (l'utilisateur n'avait pas fixé de limite à l'époque).
+                val isMoisCourantOuFutur = year > now.year || (year == now.year && month >= now.monthValue)
+                val enveloppeStatuts = if (isMoisCourantOuFutur) {
+                    enveloppes.map { env ->
+                        val depense = depenseParCategorie[env.category] ?: 0L
+                        val taux    = if (env.plafondCents > 0) depense.toFloat() / env.plafondCents else 0f
+                        EnveloppeStatus(envelope = env, depenseCents = depense, taux = taux)
+                    }.sortedByDescending { it.taux }
+                } else {
+                    emptyList()
+                }
 
                 BudgetUiState.Success(
                     budget              = budget?.copy(spentCents = depensesCents),

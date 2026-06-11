@@ -216,11 +216,12 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     // Feuille d'ajout
     if (showAddSheet) {
         ExpenseSheet(
-            expense                  = null,
-            defaultCurrency          = defaultCurrency,
-            customSubCategories      = customSubCategories,
-            suggestions              = suggestions,
+            expense                   = null,
+            defaultCurrency           = defaultCurrency,
+            customSubCategories       = customSubCategories,
+            suggestions               = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
+            onDeleteCustomSubCategory = viewModel::supprimerCustomSubCategory,
             onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate ->
                 viewModel.addExpense(amount, category, currency, note,
                     date = date,
@@ -238,11 +239,12 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     // Feuille d'édition
     editingExpense?.let { expense ->
         ExpenseSheet(
-            expense                  = expense,
-            defaultCurrency          = defaultCurrency,
-            customSubCategories      = customSubCategories,
-            suggestions              = suggestions,
+            expense                   = expense,
+            defaultCurrency           = defaultCurrency,
+            customSubCategories       = customSubCategories,
+            suggestions               = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
+            onDeleteCustomSubCategory = viewModel::supprimerCustomSubCategory,
             onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate ->
                 viewModel.updateExpense(expense, amount, category, currency, note,
                     date = date,
@@ -561,6 +563,7 @@ private fun ExpenseSheet(
     customSubCategories: List<CustomSubCategory>,
     suggestions: List<TransactionSuggestion> = emptyList(),
     onCreateCustomSubCategory: (String, Category) -> Unit,
+    onDeleteCustomSubCategory: (CustomSubCategory) -> Unit,
     onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?, com.dibitara.app.domain.model.RecurrenceFrequency?, LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -588,6 +591,7 @@ private fun ExpenseSheet(
     }
     var subCategoryExpanded by remember { mutableStateOf(false) }
     var showCreateSubCatDialog by remember { mutableStateOf(false) }
+    var customSubCatASupprimer by remember { mutableStateOf<CustomSubCategory?>(null) }
     // Dépense par défaut ; on relit le type si on édite une transaction existante
     var selectedType by remember { mutableStateOf(expense?.type ?: TransactionType.EXPENSE) }
     val focusManager = LocalFocusManager.current
@@ -727,6 +731,18 @@ private fun ExpenseSheet(
                             customSubCatsForCategory.forEach { custom ->
                                 DropdownMenuItem(
                                     text = { Text(custom.name) },
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            subCategoryExpanded = false
+                                            customSubCatASupprimer = custom
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Supprimer ${custom.name}",
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    },
                                     onClick = {
                                         selectedCustomSubCategory = custom
                                         selectedSubCategory = null
@@ -982,6 +998,24 @@ private fun ExpenseSheet(
     }
 
     // Dialogue de création de sous-catégorie inline
+    customSubCatASupprimer?.let { subCat ->
+        AlertDialog(
+            onDismissRequest = { customSubCatASupprimer = null },
+            title = { Text("Supprimer la sous-catégorie ?") },
+            text  = { Text("« ${subCat.name} » sera supprimée. Les transactions liées ne sont pas modifiées.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteCustomSubCategory(subCat)
+                    if (selectedCustomSubCategory?.id == subCat.id) selectedCustomSubCategory = null
+                    customSubCatASupprimer = null
+                }) { Text("Supprimer", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { customSubCatASupprimer = null }) { Text("Annuler") }
+            }
+        )
+    }
+
     if (showCreateSubCatDialog) {
         DialogueCreerSousCategorie(
             categoryParente = if (selectedType == TransactionType.INCOME) Category.AUTRE else selectedCategory,

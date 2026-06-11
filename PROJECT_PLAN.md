@@ -299,7 +299,7 @@ Pyramide de tests (situation actuelle) :
 | Sprint 37b | Tests d'intégration Room : TransactionDao, DebtDao, Migration v14→v15 | ✅ Terminé | v4.5.0 |
 | Sprint 38 | Taux d'intérêt (tauxInteret REAL) + simulateur remboursement anticipé sur les dettes — Room v16 | ✅ Terminé | v4.5.0 |
 | Sprint 39 | Apprentissage catégorisations (categorization_rules, Room v17) + correctifs chip "À catégoriser" + SubCategory.BAR_ET_RESTAURANT | ✅ Terminé | v4.5.0 |
-| Sprint 40 | Budget par catégorie : enveloppes mensuelles + barres de progression + alertes dépassement | 🔜 Planifié | v4.6.0 |
+| Sprint 40 | Budget par catégorie : enveloppes mensuelles + barres de progression + alertes dépassement | ✅ Terminé | v4.5.1 |
 | Sprint 41 | Récapitulatif abonnements : vue dédiée tous abonnements actifs + total mensuel | 🔜 Planifié | v4.6.0 |
 | Sprint 42 | Sauvegarde / restauration Google Drive (export JSON chiffré) | 🔜 Planifié | v4.7.0 |
 | Sprint 43 | Réconciliation de solde : saisie solde réel + écart calculé + transactions manquantes | 🔜 Planifié | v4.7.0 |

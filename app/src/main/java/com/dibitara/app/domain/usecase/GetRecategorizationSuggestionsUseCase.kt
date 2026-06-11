@@ -47,12 +47,18 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
         // 1. Vérifier d'abord les règles apprises par l'utilisateur (priorité absolue)
         val regleApprise = ruleRepository.getRuleForNote(transaction.note)
         if (regleApprise != null) {
-            return RecategorizationSuggestion(
-                transaction          = transaction,
-                suggestedCategory    = regleApprise.category,
-                matchedKeyword       = transaction.note.trim(),
-                suggestedSubCategory = regleApprise.subCategory
-            )
+            // AUTRE sans sous-catégorie = transaction déjà dans AUTRE, aucune amélioration possible.
+            // On tombe en fallback sur le dictionnaire pour proposer une vraie suggestion.
+            if (regleApprise.category == Category.AUTRE && regleApprise.subCategory == null) {
+                // fallthrough intentionnel
+            } else {
+                return RecategorizationSuggestion(
+                    transaction          = transaction,
+                    suggestedCategory    = regleApprise.category,
+                    matchedKeyword       = transaction.note.trim(),
+                    suggestedSubCategory = regleApprise.subCategory
+                )
+            }
         }
 
         // 2. Déléguer la catégorie principale à CategoriseurLibelle (dictionnaire générique)

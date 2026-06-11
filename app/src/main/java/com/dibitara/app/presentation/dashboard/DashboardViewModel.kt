@@ -19,6 +19,7 @@ import com.dibitara.app.domain.usecase.GetUpcomingPaymentsUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateDashboardCardOrderUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
+import com.dibitara.app.domain.usecase.UpsertCategorizationRuleUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,7 +38,8 @@ class DashboardViewModel @Inject constructor(
     private val getCashflowProjection    : GetCashflowProjectionUseCase,
     private val getRecategorizations     : GetRecategorizationSuggestionsUseCase,
     private val updateTransaction        : UpdateTransactionUseCase,
-    private val updateCardOrder          : UpdateDashboardCardOrderUseCase
+    private val updateCardOrder          : UpdateDashboardCardOrderUseCase,
+    private val ucUpsertRule             : UpsertCategorizationRuleUseCase
 ) : ViewModel() {
 
     private val _isEditMode = MutableStateFlow(false)
@@ -115,6 +117,14 @@ class DashboardViewModel @Inject constructor(
                 )
             }
             updateTransaction(updated)
+            // Mémorise le choix pour que les prochaines occurrences du même marchand
+            // récupèrent directement la bonne catégorie sans repasser par les suggestions.
+            ucUpsertRule(
+                note        = suggestion.transaction.note,
+                type        = suggestion.transaction.type,
+                category    = suggestion.suggestedCategory,
+                subCategory = suggestion.suggestedSubCategory
+            )
         }
     }
 
