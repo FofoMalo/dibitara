@@ -4,6 +4,7 @@ import android.net.Uri
 import com.dibitara.app.domain.model.ExportData
 import com.dibitara.app.domain.model.ExportFormat
 import com.dibitara.app.domain.repository.BudgetRepository
+import com.dibitara.app.domain.repository.ChildRepository
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.ExportRepository
@@ -26,11 +27,13 @@ class ExporterDonneesUseCase @Inject constructor(
     private val investmentRepository       : InvestmentRepository,
     private val debtRepository             : DebtRepository,
     private val customInvestmentRepository : CustomInvestmentRepository,
+    private val childRepository            : ChildRepository,
     private val exportRepository           : ExportRepository
 ) {
     suspend operator fun invoke(format: ExportFormat): Uri {
         // On prend la première émission de chaque Flow — capture instantanée des données
         val data = ExportData(
+            enfants         = childRepository.getAll().first(),
             transactions    = transactionRepository.getAll().first(),
             budgets         = budgetRepository.getAll().first(),
             epargne         = savingsRepository.getAll().first(),

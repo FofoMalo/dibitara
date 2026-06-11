@@ -16,6 +16,7 @@ import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.repository.BudgetRepository
+import com.dibitara.app.domain.repository.ChildRepository
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.ExportRepository
@@ -40,6 +41,7 @@ class ExporterDonneesUseCaseTest {
     private val investmentRepo     : InvestmentRepository       = mockk()
     private val debtRepo           : DebtRepository             = mockk()
     private val customInvestRepo   : CustomInvestmentRepository = mockk()
+    private val childRepo          : ChildRepository            = mockk()
     private val exportRepo         : ExportRepository           = mockk()
 
     private lateinit var useCase: ExporterDonneesUseCase
@@ -55,10 +57,12 @@ class ExporterDonneesUseCaseTest {
             investmentRepository       = investmentRepo,
             debtRepository             = debtRepo,
             customInvestmentRepository = customInvestRepo,
+            childRepository            = childRepo,
             exportRepository           = exportRepo
         )
 
         // Tous les repos retournent des listes vides par défaut
+        coEvery { childRepo.getAll()                         } returns flowOf(emptyList())
         coEvery { transactionRepo.getAll()                   } returns flowOf(emptyList())
         coEvery { budgetRepo.getAll()                        } returns flowOf(emptyList())
         coEvery { savingsRepo.getAll()                       } returns flowOf(emptyList())

@@ -1,6 +1,8 @@
 package com.dibitara.app.presentation.settings
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -46,8 +48,16 @@ fun SettingsScreen(
     val totpSetupState by viewModel.totpSetupState.collectAsState()
     val tauxDeChange by viewModel.tauxDeChange.collectAsState()
     val exportEnCours by viewModel.exportEnCours.collectAsState()
+    val restoreEnCours by viewModel.restoreEnCours.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+
+    // Launcher SAF pour choisir un fichier JSON de sauvegarde
+    val restaurerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) viewModel.restaurerDonnees(uri)
+    }
 
     var seuilEuros by remember(prefs.seuilFondsCents) {
         mutableStateOf((prefs.seuilFondsCents / 100).toString())
@@ -69,6 +79,17 @@ fun SettingsScreen(
                 is SettingsEvent.MotDePasseMisAJour -> "Mot de passe mis à jour"
                 is SettingsEvent.TotpActive         -> "Double authentification activée"
                 is SettingsEvent.TotpDesactive      -> "Double authentification désactivée"
+            }
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    // Écouter les événements de restauration pour afficher le résultat
+    LaunchedEffect(Unit) {
+        viewModel.restoreEvent.collect { event ->
+            val message = when (event) {
+                is RestoreEvent.Succes -> "${event.nbElements} éléments restaurés avec succès."
+                is RestoreEvent.Erreur -> "Échec de la restauration : ${event.message}"
             }
             snackbarHostState.showSnackbar(message)
         }
@@ -330,6 +351,23 @@ fun SettingsScreen(
                         Icon(Icons.Filled.Download, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("Exporter mes données")
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick  = { restaurerLauncher.launch("application/json") },
+                    enabled  = !restoreEnCours,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (restoreEnCours) {
+                        CircularProgressIndicator(
+                            modifier    = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Restauration en cours…")
+                    } else {
+                        Text("Restaurer une sauvegarde JSON")
                     }
                 }
                 Spacer(Modifier.height(8.dp))

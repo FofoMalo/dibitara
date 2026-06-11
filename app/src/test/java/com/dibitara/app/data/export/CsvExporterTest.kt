@@ -21,6 +21,7 @@ import java.time.LocalDate
 class CsvExporterTest {
 
     private fun donneesVides() = ExportData(
+        enfants         = emptyList(),
         transactions    = emptyList(),
         budgets         = emptyList(),
         epargne         = emptyList(),

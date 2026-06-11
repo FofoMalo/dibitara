@@ -22,6 +22,7 @@ import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherProchainsPaiementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
+import com.dibitara.app.domain.usecase.RestaurerDonneesUseCase
 import com.dibitara.app.domain.usecase.SupprimerToutesDonneesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRecommandationsUseCase
 import com.dibitara.app.domain.usecase.UpdateNotificationsMensuellesUseCase
@@ -57,6 +58,7 @@ class SettingsViewModel @Inject constructor(
     private val ucUpdateAfficherRecommandations: UpdateAfficherRecommandationsUseCase,
     private val ucSupprimerToutesDonnees: SupprimerToutesDonneesUseCase,
     private val ucExporterDonnees: ExporterDonneesUseCase,
+    private val ucRestaurerDonnees: RestaurerDonneesUseCase,
     private val credentialManager: CredentialManager,
     private val totpManager: TotpManager
 ) : ViewModel() {
@@ -112,6 +114,39 @@ class SettingsViewModel @Inject constructor(
 
     private val _exportEvent = MutableSharedFlow<ExportEvent>()
     val exportEvent = _exportEvent.asSharedFlow()
+
+    // ─── Restauration des données ──────────────────────────────────────────────
+
+    /** true pendant la lecture et l'insertion du fichier de sauvegarde. */
+    private val _restoreEnCours = MutableStateFlow(false)
+    val restoreEnCours: StateFlow<Boolean> = _restoreEnCours.asStateFlow()
+
+    private val _restoreEvent = MutableSharedFlow<RestoreEvent>()
+    val restoreEvent = _restoreEvent.asSharedFlow()
+
+    /**
+     * Restaure les données depuis le fichier JSON sélectionné par l'utilisateur.
+     * Émet [RestoreEvent.Succes] avec le nombre d'entités restaurées,
+     * ou [RestoreEvent.Erreur] si le fichier est invalide.
+     */
+    fun restaurerDonnees(uri: Uri) {
+        viewModelScope.launch {
+            _restoreEnCours.value = true
+            try {
+                val result = ucRestaurerDonnees(uri)
+                when (result) {
+                    is com.dibitara.app.domain.repository.RestoreResult.Success ->
+                        _restoreEvent.emit(RestoreEvent.Succes(result.nbElements))
+                    is com.dibitara.app.domain.repository.RestoreResult.Error ->
+                        _restoreEvent.emit(RestoreEvent.Erreur(result.message))
+                }
+            } catch (e: Exception) {
+                _restoreEvent.emit(RestoreEvent.Erreur(e.message ?: "Erreur inconnue"))
+            } finally {
+                _restoreEnCours.value = false
+            }
+        }
+    }
 
     /**
      * Lance la collecte et l'écriture du fichier en arrière-plan.
@@ -322,4 +357,10 @@ sealed class ExportEvent {
     /** Fichier prêt — [uri] à passer à Intent.ACTION_SEND, [format] pour déterminer le mimeType. */
     data class Succes(val uri: Uri, val format: ExportFormat) : ExportEvent()
     data object Erreur : ExportEvent()
+}
+
+/** Résultat de l'opération de restauration. */
+sealed class RestoreEvent {
+    data class Succes(val nbElements: Int) : RestoreEvent()
+    data class Erreur(val message: String) : RestoreEvent()
 }
