@@ -38,6 +38,7 @@ fun SettingsScreen(
     onNavigateToImportBred: () -> Unit = {},
     onNavigateToImportBredPdf: () -> Unit = {},
     onNavigateToDuplicateCleanup: () -> Unit = {},
+    onSupprimerDonnees: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val prefs by viewModel.preferences.collectAsState()
@@ -57,7 +58,8 @@ fun SettingsScreen(
     var showChangerPin        by remember { mutableStateOf(false) }
     var showChangerMdp        by remember { mutableStateOf(false) }
     var showDesactiverTotp    by remember { mutableStateOf(false) }
-    var showDialogueExport    by remember { mutableStateOf(false) }
+    var showDialogueExport       by remember { mutableStateOf(false) }
+    var showSupprimerDialog      by remember { mutableStateOf(false) }
 
     // Écouter les événements du ViewModel pour les Snackbars
     LaunchedEffect(Unit) {
@@ -427,7 +429,60 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // ─── Section confidentialité ──────────────────────────────────────
+            SectionCard(titre = "Confidentialité") {
+                Text(
+                    "Conformément au RGPD (Art. 17), vous pouvez demander la suppression " +
+                        "de toutes vos données personnelles stockées sur cet appareil.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick  = { showSupprimerDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors   = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border   = androidx.compose.foundation.BorderStroke(
+                        1.dp, MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Supprimer toutes mes données")
+                }
+            }
         }
+    }
+
+    // ─── Dialogue suppression données ─────────────────────────────────────────
+    if (showSupprimerDialog) {
+        AlertDialog(
+            onDismissRequest = { showSupprimerDialog = false },
+            title = { Text("Supprimer toutes mes données ?") },
+            text  = {
+                Text(
+                    "Cette action est irréversible.\n\n" +
+                        "Toutes vos transactions, investissements, budgets, préférences " +
+                        "et identifiants seront définitivement supprimés de cet appareil.\n\n" +
+                        "Aucune donnée n'est envoyée sur un serveur — la suppression est locale et immédiate.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSupprimerDialog = false
+                        viewModel.supprimerToutesDonnees { onSupprimerDonnees() }
+                    }
+                ) {
+                    Text("Supprimer", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSupprimerDialog = false }) { Text("Annuler") }
+            }
+        )
     }
 
     // ─── Dialogue PIN ─────────────────────────────────────────────────────────

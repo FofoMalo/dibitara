@@ -19,4 +19,6 @@ interface UserPreferencesRepository {
     suspend fun updateNotificationsMensuelles(enabled: Boolean)
     suspend fun updateAfficherRecommandations(afficher: Boolean)
     suspend fun updateTauxEpargneCible(pct: Int)
+    /** Efface toutes les préférences stockées dans DataStore. */
+    suspend fun clearAll()
 }

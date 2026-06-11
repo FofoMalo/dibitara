@@ -102,6 +102,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[KEY_TAUX_EPARGNE_CIBLE] = pct }
     }
 
+    override suspend fun clearAll() {
+        dataStore.edit { it.clear() }
+    }
+
     // ─── Sérialisation de l'ordre des cartes ─────────────────────────────────
 
     private fun List<DashboardCard>.serializeDashboardOrder(): String =

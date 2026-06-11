@@ -185,7 +185,13 @@ fun DibitaraNavGraph(
                     onNavigateToImportTR         = { navController.navigate(Screen.ImportTR.route) },
                     onNavigateToImportBred       = { navController.navigate(Screen.ImportBred.route) },
                     onNavigateToImportBredPdf    = { navController.navigate(Screen.ImportBredPdf.route) },
-                    onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) }
+                    onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) },
+                    onSupprimerDonnees           = {
+                        // Le PIN n'existe plus — on repart sur l'écran de configuration
+                        navController.navigate(Screen.SetupAuth.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
                 )
             }
             composable(Screen.ImportTR.route) {
