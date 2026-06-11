@@ -12,6 +12,7 @@ import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherProchainsPaiementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
+import com.dibitara.app.domain.usecase.UpdateAfficherRecommandationsUseCase
 import com.dibitara.app.domain.usecase.UpdateNotificationsMensuellesUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
 import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
@@ -45,6 +46,7 @@ class SettingsViewModelTest {
     private val ucProchainsPaiements: UpdateAfficherProchainsPaiementsUseCase = mockk(relaxed = true)
     private val ucTwoFactor: UpdateTwoFactorEnabledUseCase = mockk(relaxed = true)
     private val ucNotifications: UpdateNotificationsMensuellesUseCase = mockk(relaxed = true)
+    private val ucRecommandations: UpdateAfficherRecommandationsUseCase = mockk(relaxed = true)
     private val ucExporter: ExporterDonneesUseCase = mockk(relaxed = true)
     private val credentialManager: CredentialManager = mockk(relaxed = true)
     private val totpManager: TotpManager = mockk(relaxed = true)
@@ -61,7 +63,7 @@ class SettingsViewModelTest {
         every { credentialManager.isTotpSetup()     } returns false
         // ucRates retourne un succès avec des taux fictifs pour ne pas bloquer init()
         coEvery { ucRates() } returns Result.success(ExchangeRates(1.09, 655.96, 0L))
-        viewModel = SettingsViewModel(context, ucGet, ucRates, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucProchainsPaiements, ucTwoFactor, ucNotifications, ucExporter, credentialManager, totpManager)
+        viewModel = SettingsViewModel(context, ucGet, ucRates, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucProchainsPaiements, ucTwoFactor, ucNotifications, ucRecommandations, ucExporter, credentialManager, totpManager)
     }
 
     @AfterEach

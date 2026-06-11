@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.dibitara.app.domain.model.Currency
@@ -33,6 +34,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         // Ordre des cartes : noms d'enum séparés par des virgules, ex. "DETTES,RAPPORT_GRAPHIQUE,..."
         val KEY_DASHBOARD_CARD_ORDER         = stringPreferencesKey("dashboard_card_order")
         val KEY_NOTIFICATIONS_MENSUELLES     = booleanPreferencesKey("notifications_mensuelles")
+        val KEY_AFFICHER_RECOMMANDATIONS     = booleanPreferencesKey("afficher_recommandations")
+        val KEY_TAUX_EPARGNE_CIBLE           = intPreferencesKey("taux_epargne_cible_pct")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -49,7 +52,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             dashboardCardOrder          = prefs[KEY_DASHBOARD_CARD_ORDER]
                 ?.deserializeDashboardOrder()
                 ?: DashboardCard.entries.toList(),
-            notificationsMensuelles     = prefs[KEY_NOTIFICATIONS_MENSUELLES] ?: false
+            notificationsMensuelles     = prefs[KEY_NOTIFICATIONS_MENSUELLES] ?: false,
+            afficherRecommandations     = prefs[KEY_AFFICHER_RECOMMANDATIONS] ?: false,
+            tauxEpargneCiblePct         = prefs[KEY_TAUX_EPARGNE_CIBLE] ?: UserPreferences().tauxEpargneCiblePct
         )
     }
 
@@ -87,6 +92,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateNotificationsMensuelles(enabled: Boolean) {
         dataStore.edit { it[KEY_NOTIFICATIONS_MENSUELLES] = enabled }
+    }
+
+    override suspend fun updateAfficherRecommandations(afficher: Boolean) {
+        dataStore.edit { it[KEY_AFFICHER_RECOMMANDATIONS] = afficher }
+    }
+
+    override suspend fun updateTauxEpargneCible(pct: Int) {
+        dataStore.edit { it[KEY_TAUX_EPARGNE_CIBLE] = pct }
     }
 
     // ─── Sérialisation de l'ordre des cartes ─────────────────────────────────

@@ -191,6 +191,25 @@ fun SettingsScreen(
                         onCheckedChange = { viewModel.mettreAJourAfficherProchainsPaiements(it) }
                     )
                 }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Recommandations budgétaires", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Accès aux suggestions de poches et objectif d'épargne depuis l'écran Budget.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = prefs.afficherRecommandations,
+                        onCheckedChange = { viewModel.mettreAJourAfficherRecommandations(it) }
+                    )
+                }
             }
 
             // ─── Section navigation ───────────────────────────────────────────

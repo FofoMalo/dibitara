@@ -17,4 +17,6 @@ interface UserPreferencesRepository {
     suspend fun updateTwoFactorEnabled(enabled: Boolean)
     suspend fun updateDashboardCardOrder(order: List<DashboardCard>)
     suspend fun updateNotificationsMensuelles(enabled: Boolean)
+    suspend fun updateAfficherRecommandations(afficher: Boolean)
+    suspend fun updateTauxEpargneCible(pct: Int)
 }

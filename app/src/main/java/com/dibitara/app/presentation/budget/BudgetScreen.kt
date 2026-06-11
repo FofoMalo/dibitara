@@ -45,8 +45,10 @@ import java.util.Locale
 @Composable
 fun BudgetScreen(
     // category, type, month, year sont passés en String/Int pour traverser la couche navigation sans import
-    onNavigateToExpenses: (category: String?, type: String?, month: Int, year: Int) -> Unit = { _, _, _, _ -> },
-    onNavigateToTrends: () -> Unit = {},
+    onNavigateToExpenses        : (category: String?, type: String?, month: Int, year: Int) -> Unit = { _, _, _, _ -> },
+    onNavigateToTrends          : () -> Unit = {},
+    onNavigateToRecommandations : () -> Unit = {},
+    afficherRecommandations     : Boolean = false,
     viewModel: BudgetViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -73,14 +75,16 @@ fun BudgetScreen(
                         modifier = Modifier.align(Alignment.Center))
                 is BudgetUiState.Success ->
                     BudgetContent(
-                        state                = state,
-                        onPreviousMonth      = viewModel::previousMonth,
-                        onNextMonth          = viewModel::nextMonth,
-                        onEditBudget         = { showEditDialog = true },
-                        onDeleteBudget       = { showDeleteDialog = true },
-                        onNavigateToExpenses = onNavigateToExpenses,
-                        onNavigateToTrends   = onNavigateToTrends,
-                        onAjouterEnveloppe   = {
+                        state                       = state,
+                        onPreviousMonth             = viewModel::previousMonth,
+                        onNextMonth                 = viewModel::nextMonth,
+                        onEditBudget                = { showEditDialog = true },
+                        onDeleteBudget              = { showDeleteDialog = true },
+                        onNavigateToExpenses        = onNavigateToExpenses,
+                        onNavigateToTrends          = onNavigateToTrends,
+                        onNavigateToRecommandations = onNavigateToRecommandations,
+                        afficherRecommandations     = afficherRecommandations,
+                        onAjouterEnveloppe          = {
                             enveloppeEnEdition  = null
                             showEnveloppeDialog = true
                         },
@@ -171,16 +175,18 @@ fun BudgetScreen(
 
 @Composable
 private fun BudgetContent(
-    state: BudgetUiState.Success,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
-    onEditBudget: () -> Unit,
-    onDeleteBudget: () -> Unit,
-    onNavigateToExpenses: (category: String?, type: String?, month: Int, year: Int) -> Unit,
-    onNavigateToTrends: () -> Unit = {},
-    onAjouterEnveloppe: () -> Unit = {},
-    onEditerEnveloppe: (EnveloppeStatus) -> Unit = {},
-    onSupprimerEnveloppe: (CategoryEnvelope) -> Unit = {}
+    state                       : BudgetUiState.Success,
+    onPreviousMonth             : () -> Unit,
+    onNextMonth                 : () -> Unit,
+    onEditBudget                : () -> Unit,
+    onDeleteBudget              : () -> Unit,
+    onNavigateToExpenses        : (category: String?, type: String?, month: Int, year: Int) -> Unit,
+    onNavigateToTrends          : () -> Unit = {},
+    onNavigateToRecommandations : () -> Unit = {},
+    afficherRecommandations     : Boolean = false,
+    onAjouterEnveloppe          : () -> Unit = {},
+    onEditerEnveloppe           : (EnveloppeStatus) -> Unit = {},
+    onSupprimerEnveloppe        : (CategoryEnvelope) -> Unit = {}
 ) {
     val monthName = Month.of(state.month).getDisplayName(TextStyle.FULL, Locale.FRENCH)
         .replaceFirstChar { it.uppercase() }
@@ -300,13 +306,24 @@ private fun BudgetContent(
             }
         }
 
-        // Bouton de navigation vers l'écran des tendances
+        // Boutons de navigation vers les écrans secondaires
         item {
             TextButton(
                 onClick = onNavigateToTrends,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Voir les tendances sur 6 mois →")
+            }
+        }
+        // Le bouton recommandations n'apparaît que si l'utilisateur l'a activé dans les Paramètres
+        if (afficherRecommandations) {
+            item {
+                TextButton(
+                    onClick = onNavigateToRecommandations,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Voir les recommandations budgétaires →")
+                }
             }
         }
     }

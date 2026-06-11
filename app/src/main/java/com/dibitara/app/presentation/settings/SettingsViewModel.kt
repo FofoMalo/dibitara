@@ -22,6 +22,7 @@ import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherProchainsPaiementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
+import com.dibitara.app.domain.usecase.UpdateAfficherRecommandationsUseCase
 import com.dibitara.app.domain.usecase.UpdateNotificationsMensuellesUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
 import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
@@ -52,6 +53,7 @@ class SettingsViewModel @Inject constructor(
     private val ucUpdateAfficherProchainsPaiements: UpdateAfficherProchainsPaiementsUseCase,
     private val ucUpdateTwoFactorEnabled: UpdateTwoFactorEnabledUseCase,
     private val ucUpdateNotificationsMensuelles: UpdateNotificationsMensuellesUseCase,
+    private val ucUpdateAfficherRecommandations: UpdateAfficherRecommandationsUseCase,
     private val ucExporterDonnees: ExporterDonneesUseCase,
     private val credentialManager: CredentialManager,
     private val totpManager: TotpManager
@@ -157,6 +159,15 @@ class SettingsViewModel @Inject constructor(
 
     fun mettreAJourAfficherProchainsPaiements(afficher: Boolean) {
         viewModelScope.launch { ucUpdateAfficherProchainsPaiements(afficher) }
+    }
+
+    /**
+     * Active ou désactive les notifications mensuelles.
+     * Si activé : planifie un [MonthlyReportNotificationWorker] tous les 30 jours.
+     * Si désactivé : annule le travail planifié.
+     */
+    fun mettreAJourAfficherRecommandations(afficher: Boolean) {
+        viewModelScope.launch { ucUpdateAfficherRecommandations(afficher) }
     }
 
     /**

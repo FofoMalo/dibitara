@@ -31,6 +31,7 @@ import com.dibitara.app.presentation.importcsv.ImportScreen
 import com.dibitara.app.presentation.settings.DuplicateCleanupScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
 import com.dibitara.app.presentation.settings.SettingsViewModel
+import com.dibitara.app.presentation.recommandations.RecommandationsScreen
 import com.dibitara.app.presentation.trends.TrendsScreen
 
 sealed class Screen(val route: String) {
@@ -67,6 +68,7 @@ sealed class Screen(val route: String) {
     data object DuplicateCleanup  : Screen("duplicate_cleanup")
     data object ProjectionDetail  : Screen("projection_detail")
     data object Trends             : Screen("trends")
+    data object Recommandations    : Screen("recommandations")
 }
 
 // Écrans qui affichent la barre de navigation inférieure
@@ -150,8 +152,13 @@ fun DibitaraNavGraph(
                     onNavigateToExpenses = { category, type, month, year ->
                         navController.navigate(Screen.Expenses.withFilter(category, type, month, year))
                     },
-                    onNavigateToTrends = { navController.navigate(Screen.Trends.route) }
+                    onNavigateToTrends          = { navController.navigate(Screen.Trends.route) },
+                    onNavigateToRecommandations = { navController.navigate(Screen.Recommandations.route) },
+                    afficherRecommandations     = prefs.afficherRecommandations
                 )
+            }
+            composable(Screen.Recommandations.route) {
+                RecommandationsScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable(Screen.Trends.route) {
                 TrendsScreen(onNavigateBack = { navController.popBackStack() })
