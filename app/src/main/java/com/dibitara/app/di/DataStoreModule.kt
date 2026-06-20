@@ -22,7 +22,7 @@ object DataStoreModule {
     /**
      * Fournit une instance unique de DataStore pour toute l'application.
      * PreferenceDataStoreFactory évite les conflits si plusieurs DataStore sont créés
-     * sur le même fichier — Hilt garantit qu'il n'en existe qu'un seul (@Singleton).
+     * sur le même fichier - Hilt garantit qu'il n'en existe qu'un seul (@Singleton).
      */
     @Provides
     @Singleton

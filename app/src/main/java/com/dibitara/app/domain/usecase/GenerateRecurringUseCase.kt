@@ -44,7 +44,7 @@ class GenerateRecurringUseCase @Inject constructor(
     private suspend fun generateMonthly(template: Transaction, base: LocalDate, until: LocalDate) {
         val day = template.recurrenceDay ?: base.dayOfMonth.coerceAtMost(28)
 
-        // Le mois du modèle lui-même compte comme première occurrence — on commence le mois suivant
+        // Le mois du modèle lui-même compte comme première occurrence - on commence le mois suivant
         var cursor = base.plusMonths(1).withDayOfMonth(1)
 
         while (!cursor.isAfter(until.withDayOfMonth(1))) {
@@ -71,7 +71,7 @@ class GenerateRecurringUseCase @Inject constructor(
     // ─── HEBDOMADAIRE ─────────────────────────────────────────────────────────
 
     private suspend fun generateWeekly(template: Transaction, base: LocalDate, until: LocalDate) {
-        // La semaine du modèle lui-même est la première occurrence — on commence 7 jours après
+        // La semaine du modèle lui-même est la première occurrence - on commence 7 jours après
         var cursor = base.plusWeeks(1)
 
         while (!cursor.isAfter(until)) {

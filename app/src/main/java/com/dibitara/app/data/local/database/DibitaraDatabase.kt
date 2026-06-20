@@ -266,7 +266,7 @@ abstract class DibitaraDatabase : RoomDatabase() {
         // Migration v3 → v4 : ajout de la sous-catégorie pour AUTRE
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // TEXT nullable, sans DEFAULT — Room accepte NULL pour les colonnes optionnelles
+                // TEXT nullable, sans DEFAULT - Room accepte NULL pour les colonnes optionnelles
                 db.execSQL("ALTER TABLE transactions ADD COLUMN subCategory TEXT")
             }
         }

@@ -38,7 +38,7 @@ class BudgetViewModel @Inject constructor(
 
     private val now = LocalDate.now()
 
-    // Mois sélectionné — l'utilisateur peut naviguer dans le temps
+    // Mois sélectionné - l'utilisateur peut naviguer dans le temps
     private val _selectedMonth = MutableStateFlow(now.monthValue)
     private val _selectedYear  = MutableStateFlow(now.year)
 
@@ -70,7 +70,7 @@ class BudgetViewModel @Inject constructor(
                     .mapValues { entry -> entry.value.sumOf { it.amountCents } }
 
                 // Les enveloppes ne sont affichées que pour le mois courant et les mois futurs.
-                // Pour les mois passés, les plafonds n'existaient pas encore — les afficher
+                // Pour les mois passés, les plafonds n'existaient pas encore - les afficher
                 // serait trompeur (l'utilisateur n'avait pas fixé de limite à l'époque).
                 val isMoisCourantOuFutur = year > now.year || (year == now.year && month >= now.monthValue)
                 val enveloppeStatuts = if (isMoisCourantOuFutur) {
@@ -172,7 +172,7 @@ sealed class BudgetUiState {
         val revenusCents        : Long                     = 0L,
         /** Somme des transactions EXPENSE du mois. */
         val depensesCents       : Long                     = 0L,
-        /** revenusCents − depensesCents — peut être négatif. */
+        /** revenusCents − depensesCents - peut être négatif. */
         val soldeCents          : Long                     = 0L,
         /** Statuts calculés des enveloppes par catégorie pour ce mois, triés par taux décroissant. */
         val enveloppeStatuts    : List<EnveloppeStatus>    = emptyList()

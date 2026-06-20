@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 /**
- * Tests de GenerateRecurringUseCase — couvre les trois fréquences (MONTHLY, WEEKLY, YEARLY).
+ * Tests de GenerateRecurringUseCase - couvre les trois fréquences (MONTHLY, WEEKLY, YEARLY).
  */
 class GenerateRecurringUseCaseTest {
 

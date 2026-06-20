@@ -31,7 +31,7 @@ class ExporterDonneesUseCase @Inject constructor(
     private val exportRepository           : ExportRepository
 ) {
     suspend operator fun invoke(format: ExportFormat): Uri {
-        // On prend la première émission de chaque Flow — capture instantanée des données
+        // On prend la première émission de chaque Flow - capture instantanée des données
         val data = ExportData(
             enfants         = childRepository.getAll().first(),
             transactions    = transactionRepository.getAll().first(),

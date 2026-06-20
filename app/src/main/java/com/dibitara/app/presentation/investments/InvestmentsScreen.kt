@@ -57,7 +57,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     var showAddMetal         by remember { mutableStateOf(false) }
     var showAddCustomAsset   by remember { mutableStateOf(false) }
     var showAddEmpSavings    by remember { mutableStateOf(false) }
-    // Éléments en cours d'édition — null = pas d'édition ouverte
+    // Éléments en cours d'édition - null = pas d'édition ouverte
     var realEstateToEdit  by remember { mutableStateOf<RealEstateAsset?>(null) }
     var scpiToEdit        by remember { mutableStateOf<ScpiInvestment?>(null) }
     var airbnbToEdit      by remember { mutableStateOf<AirbnbRental?>(null) }
@@ -245,7 +245,7 @@ private fun InvestmentsContent(
             currency         = state.summaryCurrency
         ) }
 
-        // Graphique barres — affiché si au moins un actif immo ou SCPI
+        // Graphique barres - affiché si au moins un actif immo ou SCPI
         if (state.realEstate.isNotEmpty() || state.scpi.isNotEmpty()) {
             item { AssetsBarChart(realEstate = state.realEstate, scpi = state.scpi) }
         }
@@ -421,7 +421,7 @@ private fun RealEstateCard(
                 )
                 if (linkedDebt != null) {
                     Text(
-                        "Crédit lié : ${linkedDebt.label} — −${linkedDebt.totalCents.toCurrencyDisplay(linkedDebt.currency)}",
+                        "Crédit lié : ${linkedDebt.label} - −${linkedDebt.totalCents.toCurrencyDisplay(linkedDebt.currency)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -815,7 +815,7 @@ private fun AddAirbnbSheet(
     var amount by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
-    // Le mois courant est utilisé par défaut — l'utilisateur entre les revenus du mois
+    // Le mois courant est utilisé par défaut - l'utilisateur entre les revenus du mois
     val today = remember { LocalDate.now() }
     val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH)
     val focusManager = LocalFocusManager.current
@@ -943,7 +943,7 @@ private fun EditRealEstateSheet(
                 }
             }
 
-            // Liaison à un crédit existant (optionnelle — pré-remplie si déjà rattaché)
+            // Liaison à un crédit existant (optionnelle - pré-remplie si déjà rattaché)
             ExposedDropdownMenuBox(expanded = debtExpanded, onExpandedChange = { debtExpanded = it }) {
                 OutlinedTextField(
                     value = availableDebts.find { it.id == selectedDebtId }?.label ?: "Aucun",
@@ -1139,7 +1139,7 @@ private fun PreciousMetalCard(asset: PreciousMetalAsset, onEdit: () -> Unit, onD
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("${asset.metalType.displayName} — ${asset.label}", style = MaterialTheme.typography.bodyLarge)
+                Text("${asset.metalType.displayName} - ${asset.label}", style = MaterialTheme.typography.bodyLarge)
                 Text("$qtyDisplay g × ${asset.pricePerGramCents.toCurrencyDisplay(asset.currency)}/g", style = MaterialTheme.typography.bodyMedium)
                 Text("Total : ${asset.totalValueCents.toCurrencyDisplay(asset.currency)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
             }
@@ -1187,7 +1187,7 @@ private fun EmployeeSavingsCard(savings: EmployeeSavings, onEdit: () -> Unit, on
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("${savings.type.displayName} — ${savings.label}", style = MaterialTheme.typography.bodyLarge)
+                Text("${savings.type.displayName} - ${savings.label}", style = MaterialTheme.typography.bodyLarge)
                 Text("Solde : ${savings.currentBalanceCents.toCurrencyDisplay(savings.currency)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
                 if (savings.employerContributionCents > 0) {
                     Text("Abondement : ${savings.employerContributionCents.toCurrencyDisplay(savings.currency)}/mois", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)

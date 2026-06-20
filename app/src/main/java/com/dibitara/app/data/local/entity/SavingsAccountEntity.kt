@@ -18,7 +18,7 @@ data class SavingsAccountEntity(
     val currency: String,
     val childId: Long?,
     val updatedAtEpochDay: Long,
-    // Plafond en centimes — null si non configuré (colonne ajoutée en migration v14)
+    // Plafond en centimes - null si non configuré (colonne ajoutée en migration v14)
     val plafondCents: Long? = null
 ) {
     fun toDomain() = SavingsAccount(

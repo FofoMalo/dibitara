@@ -80,7 +80,7 @@ class BudgetViewModelTest {
 
     @Test
     fun `état reflète le budget quand le repository en retourne un`() = runTest {
-        // spentCents en base est ignoré — c'est la somme des transactions EXPENSE qui compte
+        // spentCents en base est ignoré - c'est la somme des transactions EXPENSE qui compte
         val budget = Budget(
             month = now.monthValue, year = now.year,
             allocatedCents = 150000L, spentCents = 0L, currency = Currency.EUR

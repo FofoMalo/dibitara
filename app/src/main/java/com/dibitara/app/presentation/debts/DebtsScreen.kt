@@ -55,7 +55,7 @@ fun DebtsScreen(
                 is DebtsEvent.Error   -> snackbarHostState.showSnackbar(event.message)
                 is DebtsEvent.VersementConfirme -> {
                     val montant = event.montantCents.toCurrencyDisplay(event.currency)
-                    snackbarHostState.showSnackbar("Versement confirmé — capital réduit de $montant")
+                    snackbarHostState.showSnackbar("Versement confirmé - capital réduit de $montant")
                 }
             }
         }
@@ -141,7 +141,7 @@ private fun DebtsContent(
         contentPadding = PaddingValues(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Carte récapitulative — tertiaryContainer, pas errorContainer (une dette n'est pas une urgence)
+        // Carte récapitulative - tertiaryContainer, pas errorContainer (une dette n'est pas une urgence)
         if (debts.isNotEmpty()) {
             item {
                 Card(
@@ -248,7 +248,7 @@ private fun DebtCard(
                     }
                 }
                 Row {
-                    // Bouton simulation — affiché uniquement si le taux est renseigné
+                    // Bouton simulation - affiché uniquement si le taux est renseigné
                     if (debt.tauxInteret != null && debt.monthlyPaymentCents > 0) {
                         IconButton(onClick = { showSimulation = true }) {
                             Icon(Icons.Filled.Calculate, contentDescription = "Simuler remboursement anticipé",
@@ -291,7 +291,7 @@ private fun DebtCard(
                 }
             }
 
-            // Échéance estimée — affichée en date lisible plutôt qu'en mois bruts
+            // Échéance estimée - affichée en date lisible plutôt qu'en mois bruts
             if (debt.monthlyPaymentCents > 0 && debt.totalCents > 0) {
                 val nbMois = (debt.totalCents / debt.monthlyPaymentCents).toInt()
                 val texteEcheance = when {
@@ -691,7 +691,7 @@ private fun SimulationSheet(debt: Debt, onDismiss: () -> Unit) {
                 .padding(bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Simulation — Remboursement anticipé", style = MaterialTheme.typography.titleLarge)
+            Text("Simulation - Remboursement anticipé", style = MaterialTheme.typography.titleLarge)
             Text(
                 "${debt.label} · ${String.format("%.2f", taux).replace('.', ',')} % · " +
                     "${debt.totalCents.toCurrencyDisplay(debt.currency)} restant",

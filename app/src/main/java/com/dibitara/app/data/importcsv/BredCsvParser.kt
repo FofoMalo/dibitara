@@ -20,8 +20,8 @@ import kotlin.math.abs
  *                négatif = dépense, positif = revenu
  *
  * Deux variantes supportées :
- *   Format A — 4 colonnes : Date ; Libellé ; Montant ; Devise
- *   Format B — 5 colonnes : Date opération ; Date valeur ; Libellé ; Montant ; Devise
+ *   Format A - 4 colonnes : Date ; Libellé ; Montant ; Devise
+ *   Format B - 5 colonnes : Date opération ; Date valeur ; Libellé ; Montant ; Devise
  *
  * La catégorisation et la génération d'externalId sont déléguées à [BredCategoriseur].
  */

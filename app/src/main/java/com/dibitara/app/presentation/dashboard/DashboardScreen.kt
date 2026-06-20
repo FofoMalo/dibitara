@@ -317,7 +317,7 @@ private fun SpendingHistoryCard(history: List<MonthlyExpense>, currency: Currenc
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Transactions — 6 derniers mois", style = MaterialTheme.typography.titleMedium)
+            Text("Transactions - 6 derniers mois", style = MaterialTheme.typography.titleMedium)
             ProvideChartStyle(m3ChartStyle()) {
                 Chart(
                     chart = columnChart(),
@@ -484,7 +484,7 @@ private fun RapportSyntheseCard(rapport: MonthlyReport, onVoirDetail: () -> Unit
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Rapport — ${moisComplet(rapport.month)} ${rapport.year}",
+                    "Rapport - ${moisComplet(rapport.month)} ${rapport.year}",
                     style = MaterialTheme.typography.titleMedium
                 )
                 TextButton(
@@ -750,14 +750,14 @@ private fun RecategorizationCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // Refuser — outline, confirme "Autre / Divers" et retire la suggestion
+                        // Refuser - outline, confirme "Autre / Divers" et retire la suggestion
                         OutlinedButton(
                             onClick  = { onRefuse(suggestion) },
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("Refuser", style = MaterialTheme.typography.labelMedium)
                         }
-                        // Appliquer — filled, change la catégorie
+                        // Appliquer - filled, change la catégorie
                         Button(
                             onClick  = { onApply(suggestion) },
                             modifier = Modifier.weight(1f)

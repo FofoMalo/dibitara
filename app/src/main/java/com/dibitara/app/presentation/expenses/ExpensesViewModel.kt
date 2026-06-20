@@ -52,7 +52,7 @@ class ExpensesViewModel @Inject constructor(
         .map { it.deviseParDefaut }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
 
-    // Suggestions de saisie rapide — issues des 30 derniers jours, fréquence ≥ 2
+    // Suggestions de saisie rapide - issues des 30 derniers jours, fréquence ≥ 2
     val suggestions: StateFlow<List<TransactionSuggestion>> = ucGetSuggestions()
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -87,7 +87,7 @@ class ExpensesViewModel @Inject constructor(
      * Le filtre de date est poussé au niveau SQL selon la [FilterPeriod] :
      * - CURRENT_MONTH → [GetMonthlyTransactionsUseCase] sur le mois sélectionné
      * - THREE_MONTHS / SIX_MONTHS → [GetTransactionsByDateRangeUseCase]
-     * - ALL → [GetAllTransactionsUseCase] (chargement complet — à utiliser avec parcimonie)
+     * - ALL → [GetAllTransactionsUseCase] (chargement complet - à utiliser avec parcimonie)
      *
      * Les critères restants (catégorie, type, recherche, tri) sont appliqués en mémoire
      * sur le sous-ensemble déjà filtré par la base de données.
@@ -136,7 +136,7 @@ class ExpensesViewModel @Inject constructor(
         _filter.value = filter
     }
 
-    // Navigation mensuelle — uniquement pertinente quand period == CURRENT_MONTH
+    // Navigation mensuelle - uniquement pertinente quand period == CURRENT_MONTH
     fun previousMonth() {
         val current = LocalDate.of(_selectedYear.value, _selectedMonth.value, 1).minusMonths(1)
         _selectedMonth.value = current.monthValue

@@ -23,7 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
  * Écran de verrouillage.
  *
  * Propose trois méthodes d'authentification, dans l'ordre de priorité :
- *  1. Biométrique — lancé automatiquement à l'ouverture
+ *  1. Biométrique - lancé automatiquement à l'ouverture
  *  2. PIN à 4 chiffres (mode par défaut si PIN configuré)
  *  3. Email + mot de passe (accessible via un lien de basculement)
  *
@@ -52,7 +52,7 @@ fun LockScreen(
         }
     }
 
-    // Lancer la biométrie automatiquement au premier Idle — pas après une annulation
+    // Lancer la biométrie automatiquement au premier Idle - pas après une annulation
     LaunchedEffect(uiState) {
         if (uiState is AuthUiState.Idle && !biometricAutoLaunched) {
             biometricAutoLaunched = true
@@ -137,7 +137,7 @@ private fun IdleContent(
             )
         }
 
-        // Lien de récupération — toujours visible en bas
+        // Lien de récupération - toujours visible en bas
         Spacer(Modifier.height(32.dp))
         TextButton(onClick = { showRecoveryDialog = true }) {
             Text(

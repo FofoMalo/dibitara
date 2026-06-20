@@ -19,7 +19,7 @@ data class Transaction(
     val note: String = "",
     val childId: Long? = null,                      // Identifiant de l'enfant associé (null si pas d'enfant)
     val isRecurring: Boolean = false,               // true = cette transaction est un modèle récurrent
-    val recurrenceDay: Int? = null,                 // Jour du mois (1-28) — utilisé pour MONTHLY uniquement
+    val recurrenceDay: Int? = null,                 // Jour du mois (1-28) - utilisé pour MONTHLY uniquement
     val sourceRecurringId: Long? = null,            // ID du modèle qui a généré cette occurrence
     val subCategory: SubCategory? = null,           // Non-null uniquement si category == AUTRE (enum fixe)
     val customSubCategoryId: Long? = null,          // Référence à une CustomSubCategory créée par l'utilisateur
@@ -55,7 +55,7 @@ enum class Category(val displayName: String) {
     ASSURANCES         ("Assurances"),
     TRANSFERTS         ("Transferts"),
     TRANSFERTS_FAMILIAUX("Transferts famille"), // envois famille élargie, tontines, njangi
-    AUTRE              ("Autre")            // toujours en dernier — fallback de safeValueOf
+    AUTRE              ("Autre")            // toujours en dernier - fallback de safeValueOf
 }
 
 // Sous-catégories prédéfinies, utilisées uniquement quand category == AUTRE
@@ -63,5 +63,5 @@ enum class SubCategory(val displayName: String) {
     CADEAUX          ("Cadeaux"),
     FRAIS_BANCAIRES  ("Frais bancaires"),
     BAR_ET_RESTAURANT("Bar & restaurant"),
-    DIVERS           ("Divers")          // toujours en dernier — fallback de safeValueOf
+    DIVERS           ("Divers")          // toujours en dernier - fallback de safeValueOf
 }

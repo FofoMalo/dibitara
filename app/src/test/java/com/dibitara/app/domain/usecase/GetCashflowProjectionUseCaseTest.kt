@@ -42,7 +42,7 @@ class GetCashflowProjectionUseCaseTest {
         coEvery { versementRepo.existsPourMois(any(), any(), any(), any()) } returns false
     }
 
-    // ─── Solde de départ — calculé depuis les transactions réelles ───────────
+    // ─── Solde de départ - calculé depuis les transactions réelles ───────────
 
     @Test
     fun `solde de départ est zéro sans transactions dans le mois`() = runTest {
@@ -69,7 +69,7 @@ class GetCashflowProjectionUseCaseTest {
         // Un template isRecurring=true tombant dans le mois ne doit pas fausser le solde
         every { transactionRepo.getByMonth(any(), any()) } returns flowOf(listOf(
             buildTx(TransactionType.INCOME,  200_000L, isRecurring = false),
-            buildTx(TransactionType.EXPENSE, 999_000L, isRecurring = true)  // template — exclu
+            buildTx(TransactionType.EXPENSE, 999_000L, isRecurring = true)  // template - exclu
         ))
 
         val result = useCase(today).first()
@@ -79,7 +79,7 @@ class GetCashflowProjectionUseCaseTest {
 
     @Test
     fun `spentCents périmé dans le budget n influence pas le solde initial`() = runTest {
-        // Budget en base avec spentCents = 50 000 (périmé — dépenses réelles = 80 000)
+        // Budget en base avec spentCents = 50 000 (périmé - dépenses réelles = 80 000)
         every { budgetRepo.getBudget(any(), any()) } returns flowOf(
             Budget(month = 5, year = 2026, allocatedCents = 200_000L, spentCents = 50_000L, currency = Currency.EUR)
         )
@@ -149,7 +149,7 @@ class GetCashflowProjectionUseCaseTest {
     @Test
     fun `paiement récurrent annuel hors fenêtre 30 jours n est pas déduit`() = runTest {
         mockSoldeInitial(50_000L)
-        // Annuel le 1er janvier — hors des 30 prochains jours depuis le 10 mai
+        // Annuel le 1er janvier - hors des 30 prochains jours depuis le 10 mai
         every { transactionRepo.getRecurring() } returns flowOf(
             listOf(buildRecurrent(
                 amountCents      = 10_000L,
@@ -401,7 +401,7 @@ class GetCashflowProjectionUseCaseTest {
         assertEquals(50_000L, result.soldeProjecte30jCents)
     }
 
-    // ─── Correction du jour mensuel — plus de plafond fixe 28 (#8) ───────────
+    // ─── Correction du jour mensuel - plus de plafond fixe 28 (#8) ───────────
 
     @Test
     fun `prélèvement le 30 reste au 30 dans les mois de 30 jours`() = runTest {

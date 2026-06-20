@@ -40,7 +40,7 @@ val Category.bucket: BudgetBucket?
         Category.EPARGNE,
         Category.INVESTISSEMENT  -> BudgetBucket.EPARGNE_ET_DETTES
 
-        // AUTRE et TRANSFERTS exclus volontairement — trop vagues pour une recommandation fiable
+        // AUTRE et TRANSFERTS exclus volontairement - trop vagues pour une recommandation fiable
         Category.AUTRE,
         Category.TRANSFERTS      -> null
     }
@@ -72,7 +72,7 @@ data class PocheRecommandee(
 
 /**
  * Recommandation financière mensuelle complète, calculée à chaque affichage.
- * Aucune donnée n'est persistée en base — ce modèle est recalculé à partir des 3 derniers mois.
+ * Aucune donnée n'est persistée en base - ce modèle est recalculé à partir des 3 derniers mois.
  *
  * [revenuMoyenCents]         : moyenne des revenus sur les 3 mois analysés.
  * [engagementsMensuels]      : somme incompressible = mensualités dettes + contributions épargne.
@@ -80,7 +80,7 @@ data class PocheRecommandee(
  * [tauxEpargneCiblePct]      : objectif configuré dans les préférences.
  * [objectifEpargneCents]     : revenuMoyen × tauxEpargneCible / 100.
  * [pouchesRecommandees]      : une entrée par catégorie avec au moins une dépense sur 3 mois.
- * [soldePrevisionelCents]    : revenuMoyen - engagements - sum(poches) — doit être ≥ 0.
+ * [soldePrevisionelCents]    : revenuMoyen - engagements - sum(poches) - doit être ≥ 0.
  * [estEquilibre]             : true si le plan est viable sans déficit.
  * [moisDeReference]          : les 3 mois (mois, année) analysés, du plus récent au plus ancien.
  */

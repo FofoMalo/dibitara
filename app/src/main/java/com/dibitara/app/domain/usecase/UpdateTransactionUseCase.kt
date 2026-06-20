@@ -6,7 +6,7 @@ import javax.inject.Inject
 
 /**
  * Met à jour une transaction existante via son ID.
- * Utilise @Update Room — l'ID ne change pas, contrairement à delete+insert.
+ * Utilise @Update Room - l'ID ne change pas, contrairement à delete+insert.
  */
 class UpdateTransactionUseCase @Inject constructor(
     private val repository: TransactionRepository

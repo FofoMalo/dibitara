@@ -131,7 +131,7 @@ class DashboardViewModel @Inject constructor(
     /**
      * Refuse la suggestion : confirme que la transaction est bien "Autre / Divers".
      * Poser subCategory = DIVERS la sort définitivement des suggestions futures
-     * sans changer sa catégorie principale — aucune migration Room requise.
+     * sans changer sa catégorie principale - aucune migration Room requise.
      */
     fun refuserRecategorisation(suggestion: RecategorizationSuggestion) {
         viewModelScope.launch {

@@ -6,9 +6,9 @@ import java.time.temporal.ChronoUnit
 /**
  * Prochaine échéance calculée à partir d'un modèle récurrent.
  *
- * [template] — la transaction modèle (isRecurring = true)
- * [nextDate] — date de la prochaine occurrence après aujourd'hui
- * [daysUntil] — nombre de jours jusqu'à [nextDate] (0 = aujourd'hui, négatif = passé)
+ * [template] - la transaction modèle (isRecurring = true)
+ * [nextDate] - date de la prochaine occurrence après aujourd'hui
+ * [daysUntil] - nombre de jours jusqu'à [nextDate] (0 = aujourd'hui, négatif = passé)
  */
 data class UpcomingPayment(
     val template: Transaction,

@@ -9,7 +9,7 @@ import java.time.LocalDate
 
 /**
  * Tests unitaires du parseur CSV BRED.
- * Aucune dépendance Android — le parseur est un objet Kotlin pur.
+ * Aucune dépendance Android - le parseur est un objet Kotlin pur.
  *
  * Format testé : séparateur point-virgule, dates DD/MM/YYYY, montants notation française.
  */
@@ -55,7 +55,7 @@ class BredCsvParserTest {
         assertTrue(result.isEmpty())
     }
 
-    // ─── Format A — parsing de base ──────────────────────────────────────────
+    // ─── Format A - parsing de base ──────────────────────────────────────────
 
     @Test
     fun `dépense carte est parsée correctement (format A)`() {
@@ -86,7 +86,7 @@ class BredCsvParserTest {
         assertEquals(Category.AUTRE, tx.category)
     }
 
-    // ─── Format B — 5 colonnes avec date valeur ──────────────────────────────
+    // ─── Format B - 5 colonnes avec date valeur ──────────────────────────────
 
     @Test
     fun `format B avec date valeur est correctement parsé`() {
@@ -102,7 +102,7 @@ class BredCsvParserTest {
         assertEquals("PRLV SEPA EDF ENERGIE", tx.note)
     }
 
-    // ─── Catégorisation automatique — libellés réels BRED (depuis relevé PDF) ──
+    // ─── Catégorisation automatique - libellés réels BRED (depuis relevé PDF) ──
 
     @Test
     fun `Carte FNAC est catégorisée LOISIRS`() {

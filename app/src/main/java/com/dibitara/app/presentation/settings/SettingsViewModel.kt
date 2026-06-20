@@ -99,7 +99,7 @@ class SettingsViewModel @Inject constructor(
     )
     val securityState: StateFlow<SecurityState> = _securityState.asStateFlow()
 
-    // État de la configuration TOTP en cours — null si aucun setup ouvert
+    // État de la configuration TOTP en cours - null si aucun setup ouvert
     private val _totpSetupState = MutableStateFlow<TotpSetupUiState?>(null)
     val totpSetupState: StateFlow<TotpSetupUiState?> = _totpSetupState.asStateFlow()
 
@@ -170,7 +170,7 @@ class SettingsViewModel @Inject constructor(
 
     /**
      * Met à jour le seuil d'alerte.
-     * [eurosStr] est la valeur saisie par l'utilisateur (en euros) — on convertit en centimes.
+     * [eurosStr] est la valeur saisie par l'utilisateur (en euros) - on convertit en centimes.
      * Ignore la mise à jour si la saisie n'est pas un entier valide.
      */
     fun mettreAJourSeuil(eurosStr: String) {
@@ -209,7 +209,7 @@ class SettingsViewModel @Inject constructor(
 
     /**
      * Efface définitivement toutes les données personnelles (RGPD Art. 17).
-     * Après l'appel, l'appelant doit naviguer vers SetupAuth —
+     * Après l'appel, l'appelant doit naviguer vers SetupAuth -
      * les credentials n'existent plus.
      */
     fun supprimerToutesDonnees(onTermine: () -> Unit) {
@@ -301,7 +301,7 @@ class SettingsViewModel @Inject constructor(
     fun activerTotp(code: String) {
         val state = _totpSetupState.value ?: return
         if (!totpManager.verify(state.secret, code)) {
-            _totpSetupState.value = state.copy(codeError = "Code incorrect — réessayez")
+            _totpSetupState.value = state.copy(codeError = "Code incorrect - réessayez")
             return
         }
         viewModelScope.launch {
@@ -337,7 +337,7 @@ data class SecurityState(
     val hasTotpConfigured     : Boolean = false
 )
 
-/** État intermédiaire pendant la configuration du TOTP — visible dans le dialogue. */
+/** État intermédiaire pendant la configuration du TOTP - visible dans le dialogue. */
 data class TotpSetupUiState(
     val secret    : String,
     val uri       : String,
@@ -354,7 +354,7 @@ sealed class SettingsEvent {
 
 /** Résultat de l'opération d'export. */
 sealed class ExportEvent {
-    /** Fichier prêt — [uri] à passer à Intent.ACTION_SEND, [format] pour déterminer le mimeType. */
+    /** Fichier prêt - [uri] à passer à Intent.ACTION_SEND, [format] pour déterminer le mimeType. */
     data class Succes(val uri: Uri, val format: ExportFormat) : ExportEvent()
     data object Erreur : ExportEvent()
 }

@@ -15,7 +15,7 @@ internal object CategoriseurLibelle {
 
     /**
      * Retourne la catégorie principale suggérée pour [note], ou null si aucune règle ne correspond.
-     * [note] peut être dans n'importe quelle casse — la comparaison est insensible à la casse.
+     * [note] peut être dans n'importe quelle casse - la comparaison est insensible à la casse.
      */
     fun suggererCategorie(note: String): Category? {
         val libelle = note.lowercase().trim()
@@ -40,7 +40,7 @@ internal object CategoriseurLibelle {
     private data class RegleCategorisation(val motsCles: List<String>, val categorie: Category)
 
     private val REGLES_MOTS_CLES = listOf(
-        // Mobile Money Afrique — doit précéder ABONNEMENTS ("orange" y est en mot seul)
+        // Mobile Money Afrique - doit précéder ABONNEMENTS ("orange" y est en mot seul)
         RegleCategorisation(
             listOf("orange money", "wave", "mtn momo", "mtn mobile", "moov money",
                 "free money", "airtel money", "m-pesa"),

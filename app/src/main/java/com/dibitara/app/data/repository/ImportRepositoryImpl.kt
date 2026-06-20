@@ -7,7 +7,7 @@ import com.dibitara.app.domain.repository.ImportRepository
 import javax.inject.Inject
 
 /**
- * Implémentation de [ImportRepository] — s'appuie sur le [TransactionDao] existant.
+ * Implémentation de [ImportRepository] - s'appuie sur le [TransactionDao] existant.
  * Pas de nouveau DAO nécessaire : les transactions importées vivent dans la même table.
  */
 class ImportRepositoryImpl @Inject constructor(

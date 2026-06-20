@@ -98,7 +98,7 @@ fun DuplicateCleanupScreen(
                             }
                             item { Spacer(Modifier.height(8.dp)) }
                         }
-                        // Bouton d'action fixe en bas de l'écran — désactivé s'il n'y a rien à supprimer
+                        // Bouton d'action fixe en bas de l'écran - désactivé s'il n'y a rien à supprimer
                         Button(
                             onClick = { viewModel.supprimerDoublons() },
                             enabled = !state.suppressionEnCours && totalASupprimer > 0,
@@ -184,7 +184,7 @@ private fun DuplicateGroupCard(
             )
             if (nbASupprimer == 0) {
                 Text(
-                    "Toutes cochées — aucune suppression pour ce groupe",
+                    "Toutes cochées - aucune suppression pour ce groupe",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )

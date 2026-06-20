@@ -6,7 +6,7 @@ import javax.inject.Inject
 
 /**
  * Valide et insère une transaction.
- * La validation métier (montant > 0, date valide) est ici — jamais dans le ViewModel.
+ * La validation métier (montant > 0, date valide) est ici - jamais dans le ViewModel.
  */
 class AddTransactionUseCase @Inject constructor(
     private val transactionRepository: TransactionRepository

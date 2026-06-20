@@ -13,17 +13,17 @@ import java.time.LocalDate
 /**
  * Représentation Room de Transaction.
  * Séparer Entity (data) et model (domain) permet de changer le schéma
- * sans impacter la logique métier — et inversement.
+ * sans impacter la logique métier - et inversement.
  */
 @Entity(tableName = "transactions")
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val amountCents: Long,
-    val currency: String,           // Ex. "EUR" — stocké en String pour la compatibilité Room
+    val currency: String,           // Ex. "EUR" - stocké en String pour la compatibilité Room
     val category: String,
     val type: String,
-    val dateEpochDay: Long,         // LocalDate.toEpochDay() — évite les conversions complexes
+    val dateEpochDay: Long,         // LocalDate.toEpochDay() - évite les conversions complexes
     val note: String,
     val childId: Long? = null,      // Nullable : null si la dépense n'est pas liée à un enfant
     val isRecurring: Boolean = false,           // Ajouté en v3 : true = modèle récurrent

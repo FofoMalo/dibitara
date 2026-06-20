@@ -21,7 +21,7 @@ class GetRecategorizationSuggestionsUseCaseTest {
 
     private val transactionRepo: TransactionRepository = mockk()
     private val ruleRepo: CategorizationRuleRepository = mockk<CategorizationRuleRepository>().also {
-        // Par défaut, aucune règle apprise — les tests existants testent uniquement le dictionnaire
+        // Par défaut, aucune règle apprise - les tests existants testent uniquement le dictionnaire
         coEvery { it.getRuleForNote(any()) } returns null
     }
     private val useCase = GetRecategorizationSuggestionsUseCase(transactionRepo, ruleRepo)
@@ -210,7 +210,7 @@ class GetRecategorizationSuggestionsUseCaseTest {
     @Test
     fun `la catégorie principale prime sur la sous-catégorie quand les deux correspondent`() = runTest {
         // "anniversaire" est un mot-clé CADEAUX, mais si un mot-clé catégorie correspondait en premier
-        // on vérifie que la règle catégorie l'emporte — ici on teste un libellé mixte fictif.
+        // on vérifie que la règle catégorie l'emporte - ici on teste un libellé mixte fictif.
         // En pratique on vérifie simplement que suggestedSubCategory est null quand une catégorie correspond.
         every { transactionRepo.getByDateRange(any(), any()) } returns flowOf(
             listOf(buildTransaction(note = "Cadeau Leclerc anniversaire", category = Category.AUTRE))

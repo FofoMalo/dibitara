@@ -106,7 +106,7 @@ class GetMonthlyReportUseCase @Inject constructor(
                 .groupBy { it.category }
                 .mapValues { (_, txs) -> txs.sumOf { it.amountCents.cvt(it.currency) } }
 
-            // Variation par catégorie — top 5 par variation absolue, catégories du mois courant uniquement
+            // Variation par catégorie - top 5 par variation absolue, catégories du mois courant uniquement
             val variationParCategorie = depensesCourantesParCat
                 .map { (cat, currentCents) ->
                     val previousCents = depensesPrecedentesParCat[cat] ?: 0L

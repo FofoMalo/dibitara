@@ -11,7 +11,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 
 /**
  * Affiche un QR code généré à partir d'un contenu textuel (ex: URI otpauth://).
- * Le rendu est mémorisé — ZXing ne recalcule que si [content] change.
+ * Le rendu est mémorisé - ZXing ne recalcule que si [content] change.
  */
 @Composable
 fun QrCodeImage(content: String, taillePx: Int = 512, modifier: Modifier = Modifier) {

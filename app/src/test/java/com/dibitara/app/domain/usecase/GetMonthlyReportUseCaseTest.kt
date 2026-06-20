@@ -86,7 +86,7 @@ class GetMonthlyReportUseCaseTest {
 
         val rapport = useCase(mois, annee).first()
 
-        // Le UseCase limite à take(5) — les 4 catégories doivent toutes apparaître, triées par montant décroissant
+        // Le UseCase limite à take(5) - les 4 catégories doivent toutes apparaître, triées par montant décroissant
         assertEquals(4, rapport.topCategories.size)
         assertEquals(Category.LOGEMENT,      rapport.topCategories[0].category)
         assertEquals(Category.ALIMENTATION,  rapport.topCategories[1].category)

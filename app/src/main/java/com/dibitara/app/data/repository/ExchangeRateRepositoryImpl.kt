@@ -34,7 +34,7 @@ class ExchangeRateRepositoryImpl @Inject constructor(
         const val USD_FALLBACK = 1.09
 
         // XOF (et XAF) sont indexés sur l'euro à parité fixe depuis 1999 (traité de Maastricht).
-        // Frankfurter ne les expose pas — inutile d'appeler le réseau pour ces devises.
+        // Frankfurter ne les expose pas - inutile d'appeler le réseau pour ces devises.
         const val XOF_TAUX_FIXE = 655.957
     }
 
@@ -43,7 +43,7 @@ class ExchangeRateRepositoryImpl @Inject constructor(
         val timestamp = prefs[KEY_TIME] ?: 0L
         val maintenant = System.currentTimeMillis()
 
-        // Retourne le cache s'il est encore frais (USD uniquement — XOF est une constante)
+        // Retourne le cache s'il est encore frais (USD uniquement - XOF est une constante)
         if (maintenant - timestamp < CACHE_DUREE_MS) {
             val usd = prefs[KEY_USD] ?: USD_FALLBACK
             return Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, timestamp))

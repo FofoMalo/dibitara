@@ -12,7 +12,7 @@ import kotlin.math.abs
  * Parse un export CSV TradeRepublic et retourne une liste de [ImportedTransaction].
  *
  * Format attendu : RFC 4180, toutes les valeurs entre guillemets doubles, séparateur virgule.
- * 23 colonnes fixes — les index utilisés sont définis dans les constantes COL_*.
+ * 23 colonnes fixes - les index utilisés sont définis dans les constantes COL_*.
  *
  * Règles de mapping :
  * - TRADING/BUY       → EXPENSE + INVESTISSEMENT
@@ -33,7 +33,7 @@ object TradeRepublicCsvParser {
     private const val COL_FEE              = 11  // frais (utilisé si amount == 0)
     private const val COL_CURRENCY         = 13
     private const val COL_DESCRIPTION      = 17  // note saisie par l'utilisateur ou libellé TR
-    private const val COL_TRANSACTION_ID   = 18  // UUID — clé de déduplication
+    private const val COL_TRANSACTION_ID   = 18  // UUID - clé de déduplication
     private const val COL_COUNTERPARTY     = 19  // nom de la contrepartie pour les virements
     private const val COL_MCC_CODE         = 22  // code MCC pour la catégorisation des paiements carte
 

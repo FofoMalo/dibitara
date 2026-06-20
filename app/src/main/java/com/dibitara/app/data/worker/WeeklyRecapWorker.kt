@@ -15,7 +15,7 @@ import java.time.LocalDate
  * Worker périodique (7 jours) qui envoie un mini-récap hebdomadaire du mois en cours.
  *
  * Réutilise [CANAL_MENSUEL] de [NotificationHelper] pour rester dans le même groupe
- * de notifications que le bilan mensuel — pas de canal supplémentaire nécessaire.
+ * de notifications que le bilan mensuel - pas de canal supplémentaire nécessaire.
  *
  * Planifié par [SettingsViewModel.mettreAJourNotificationsMensuelles] avec
  * [ExistingPeriodicWorkPolicy.KEEP] pour ne pas remettre à zéro l'intervalle existant.

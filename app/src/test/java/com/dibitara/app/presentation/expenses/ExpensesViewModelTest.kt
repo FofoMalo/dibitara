@@ -120,12 +120,12 @@ class ExpensesViewModelTest {
         val before = viewModel.selectedMonth.value
         val now = LocalDate.now()
 
-        // Premier avancement — doit atteindre le mois courant
+        // Premier avancement - doit atteindre le mois courant
         viewModel.nextMonth()
         assertEquals(now.monthValue, viewModel.selectedMonth.value)
         assertEquals(now.year, viewModel.selectedYear.value)
 
-        // Second avancement — bloqué au mois courant
+        // Second avancement - bloqué au mois courant
         viewModel.nextMonth()
         assertEquals(now.monthValue, viewModel.selectedMonth.value)
     }

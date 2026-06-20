@@ -58,7 +58,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     var recatProposee by remember { mutableStateOf<ExpensesEvent.RecategorizationProposee?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Sous-catégories personnalisées — disponibles dès que le state est chargé
+    // Sous-catégories personnalisées - disponibles dès que le state est chargé
     val customSubCategories = (uiState as? ExpensesUiState.Success)?.customSubCategories ?: emptyList()
     val focusManager = LocalFocusManager.current
 
@@ -125,7 +125,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                 }
             }
 
-            // Navigation mensuelle — visible uniquement en mode "Ce mois"
+            // Navigation mensuelle - visible uniquement en mode "Ce mois"
             if (filter.period == FilterPeriod.CURRENT_MONTH) {
                 MonthNavigationBar(
                     month       = selectedMonth,
@@ -135,7 +135,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                 )
             }
 
-            // Chip rapide "À catégoriser" — visible si des dépenses AUTRE sans sous-catégorie existent
+            // Chip rapide "À catégoriser" - visible si des dépenses AUTRE sans sous-catégorie existent
             val currentExpenses = (uiState as? ExpensesUiState.Success)?.expenses ?: emptyList()
             val autreCount = currentExpenses.count {
                 // Ne compte que les dépenses sans aucune sous-catégorie (prédéfinie ou custom)
@@ -567,7 +567,7 @@ private fun ExpenseSheet(
     onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?, com.dibitara.app.domain.model.RecurrenceFrequency?, LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // Toujours formater avec un point — "%.2f" utilise la locale système (virgule sur FR)
+    // Toujours formater avec un point - "%.2f" utilise la locale système (virgule sur FR)
     var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0).replace(',', '.') } ?: "") }
     var note by remember { mutableStateOf(expense?.note ?: "") }
     var selectedCategory by remember { mutableStateOf(expense?.category ?: Category.ALIMENTATION) }
@@ -659,7 +659,7 @@ private fun ExpenseSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Catégorie + sous-catégorie — sans sens pour un revenu, masquées
+            // Catégorie + sous-catégorie - sans sens pour un revenu, masquées
             if (selectedType == TransactionType.EXPENSE) {
                 ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = it }) {
                     OutlinedTextField(
@@ -684,7 +684,7 @@ private fun ExpenseSheet(
                     }
                 }
 
-                // Sous-catégorie — visible pour toute catégorie avec des custom subcats, ou pour AUTRE
+                // Sous-catégorie - visible pour toute catégorie avec des custom subcats, ou pour AUTRE
                 val customSubCatsForCategory = customSubCategories.filter { it.parentCategory == selectedCategory }
                 val hasSubCategories = customSubCatsForCategory.isNotEmpty() || selectedCategory == Category.AUTRE
 
@@ -798,7 +798,7 @@ private fun ExpenseSheet(
                 modifier = Modifier.fillMaxWidth().focusRequester(noteFocusRequester)
             )
 
-            // Chips de suggestion — filtrées sur ce que l'utilisateur a tapé dans la note
+            // Chips de suggestion - filtrées sur ce que l'utilisateur a tapé dans la note
             val suggestionsFiltrées = remember(note, suggestions) {
                 if (note.isBlank()) emptyList()
                 else suggestions.filter { it.label.contains(note.trim(), ignoreCase = true) }
@@ -928,7 +928,7 @@ private fun ExpenseSheet(
 
             Button(
                 onClick = {
-                    // Pour un revenu, la catégorie n'a pas de sens sémantique — on stocke AUTRE en base
+                    // Pour un revenu, la catégorie n'a pas de sens sémantique - on stocke AUTRE en base
                     val catFinale = if (selectedType == TransactionType.INCOME) Category.AUTRE else selectedCategory
                     // subCategory enum : uniquement pour AUTRE, et seulement si aucune custom n'est sélectionnée
                     val subCatFinale = selectedSubCategory.takeIf {

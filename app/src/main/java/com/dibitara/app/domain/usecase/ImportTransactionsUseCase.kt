@@ -6,8 +6,8 @@ import javax.inject.Inject
 
 /**
  * Gère l'import en deux phases :
- *  1. [verifierDoublons] — preview sans écriture : enrichit la liste avec [ImportedTransaction.alreadyImported]
- *  2. [confirmer]        — écriture réelle : insère uniquement les transactions nouvelles
+ *  1. [verifierDoublons] - preview sans écriture : enrichit la liste avec [ImportedTransaction.alreadyImported]
+ *  2. [confirmer]        - écriture réelle : insère uniquement les transactions nouvelles
  *
  * La séparation en deux étapes permet d'afficher un écran de preview à l'utilisateur
  * avant de toucher la base de données.
@@ -16,7 +16,7 @@ class ImportTransactionsUseCase @Inject constructor(
     private val repository: ImportRepository
 ) {
     /**
-     * Étape 1 — Preview.
+     * Étape 1 - Preview.
      * Compare les [ImportedTransaction.externalId] avec ceux déjà en base et
      * retourne la liste avec [ImportedTransaction.alreadyImported] positionné.
      * N'insère rien.
@@ -27,7 +27,7 @@ class ImportTransactionsUseCase @Inject constructor(
     }
 
     /**
-     * Étape 2 — Confirmation.
+     * Étape 2 - Confirmation.
      * Filtre les doublons (re-vérifie en base pour tenir compte des imports concurrents),
      * insère les nouvelles transactions et retourne un [ImportResult] avec les compteurs.
      * Enveloppé dans [Result] pour que le ViewModel gère les erreurs proprement.

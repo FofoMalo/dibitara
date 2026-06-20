@@ -25,5 +25,5 @@ enum class SavingsType(val displayName: String) {
     ORANGE_MONEY     ("Orange Money"),
     COURTIER_EN_LIGNE("Courtier en ligne"),
     COMPTE_COURANT   ("Compte courant"),
-    AUTRE            ("Autre")         // toujours en dernier — fallback de safeValueOf
+    AUTRE            ("Autre")         // toujours en dernier - fallback de safeValueOf
 }

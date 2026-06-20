@@ -42,7 +42,7 @@ object BredPdfParser {
     private val DATE_TX = Regex("""^(\d{2})\.(\d{2})(?!\.\d{2})\s+(.+)$""")
 
     // Montant français en fin de ligne, avant date valeur optionnelle.
-    // Séparateur milliers : point UNIQUEMENT (pas espace — évite de confondre "94AD670 377,00").
+    // Séparateur milliers : point UNIQUEMENT (pas espace - évite de confondre "94AD670 377,00").
     // Exemples : "48,20 07.04.26"  "69,99 07.04.26"  "377,00"  "2.879,25 07.04.26"
     private val MONTANT_FIN = Regex("""(\d{1,3}(?:\.\d{3})*,\d{2})\s*(?:\d{2}\.\d{2}\.\d{2})?\s*$""")
 
@@ -246,7 +246,7 @@ object BredPdfParser {
         REFERENCE_FIN.replace(type, "").trim()
 
     /**
-     * Supprime les caractères hors Latin-1 (code > 255) — retire ①②③ (U+2460+) tout en
+     * Supprime les caractères hors Latin-1 (code > 255) - retire ①②③ (U+2460+) tout en
      * conservant les accents français (é, è, à, ç… U+00C0–U+00FF).
      * Normalise aussi les espaces multiples.
      */

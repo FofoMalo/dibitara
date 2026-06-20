@@ -24,7 +24,7 @@ class GetPatrimoineHistoryUseCaseTest {
     }
 
     @Test
-    fun `repository vide — liste vide retournée`() = runTest {
+    fun `repository vide - liste vide retournée`() = runTest {
         every { repository.getAll() } returns flowOf(emptyList())
 
         val result = useCase().first()
@@ -33,7 +33,7 @@ class GetPatrimoineHistoryUseCaseTest {
     }
 
     @Test
-    fun `plusieurs snapshots du même mois — un seul point retourné (le dernier)`() = runTest {
+    fun `plusieurs snapshots du même mois - un seul point retourné (le dernier)`() = runTest {
         val debut = buildSnapshot(id = 1L, date = LocalDate.of(2025, 3, 5), netCents = 80_000_00L)
         val fin   = buildSnapshot(id = 2L, date = LocalDate.of(2025, 3, 20), netCents = 85_000_00L)
         every { repository.getAll() } returns flowOf(listOf(debut, fin))
@@ -46,7 +46,7 @@ class GetPatrimoineHistoryUseCaseTest {
     }
 
     @Test
-    fun `snapshots sur 2 mois — 2 points triés chronologiquement`() = runTest {
+    fun `snapshots sur 2 mois - 2 points triés chronologiquement`() = runTest {
         val mars  = buildSnapshot(id = 1L, date = LocalDate.of(2025, 3, 15), netCents = 80_000_00L)
         val avril = buildSnapshot(id = 2L, date = LocalDate.of(2025, 4, 15), netCents = 82_000_00L)
         every { repository.getAll() } returns flowOf(listOf(mars, avril))
@@ -59,7 +59,7 @@ class GetPatrimoineHistoryUseCaseTest {
     }
 
     @Test
-    fun `plus de 12 mois de données — limité aux 12 derniers mois`() = runTest {
+    fun `plus de 12 mois de données - limité aux 12 derniers mois`() = runTest {
         val snapshots = (1..15).map { mois ->
             buildSnapshot(id = mois.toLong(), date = LocalDate.of(2024, 1, 1).plusMonths(mois - 1L))
         }

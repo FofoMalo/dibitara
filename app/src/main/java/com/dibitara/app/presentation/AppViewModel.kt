@@ -21,7 +21,7 @@ import javax.inject.Inject
  * Déclenche au démarrage :
  *  1. La génération des transactions récurrentes du mois.
  *  2. Les vérifications de notification (budget, dettes, liquidités).
- * Le seuil d'alerte est lu depuis les préférences utilisateur — pas de valeur codée en dur.
+ * Le seuil d'alerte est lu depuis les préférences utilisateur - pas de valeur codée en dur.
  */
 @HiltViewModel
 class AppViewModel @Inject constructor(
@@ -51,7 +51,7 @@ class AppViewModel @Inject constructor(
     }
 
     private suspend fun verifierNotifications() {
-        // Snapshot unique des préférences — le seuil peut avoir été changé par l'utilisateur
+        // Snapshot unique des préférences - le seuil peut avoir été changé par l'utilisateur
         val prefs = getPreferences().first()
 
         // 1. Budget dépassé ?

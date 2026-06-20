@@ -5,7 +5,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Enveloppe budgétaire par catégorie — une seule par catégorie (index unique sur [category]).
+ * Enveloppe budgétaire par catégorie - une seule par catégorie (index unique sur [category]).
  * Le plafond est permanent : il s'applique à chaque mois, pas seulement au mois de création.
  */
 @Entity(

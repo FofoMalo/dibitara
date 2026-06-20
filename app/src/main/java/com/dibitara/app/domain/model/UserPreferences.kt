@@ -7,7 +7,7 @@ package com.dibitara.app.domain.model
  * [dashboardCardOrder]       : ordre des cartes reordonnables du tableau de bord.
  * [notificationsMensuelles]  : si true, un résumé mensuel est envoyé en notification le 1er du mois.
  * [afficherRecommandations]  : si true, le bouton "Recommandations" apparaît dans l'écran Budget.
- * [tauxEpargneCiblePct]      : objectif d'épargne en % du revenu mensuel (défaut : 20 % — règle 50/30/20).
+ * [tauxEpargneCiblePct]      : objectif d'épargne en % du revenu mensuel (défaut : 20 % - règle 50/30/20).
  */
 data class UserPreferences(
     val seuilFondsCents: Long = 20_000L,

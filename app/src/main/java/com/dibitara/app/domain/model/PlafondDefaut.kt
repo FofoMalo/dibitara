@@ -18,7 +18,7 @@ object PlafondDefaut {
     private const val PEL_EUR         = 6_120_000L  // 61 200 €
     private const val PEA_EUR         = 15_000_000L // 150 000 €
 
-    // Plafond solde Orange Money (XOF) — valeur maximale commune Sénégal/Côte d'Ivoire
+    // Plafond solde Orange Money (XOF) - valeur maximale commune Sénégal/Côte d'Ivoire
     private const val ORANGE_MONEY_XOF = 200_000_000L // 2 000 000 XOF
 
     /**

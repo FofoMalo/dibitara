@@ -27,7 +27,7 @@ val DONUT_COULEURS: List<Color> = listOf(
  * et PatrimoineDetailScreen.
  *
  * [groupes]      : liste (libellé, montant en centimes).
- * [couleurs]     : palette — par défaut [DONUT_COULEURS], surchargeable avec les
+ * [couleurs]     : palette - par défaut [DONUT_COULEURS], surchargeable avec les
  *                  couleurs M3 pour un affichage cohérent avec le thème.
  * [onItemClick]  : appelé avec le libellé du segment cliqué.
  * [trailingLabel]: suffixe optionnel ajouté au libellé (ex. "▶" pour drill-down).

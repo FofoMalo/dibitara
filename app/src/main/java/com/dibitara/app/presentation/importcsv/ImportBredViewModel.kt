@@ -94,7 +94,7 @@ class ImportBredViewModel @Inject constructor(
     private suspend fun recategoriserAuto(transactions: List<ImportedTransaction>): List<ImportedTransaction> =
         transactions.map { tx ->
             if (!tx.alreadyImported && tx.category == Category.AUTRE) {
-                // 1. Règle apprise par l'utilisateur (priorité absolue — exact match)
+                // 1. Règle apprise par l'utilisateur (priorité absolue - exact match)
                 val regle = ucGetRule(tx.note)
                 if (regle != null) return@map tx.copy(category = regle.category)
                 // 2. Dictionnaire générique

@@ -30,7 +30,7 @@ class ExpensesFilterTest {
     )
 
     @Test
-    fun `filtre par note — retourne uniquement les correspondances`() {
+    fun `filtre par note - retourne uniquement les correspondances`() {
         val list = listOf(buildExpense(note = "Courses Lidl"), buildExpense(note = "Loyer"))
         val result = ExpensesFilter(query = "courses").apply(list)
         assertEquals(1, result.size)
@@ -45,7 +45,7 @@ class ExpensesFilterTest {
     }
 
     @Test
-    fun `filtre par catégorie — retourne uniquement la catégorie sélectionnée`() {
+    fun `filtre par catégorie - retourne uniquement la catégorie sélectionnée`() {
         val list = listOf(
             buildExpense(category = Category.ALIMENTATION),
             buildExpense(category = Category.LOGEMENT)

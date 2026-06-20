@@ -89,7 +89,7 @@ fun DibitaraNavGraph(
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute in bottomNavScreens
 
-    // Préférences de navigation — lues ici pour filtrer la nav bar en temps réel
+    // Préférences de navigation - lues ici pour filtrer la nav bar en temps réel
     val settingsVm: SettingsViewModel = hiltViewModel()
     val prefs by settingsVm.preferences.collectAsState()
 
@@ -111,7 +111,7 @@ fun DibitaraNavGraph(
                 LockScreen(
                     onAuthenticated = {
                         navController.navigate(Screen.Dashboard.route) {
-                            // Supprimer LockScreen de la pile — impossible de revenir en arrière
+                            // Supprimer LockScreen de la pile - impossible de revenir en arrière
                             popUpTo(Screen.Lock.route) { inclusive = true }
                         }
                     },
@@ -187,7 +187,7 @@ fun DibitaraNavGraph(
                     onNavigateToImportBredPdf    = { navController.navigate(Screen.ImportBredPdf.route) },
                     onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) },
                     onSupprimerDonnees           = {
-                        // Le PIN n'existe plus — on repart sur l'écran de configuration
+                        // Le PIN n'existe plus - on repart sur l'écran de configuration
                         navController.navigate(Screen.SetupAuth.route) {
                             popUpTo(0) { inclusive = true }
                         }

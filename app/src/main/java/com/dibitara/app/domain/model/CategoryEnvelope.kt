@@ -3,7 +3,7 @@ package com.dibitara.app.domain.model
 /**
  * Enveloppe budgétaire mensuelle par catégorie.
  *
- * Un plafond permanent — pas lié à un mois spécifique.
+ * Un plafond permanent - pas lié à un mois spécifique.
  * Le "dépensé" est calculé dynamiquement depuis les transactions du mois affiché.
  */
 data class CategoryEnvelope(
@@ -15,9 +15,9 @@ data class CategoryEnvelope(
 
 /**
  * Statut calculé d'une enveloppe pour un mois donné.
- * N'est jamais stocké en base — recalculé à chaque observation du Flow.
+ * N'est jamais stocké en base - recalculé à chaque observation du Flow.
  *
- * @param taux depenseCents / plafondCents — peut dépasser 1.0 si le plafond est atteint.
+ * @param taux depenseCents / plafondCents - peut dépasser 1.0 si le plafond est atteint.
  */
 data class EnveloppeStatus(
     val envelope     : CategoryEnvelope,

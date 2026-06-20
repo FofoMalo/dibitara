@@ -9,7 +9,7 @@ enum class ExportFormat { CSV, JSON }
  * à partir des différents repositories.
  */
 data class ExportData(
-    val enfants        : List<Child>,           // en premier — clé étrangère childId dans transactions
+    val enfants        : List<Child>,           // en premier - clé étrangère childId dans transactions
     val transactions   : List<Transaction>,
     val budgets        : List<Budget>,
     val epargne        : List<SavingsAccount>,

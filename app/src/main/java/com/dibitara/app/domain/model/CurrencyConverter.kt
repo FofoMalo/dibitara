@@ -3,7 +3,7 @@ package com.dibitara.app.domain.model
 /**
  * Utilitaire pur (sans DI) pour convertir des montants entre devises.
  *
- * Règles de conversion — tout passe par l'EUR comme devise pivot :
+ * Règles de conversion - tout passe par l'EUR comme devise pivot :
  *   USD → EUR : amountCents / usdParEur
  *   XOF → EUR : amountCents / xofParEur
  *   EUR → USD : amountCents * usdParEur

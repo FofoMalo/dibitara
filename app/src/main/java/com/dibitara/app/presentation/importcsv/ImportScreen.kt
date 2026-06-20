@@ -28,9 +28,9 @@ import java.time.format.DateTimeFormatter
  * Écran d'import de transactions TradeRepublic.
  *
  * Flux en 3 étapes :
- *  1. Initial    — l'utilisateur choisit un fichier CSV
- *  2. Preview    — liste des transactions parsées avec statut doublon / nouveau
- *  3. Succès     — résumé : X importées, Y doublons ignorés
+ *  1. Initial    - l'utilisateur choisit un fichier CSV
+ *  2. Preview    - liste des transactions parsées avec statut doublon / nouveau
+ *  3. Succès     - résumé : X importées, Y doublons ignorés
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -224,7 +224,7 @@ internal fun StatChip(label: String, valeur: String, couleur: androidx.compose.u
     }
 }
 
-// Catégories proposables manuellement (on exclut INVESTISSEMENT et EPARGNE — auto-assignées)
+// Catégories proposables manuellement (on exclut INVESTISSEMENT et EPARGNE - auto-assignées)
 private val CATEGORIES_MANUELLES = Category.entries.filter {
     it != Category.INVESTISSEMENT && it != Category.EPARGNE
 }
@@ -271,7 +271,7 @@ internal fun LigneTransaction(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // Catégorie éditable — chip tappable avec indicateur crayon
+                // Catégorie éditable - chip tappable avec indicateur crayon
                 if (!tx.alreadyImported) {
                     Box {
                         SuggestionChip(

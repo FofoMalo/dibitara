@@ -48,7 +48,7 @@ import javax.inject.Singleton
  * Implémentation de [RestoreRepository].
  *
  * Algorithme :
- *  1. Lit le JSON depuis l'URI via ContentResolver (Storage Access Framework — aucune
+ *  1. Lit le JSON depuis l'URI via ContentResolver (Storage Access Framework - aucune
  *     permission WRITE_EXTERNAL_STORAGE requise, Drive apparaît naturellement dans le picker).
  *  2. Désérialise la racine en [JsonObject] pour extraire chaque liste par clé.
  *  3. Vide la base avec [DibitaraDatabase.clearAllTables].
@@ -134,7 +134,7 @@ class RestoreRepositoryImpl @Inject constructor(
         return gson.fromJson(element, type) ?: emptyList()
     }
 
-    /** Sérialise/désérialise LocalDate en chaîne ISO-8601 — identique à JsonExporter. */
+    /** Sérialise/désérialise LocalDate en chaîne ISO-8601 - identique à JsonExporter. */
     private class AdaptateurLocalDate : JsonSerializer<LocalDate>, JsonDeserializer<LocalDate> {
         override fun serialize(src: LocalDate, typeOfSrc: Type, ctx: JsonSerializationContext) =
             JsonPrimitive(src.toString())

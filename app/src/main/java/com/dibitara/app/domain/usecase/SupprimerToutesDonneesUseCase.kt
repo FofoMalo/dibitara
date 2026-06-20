@@ -13,7 +13,7 @@ import javax.inject.Inject
  * Ordre d'effacement intentionnel :
  *  1. Base de données Room (transactions, investissements, budgets, etc.)
  *  2. DataStore (préférences utilisateur)
- *  3. Credentials chiffrés (PIN, TOTP) — en dernier pour éviter un état incohérent
+ *  3. Credentials chiffrés (PIN, TOTP) - en dernier pour éviter un état incohérent
  *     si l'opération était interrompue avant la fin.
  *
  * Exception architecturale assumée : [DibitaraDatabase] est injecté directement

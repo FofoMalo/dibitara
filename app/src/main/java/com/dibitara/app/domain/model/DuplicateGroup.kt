@@ -7,7 +7,7 @@ package com.dibitara.app.domain.model
  * [keepIds] : ensemble des identifiants à conserver. Par défaut, seule la plus ancienne
  * (id le plus petit) est conservée et les autres sont candidates à la suppression.
  *
- * L'utilisateur peut cocher plusieurs transactions pour les conserver toutes — ce qui
+ * L'utilisateur peut cocher plusieurs transactions pour les conserver toutes - ce qui
  * est utile quand deux achats identiques le même jour sont de vraies transactions distinctes
  * et non de vrais doublons (faux positifs).
  */

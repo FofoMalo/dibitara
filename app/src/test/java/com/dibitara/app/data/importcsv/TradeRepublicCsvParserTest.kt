@@ -9,7 +9,7 @@ import java.time.LocalDate
 
 /**
  * Tests unitaires du parseur CSV TradeRepublic.
- * Aucune dépendance Android — le parseur est un objet Kotlin pur.
+ * Aucune dépendance Android - le parseur est un objet Kotlin pur.
  *
  * Chaque ligne de test respecte les 23 colonnes du format TR :
  * datetime, date, account_type, category, type, asset_class, name, symbol,
@@ -225,7 +225,7 @@ class TradeRepublicCsvParserTest {
     }
 
     @Test
-    fun `lignes valides et invalides mélangées — seules les valides sont retournées`() {
+    fun `lignes valides et invalides mélangées - seules les valides sont retournées`() {
         val valide   = """"2025-01-14T09:41:40Z","2025-01-14","DEFAULT","CASH","CARD_TRANSACTION","","SHOP","","","","-10.000000","","","EUR","","","","TR Card","uuid-016","","","","5411""""
         val invalide = """"2025-01-14","TROP_COURT""""
         val result = TradeRepublicCsvParser.parse(csvStream(valide, invalide))

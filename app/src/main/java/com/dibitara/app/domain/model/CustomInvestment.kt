@@ -3,7 +3,7 @@ package com.dibitara.app.domain.model
 import java.time.LocalDate
 
 /**
- * Type de métal précieux — détermine l'unité d'affichage dans l'interface.
+ * Type de métal précieux - détermine l'unité d'affichage dans l'interface.
  * La valeur de chaque métal est calculée : quantité (g) × prix unitaire (centimes/g).
  */
 enum class MetalType(val displayName: String) {
@@ -37,7 +37,7 @@ data class PreciousMetalAsset(
 }
 
 /**
- * Actif à libellé libre — cryptos, actions hors PEA, œuvres d'art, etc.
+ * Actif à libellé libre - cryptos, actions hors PEA, œuvres d'art, etc.
  * On stocke directement la valeur totale, mise à jour manuellement.
  */
 data class CustomAsset(

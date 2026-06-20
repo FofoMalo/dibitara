@@ -12,7 +12,7 @@ import javax.inject.Inject
 
 /**
  * Implémentation concrète du contrat TransactionRepository.
- * C'est ici que la couche domain "touche" Room — nulle part ailleurs.
+ * C'est ici que la couche domain "touche" Room - nulle part ailleurs.
  * Hilt injecte cette classe partout où TransactionRepository est demandé.
  */
 class TransactionRepositoryImpl @Inject constructor(

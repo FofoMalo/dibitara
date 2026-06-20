@@ -8,7 +8,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.MonthlyVersement
 
 /**
- * Un seul versement par compte et par mois — contrainte UNIQUE en base.
+ * Un seul versement par compte et par mois - contrainte UNIQUE en base.
  * Cela garantit la non-rétroactivité : chaque mois n'a qu'un enregistrement,
  * qu'on ne peut pas écraser accidentellement.
  */

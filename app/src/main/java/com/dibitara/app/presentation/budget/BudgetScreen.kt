@@ -229,7 +229,7 @@ private fun BudgetContent(
             )
         }
 
-        // Revenus — une seule ligne compacte cliquable, pas de liste plate
+        // Revenus - une seule ligne compacte cliquable, pas de liste plate
         if (revenus.isNotEmpty()) {
             item {
                 RevenusCompactCard(
@@ -241,7 +241,7 @@ private fun BudgetContent(
             }
         }
 
-        // Section dépenses — donut interactif + répartition par catégorie cliquable
+        // Section dépenses - donut interactif + répartition par catégorie cliquable
         val depenses = state.transactions.filter { it.type == TransactionType.EXPENSE }
         if (depenses.isNotEmpty()) {
             item {
@@ -289,7 +289,7 @@ private fun BudgetContent(
         if (state.enveloppeStatuts.isEmpty()) {
             item {
                 Text(
-                    "Aucune enveloppe définie — appuyez sur + pour en créer une.",
+                    "Aucune enveloppe définie - appuyez sur + pour en créer une.",
                     style  = MaterialTheme.typography.bodySmall,
                     color  = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp)
@@ -438,7 +438,7 @@ private fun BilanBudgetCard(
 
 // ─── Revenus compacts ─────────────────────────────────────────────────────────
 
-/** Ligne unique cliquable résumant tous les revenus du mois — remplace la liste plate. */
+/** Ligne unique cliquable résumant tous les revenus du mois - remplace la liste plate. */
 @Composable
 private fun RevenusCompactCard(
     count      : Int,
@@ -564,7 +564,7 @@ private fun SetBudgetDialog(
                                 onClick = { amount = suggestion80 },
                                 contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
                             ) {
-                                Text("Suggérer 80 % — $suggestion80 ${selectedCurrency.symbol}")
+                                Text("Suggérer 80 % - $suggestion80 ${selectedCurrency.symbol}")
                             }
                         }
                     }
@@ -647,7 +647,7 @@ private fun CategoryDonutChart(
                     IconButton(onClick = { drillDown = false }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Retour aux catégories")
                     }
-                    Text("Détail — Autre", style = MaterialTheme.typography.titleMedium)
+                    Text("Détail - Autre", style = MaterialTheme.typography.titleMedium)
                 } else {
                     Text("Répartition des dépenses", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(48.dp)) // équilibre la mise en page quand pas de bouton retour
@@ -721,7 +721,7 @@ private fun EnveloppeCard(
 ) {
     val couleurBarre = when {
         statut.isDepasse -> MaterialTheme.colorScheme.error
-        statut.isAlerte  -> Color(0xFFE68A00)  // orange — pas dans le colorScheme M3 par défaut
+        statut.isAlerte  -> Color(0xFFE68A00)  // orange - pas dans le colorScheme M3 par défaut
         else             -> MaterialTheme.colorScheme.primary
     }
 
@@ -789,7 +789,7 @@ private fun SetEnveloppeDialog(
     onConfirm         : (amountStr: String, category: Category, currency: Currency) -> Unit,
     onDismiss         : () -> Unit
 ) {
-    // Catégories disponibles — on exclut AUTRE car elle regroupe les "divers" non classés
+    // Catégories disponibles - on exclut AUTRE car elle regroupe les "divers" non classés
     val categoriesDisponibles = Category.entries.filter { it != Category.AUTRE }
 
     var amount           by remember { mutableStateOf(enveloppeExistante?.let { "%.2f".format(it.plafondCents / 100.0).replace(',', '.') } ?: "") }

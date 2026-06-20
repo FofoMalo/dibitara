@@ -8,7 +8,7 @@ data class PatrimonyOverview(
     val dettesTotalCents: Long,
     val currency: Currency
 ) {
-    // Airbnb est un revenu (flux), pas un actif (stock) — exclu du patrimoine brut
+    // Airbnb est un revenu (flux), pas un actif (stock) - exclu du patrimoine brut
     val patrimoineBrutCents: Long
         get() = liquiditesCents + epargneCents + investissementsCents
 

@@ -55,7 +55,7 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                 is SavingsEvent.ChildSaved        -> { showAddChild = false; snackbarHostState.showSnackbar("Enfant ajouté") }
                 is SavingsEvent.VersementApplique -> snackbarHostState.showSnackbar("Versement appliqué ✓")
                 is SavingsEvent.AvertissementPlafond ->
-                    snackbarHostState.showSnackbar("Versement appliqué — plafond dépassé sur « ${event.compteLabel} »")
+                    snackbarHostState.showSnackbar("Versement appliqué - plafond dépassé sur « ${event.compteLabel} »")
                 is SavingsEvent.Error             -> snackbarHostState.showSnackbar(event.message)
             }
         }
@@ -248,7 +248,7 @@ private fun SavingsAccountCard(
                             type       = account.type,
                             customName = if (account.type == SavingsType.AUTRE) account.label else null
                         )
-                        // Quand type == AUTRE, le label EST le nom du type — pas de doublon
+                        // Quand type == AUTRE, le label EST le nom du type - pas de doublon
                         if (account.type != SavingsType.AUTRE) {
                             Text(account.label, style = MaterialTheme.typography.bodyLarge)
                         }
@@ -398,7 +398,7 @@ private fun ChildCard(
             } else {
                 savingsAccounts.forEach { acc ->
                     Text(
-                        "• ${acc.type.displayName} — ${acc.currentBalanceCents.toCurrencyDisplay(acc.currency)}",
+                        "• ${acc.type.displayName} - ${acc.currentBalanceCents.toCurrencyDisplay(acc.currency)}",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

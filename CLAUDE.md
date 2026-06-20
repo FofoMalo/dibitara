@@ -95,3 +95,69 @@ Ce projet est développé en binôme senior/junior. Le code doit être un suppor
 - Expliquer les choix d'architecture dans les commentaires quand ce n'est pas évident.
 - Préférer la clarté à la concision quand les deux sont en tension.
 - Valider les approches avec le junior avant d'implémenter des patterns avancés.
+
+## Lignes directrice comportementales :
+
+### **Les Quatre Principes en Détail**
+
+---
+
+#### 1. **Réfléchir avant de coder**
+
+Ne fais pas d’hypothèses. Ne cache pas ta confusion. Mets en lumière les compromis.
+
+- **Exprime clairement tes hypothèses** — Si tu n’es pas sûr, demande plutôt que de deviner.
+- **Présente plusieurs interprétations** — Ne choisis pas en silence s’il y a une ambiguïté.
+- **Propose une alternative si nécessaire** — Si une approche plus simple existe, dis-le.
+- **Arrête-toi si tu es perdu** — Identifie ce qui n’est pas clair et demande des éclaircissements.
+
+---
+
+#### 2. **La simplicité d’abord**
+
+Écris le code minimal qui résout le problème. Rien de spéculatif.
+
+- Pas de fonctionnalités au-delà de ce qui a été demandé.
+- Pas d’abstractions pour du code utilisé une seule fois.
+- Pas de « flexibilité » ou de « configurabilité » non demandée.
+- Pas de gestion d’erreurs pour des scénarios impossibles.
+- Si 200 lignes peuvent être réduites à 50, réécris-les.
+
+**Le test** : Un ingénieur senior trouverait-il cela trop compliqué ? Si oui, simplifie.
+
+---
+#### 3. **Des modifications chirurgicales**
+
+Ne touche qu’à ce qui est nécessaire. Nettoie uniquement ton propre désordre.
+
+Lorsque tu modifies du code existant :
+
+- Ne « améliore » pas le code, les commentaires ou la mise en forme adjacente.
+- Ne refactorise pas ce qui fonctionne.
+- Respecte le style existant, même si tu ferais autrement.
+- Si tu repères du code mort non lié, signale-le — ne le supprime pas.
+
+Si tes modifications créent du code orphelin :
+
+- Supprime les imports/variables/fonctions **que TES modifications** ont rendus inutilisés.
+- Ne supprime pas le code mort préexistant, sauf si on te le demande.
+
+**Le test** : Chaque ligne modifiée doit pouvoir être reliée directement à la demande de l’utilisateur.
+
+#### 4. **Exécution orientée objectifs**
+
+Définis des critères de succès. Boucle jusqu’à vérification.
+
+Transforme les tâches impératives en objectifs vérifiables :
+
+Au lieu de… | Transforme en…
+---|---
+« Ajoute une validation » | « Écris des tests pour les entrées invalides, puis fais-les passer »
+« Corrige le bug » | « Écris un test qui le reproduit, puis fais-le passer »
+« Refactorise X » | « Vérifie que les tests passent avant et après »
+
+Pour les tâches en plusieurs étapes, expose un plan concis :
+
+1. [Étape] → vérification : [contrôle]
+2. [Étape] → vérification : [contrôle]
+3. [Étape] → vérification : [contrôle]

@@ -126,7 +126,7 @@ fun SettingsScreen(
 
             // ─── Section notifications ────────────────────────────────────────
             SectionCard(titre = "Notifications") {
-                Text("Seuil d'alerte — liquidités insuffisantes", style = MaterialTheme.typography.titleSmall)
+                Text("Seuil d'alerte - liquidités insuffisantes", style = MaterialTheme.typography.titleSmall)
                 Text(
                     "Une alerte est envoyée si le solde du mois passe sous ce montant.",
                     style = MaterialTheme.typography.bodySmall,
@@ -154,7 +154,7 @@ fun SettingsScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                // Bilan mensuel en notification — activé/désactivé par l'utilisateur
+                // Bilan mensuel en notification - activé/désactivé par l'utilisateur
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -312,7 +312,7 @@ fun SettingsScreen(
                     }
                     tauxDeChange!!.isFailure -> {
                         Text(
-                            "Taux indisponibles — vérifiez votre connexion",
+                            "Taux indisponibles - vérifiez votre connexion",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -503,7 +503,7 @@ fun SettingsScreen(
                     "Cette action est irréversible.\n\n" +
                         "Toutes vos transactions, investissements, budgets, préférences " +
                         "et identifiants seront définitivement supprimés de cet appareil.\n\n" +
-                        "Aucune donnée n'est envoyée sur un serveur — la suppression est locale et immédiate.",
+                        "Aucune donnée n'est envoyée sur un serveur - la suppression est locale et immédiate.",
                     style = MaterialTheme.typography.bodySmall
                 )
             },
@@ -568,12 +568,12 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "• CSV — tableau lisible dans Excel ou Google Sheets",
+                        "• CSV - tableau lisible dans Excel ou Google Sheets",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "• JSON — sauvegarde complète (transactions, budgets, épargne, investissements, dettes)",
+                        "• JSON - sauvegarde complète (transactions, budgets, épargne, investissements, dettes)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

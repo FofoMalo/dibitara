@@ -14,7 +14,7 @@ import javax.inject.Inject
 /**
  * Calcule les prochaines échéances à venir pour tous les modèles récurrents actifs.
  *
- * [limit] — nombre maximum de résultats retournés (défaut 5).
+ * [limit] - nombre maximum de résultats retournés (défaut 5).
  * Les résultats sont triés par date croissante.
  */
 class GetUpcomingPaymentsUseCase @Inject constructor(

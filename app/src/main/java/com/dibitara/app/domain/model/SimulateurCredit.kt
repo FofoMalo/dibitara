@@ -7,7 +7,7 @@ import kotlin.math.roundToInt
 
 /**
  * Calculs d'amortissement pour un crédit immobilier à taux fixe.
- * Toutes les fonctions sont pures — aucun effet de bord, testables unitairement.
+ * Toutes les fonctions sont pures - aucun effet de bord, testables unitairement.
  *
  * Formules utilisées (amortissement à taux fixe, mensualité constante) :
  *   - Mensualités restantes = ln(M / (M - C × r)) / ln(1 + r)

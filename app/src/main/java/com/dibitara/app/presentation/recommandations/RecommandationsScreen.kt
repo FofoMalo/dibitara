@@ -289,7 +289,7 @@ private fun PocheCard(
                 Text(label, style = MaterialTheme.typography.bodySmall, color = couleur)
             }
 
-            // Bouton "Appliquer" — crée ou met à jour la CategoryEnvelope
+            // Bouton "Appliquer" - crée ou met à jour la CategoryEnvelope
             Row(
                 horizontalArrangement = Arrangement.End,
                 modifier              = Modifier.fillMaxWidth()

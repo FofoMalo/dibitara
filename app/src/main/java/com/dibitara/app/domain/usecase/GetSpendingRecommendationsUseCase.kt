@@ -25,7 +25,7 @@ import javax.inject.Inject
  *  4. Classification 50/30/20 : chaque catégorie rangée dans Besoins, Envies ou Épargne/Dettes.
  *  5. Viabilité = revenuMoyen - engagements - sum(poches) ≥ 0.
  *
- * Les catégories AUTRE et TRANSFERTS sont exclues — trop vagues pour être recommandées.
+ * Les catégories AUTRE et TRANSFERTS sont exclues - trop vagues pour être recommandées.
  * Retourne un Flow actif : la recommandation se recalcule si les données sources changent.
  */
 class GetSpendingRecommendationsUseCase @Inject constructor(

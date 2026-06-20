@@ -39,7 +39,7 @@ fun MonthlyReportScreen(
             Text(
                 text = when (val s = uiState) {
                     is MonthlyReportUiState.Success ->
-                        "Rapport — ${nomMois(s.report.month)} ${s.report.year}"
+                        "Rapport - ${nomMois(s.report.month)} ${s.report.year}"
                     else -> "Rapport mensuel"
                 },
                 style = MaterialTheme.typography.headlineSmall,
@@ -113,7 +113,7 @@ private fun BilanCard(report: MonthlyReport) {
                 )
             }
 
-            // Taux d'épargne — affiché uniquement si les revenus sont > 0
+            // Taux d'épargne - affiché uniquement si les revenus sont > 0
             report.tauxEpargnePct?.let { taux ->
                 HorizontalDivider()
                 Row(
