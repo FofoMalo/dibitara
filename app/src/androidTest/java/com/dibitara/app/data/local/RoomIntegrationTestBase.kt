@@ -9,7 +9,7 @@ import org.junit.Before
 /**
  * Classe de base pour les tests d'intégration Room.
  * Crée une base de données en mémoire avant chaque test et la ferme après.
- * [allowMainThreadQueries] est autorisé uniquement en test — jamais en production.
+ * [allowMainThreadQueries] est autorisé uniquement en test - jamais en production.
  */
 abstract class RoomIntegrationTestBase {
 

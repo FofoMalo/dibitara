@@ -13,7 +13,7 @@ import java.time.LocalDate
 
 /**
  * Tests d'intégration Room pour [TransactionDao].
- * Utilise une base de données en mémoire — aucune donnée persistée entre les tests.
+ * Utilise une base de données en mémoire - aucune donnée persistée entre les tests.
  */
 @RunWith(AndroidJUnit4::class)
 class TransactionDaoIntegrationTest : RoomIntegrationTestBase() {
