@@ -33,6 +33,9 @@ import com.dibitara.app.presentation.auth.ClavierNumerique
 import com.dibitara.app.presentation.auth.PinDots
 import com.dibitara.app.presentation.auth.passwordCriteria
 import com.dibitara.app.presentation.common.QrCodeImage
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun SettingsScreen(
@@ -371,6 +374,17 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+                prefs.derniereImportEpochMilli?.let { epochMilli ->
+                    val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                    val derniereImport = Instant.ofEpochMilli(epochMilli)
+                        .atZone(ZoneId.systemDefault())
+                        .format(dateFmt)
+                    Text(
+                        "Dernier import : $derniereImport",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
                 OutlinedButton(
                     onClick = onNavigateToImportBred,
                     modifier = Modifier.fillMaxWidth()

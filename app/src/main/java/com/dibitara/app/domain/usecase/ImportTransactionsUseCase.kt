@@ -2,6 +2,7 @@ package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.repository.ImportRepository
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import javax.inject.Inject
 
 /**
@@ -11,9 +12,13 @@ import javax.inject.Inject
  *
  * La séparation en deux étapes permet d'afficher un écran de preview à l'utilisateur
  * avant de toucher la base de données.
+ *
+ * Point d'entrée commun aux trois flux d'import (BRED CSV, BRED PDF, TradeRepublic) :
+ * [confirmer] enregistre donc ici la date du dernier import, quelle que soit la source.
  */
 class ImportTransactionsUseCase @Inject constructor(
-    private val repository: ImportRepository
+    private val repository: ImportRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) {
     /**
      * Étape 1 - Preview.
@@ -37,6 +42,7 @@ class ImportTransactionsUseCase @Inject constructor(
             val existants = repository.externalIdsExistants()
             val nouvelles = transactions.filter { it.externalId !in existants }
             repository.importerTransactions(nouvelles.map { it.toTransaction() })
+            userPreferencesRepository.updateDerniereImport(System.currentTimeMillis())
             ImportResult(importees = nouvelles.size, ignorees = transactions.size - nouvelles.size)
         }
 }

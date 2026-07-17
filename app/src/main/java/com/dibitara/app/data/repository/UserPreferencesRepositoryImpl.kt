@@ -36,6 +36,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val KEY_NOTIFICATIONS_MENSUELLES     = booleanPreferencesKey("notifications_mensuelles")
         val KEY_AFFICHER_RECOMMANDATIONS     = booleanPreferencesKey("afficher_recommandations")
         val KEY_TAUX_EPARGNE_CIBLE           = intPreferencesKey("taux_epargne_cible_pct")
+        val KEY_DERNIER_IMPORT               = longPreferencesKey("dernier_import_epoch_milli")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -54,7 +55,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
                 ?: DashboardCard.entries.toList(),
             notificationsMensuelles     = prefs[KEY_NOTIFICATIONS_MENSUELLES] ?: false,
             afficherRecommandations     = prefs[KEY_AFFICHER_RECOMMANDATIONS] ?: false,
-            tauxEpargneCiblePct         = prefs[KEY_TAUX_EPARGNE_CIBLE] ?: UserPreferences().tauxEpargneCiblePct
+            tauxEpargneCiblePct         = prefs[KEY_TAUX_EPARGNE_CIBLE] ?: UserPreferences().tauxEpargneCiblePct,
+            derniereImportEpochMilli    = prefs[KEY_DERNIER_IMPORT]
         )
     }
 
@@ -100,6 +102,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateTauxEpargneCible(pct: Int) {
         dataStore.edit { it[KEY_TAUX_EPARGNE_CIBLE] = pct }
+    }
+
+    override suspend fun updateDerniereImport(epochMilli: Long) {
+        dataStore.edit { it[KEY_DERNIER_IMPORT] = epochMilli }
     }
 
     override suspend fun clearAll() {

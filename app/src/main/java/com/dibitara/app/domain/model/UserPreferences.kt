@@ -8,6 +8,7 @@ package com.dibitara.app.domain.model
  * [notificationsMensuelles]  : si true, un résumé mensuel est envoyé en notification le 1er du mois.
  * [afficherRecommandations]  : si true, le bouton "Recommandations" apparaît dans l'écran Budget.
  * [tauxEpargneCiblePct]      : objectif d'épargne en % du revenu mensuel (défaut : 20 % - règle 50/30/20).
+ * [derniereImportEpochMilli] : date + heure du dernier import CSV/PDF réussi (BRED ou TradeRepublic), null si aucun import.
  */
 data class UserPreferences(
     val seuilFondsCents: Long = 20_000L,
@@ -20,5 +21,6 @@ data class UserPreferences(
     val dashboardCardOrder: List<DashboardCard> = DashboardCard.entries.toList(),
     val notificationsMensuelles: Boolean = false,
     val afficherRecommandations: Boolean = false,
-    val tauxEpargneCiblePct: Int = 20
+    val tauxEpargneCiblePct: Int = 20,
+    val derniereImportEpochMilli: Long? = null
 )

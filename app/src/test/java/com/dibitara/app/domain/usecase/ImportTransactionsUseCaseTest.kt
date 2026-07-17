@@ -5,6 +5,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.repository.ImportRepository
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -21,11 +22,12 @@ import java.time.LocalDate
 class ImportTransactionsUseCaseTest {
 
     private val repository: ImportRepository = mockk()
+    private val userPreferencesRepository: UserPreferencesRepository = mockk(relaxUnitFun = true)
     private lateinit var useCase: ImportTransactionsUseCase
 
     @BeforeEach
     fun setUp() {
-        useCase = ImportTransactionsUseCase(repository)
+        useCase = ImportTransactionsUseCase(repository, userPreferencesRepository)
     }
 
     private fun buildImported(externalId: String, category: Category = Category.ALIMENTATION) =
@@ -154,6 +156,17 @@ class ImportTransactionsUseCaseTest {
 
         assertTrue(result.isFailure)
         assertEquals("Erreur base de données", result.exceptionOrNull()?.message)
+        coVerify(exactly = 0) { userPreferencesRepository.updateDerniereImport(any()) }
+    }
+
+    @Test
+    fun `confirmer enregistre la date du dernier import en cas de succès`() = runTest {
+        coEvery { repository.externalIdsExistants() } returns emptySet()
+        coEvery { repository.importerTransactions(any()) } returns 1
+
+        useCase.confirmer(listOf(buildImported("uuid-001")))
+
+        coVerify(exactly = 1) { userPreferencesRepository.updateDerniereImport(any()) }
     }
 
     @Test
