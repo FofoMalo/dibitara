@@ -3,12 +3,15 @@ package com.dibitara.app.data.repository
 import com.dibitara.app.data.local.dao.AirbnbRentalDao
 import com.dibitara.app.data.local.dao.RealEstateAssetDao
 import com.dibitara.app.data.local.dao.ScpiInvestmentDao
+import com.dibitara.app.data.local.dao.VehicleRentalEntryDao
 import com.dibitara.app.data.local.entity.AirbnbRentalEntity
 import com.dibitara.app.data.local.entity.RealEstateAssetEntity
 import com.dibitara.app.data.local.entity.ScpiInvestmentEntity
+import com.dibitara.app.data.local.entity.VehicleRentalEntryEntity
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
+import com.dibitara.app.domain.model.VehicleRentalEntry
 import com.dibitara.app.domain.repository.InvestmentRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -18,7 +21,8 @@ import javax.inject.Inject
 class InvestmentRepositoryImpl @Inject constructor(
     private val realEstateDao: RealEstateAssetDao,
     private val scpiDao: ScpiInvestmentDao,
-    private val airbnbDao: AirbnbRentalDao
+    private val airbnbDao: AirbnbRentalDao,
+    private val vehicleRentalEntryDao: VehicleRentalEntryDao
 ) : InvestmentRepository {
 
     override fun getAllRealEstate(): Flow<List<RealEstateAsset>> =
@@ -70,5 +74,26 @@ class InvestmentRepositoryImpl @Inject constructor(
 
     override suspend fun deleteAirbnbRental(rental: AirbnbRental) {
         airbnbDao.delete(AirbnbRentalEntity.fromDomain(rental))
+    }
+
+    override fun getAllVehicleRentalEntries(): Flow<List<VehicleRentalEntry>> =
+        vehicleRentalEntryDao.getAll().map { it.map { e -> e.toDomain() } }
+
+    override fun getVehicleRentalEntriesByYear(year: Int): Flow<List<VehicleRentalEntry>> {
+        val from = LocalDate.of(year, 1, 1).toEpochDay()
+        val to = LocalDate.of(year, 12, 31).toEpochDay()
+        return vehicleRentalEntryDao.getByYear(from, to).map { it.map { e -> e.toDomain() } }
+    }
+
+    override suspend fun saveVehicleRentalEntry(entry: VehicleRentalEntry): Result<Long> = runCatching {
+        vehicleRentalEntryDao.insert(VehicleRentalEntryEntity.fromDomain(entry))
+    }
+
+    override suspend fun updateVehicleRentalEntry(entry: VehicleRentalEntry) {
+        vehicleRentalEntryDao.update(VehicleRentalEntryEntity.fromDomain(entry))
+    }
+
+    override suspend fun deleteVehicleRentalEntry(entry: VehicleRentalEntry) {
+        vehicleRentalEntryDao.delete(VehicleRentalEntryEntity.fromDomain(entry))
     }
 }

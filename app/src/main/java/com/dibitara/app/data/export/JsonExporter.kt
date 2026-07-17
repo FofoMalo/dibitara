@@ -37,6 +37,7 @@ object JsonExporter {
             "immobilier"       to data.immobilier,
             "scpi"             to data.scpi,
             "airbnb"           to data.airbnb,
+            "vehicule_locatif" to data.vehiculeLocatif,
             "dettes"           to data.dettes,
             "metaux_precieux"  to data.metaux,
             "actifs_libres"    to data.actifsLibres,

@@ -16,6 +16,7 @@ data class ExportData(
     val immobilier     : List<RealEstateAsset>,
     val scpi           : List<ScpiInvestment>,
     val airbnb         : List<AirbnbRental>,
+    val vehiculeLocatif: List<VehicleRentalEntry>,
     val dettes         : List<Debt>,
     val metaux         : List<PreciousMetalAsset>,
     val actifsLibres   : List<CustomAsset>,

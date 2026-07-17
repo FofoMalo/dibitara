@@ -5,10 +5,11 @@ data class PatrimonyOverview(
     val epargneCents: Long,
     val investissementsCents: Long,
     val airbnbAnnualRevenueCents: Long,
+    val vehicleRentalNetRevenueCents: Long,
     val dettesTotalCents: Long,
     val currency: Currency
 ) {
-    // Airbnb est un revenu (flux), pas un actif (stock) - exclu du patrimoine brut
+    // Airbnb et le véhicule locatif sont des revenus (flux), pas des actifs (stock) - exclus du patrimoine brut
     val patrimoineBrutCents: Long
         get() = liquiditesCents + epargneCents + investissementsCents
 

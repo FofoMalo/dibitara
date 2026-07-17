@@ -11,6 +11,7 @@ import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.VehicleRentalEntry
 
 /**
  * Génère un fichier CSV avec séparateur ";" (compatible Excel en locale française).
@@ -26,6 +27,7 @@ object CsvExporter {
         appendSection("IMMOBILIER",      lignesImmobilier(data.immobilier))
         appendSection("SCPI",            lignesScpi(data.scpi))
         appendSection("AIRBNB",          lignesAirbnb(data.airbnb))
+        appendSection("VEHICULE_LOCATIF", lignesVehiculeLocatif(data.vehiculeLocatif))
         appendSection("DETTES",          lignesDettes(data.dettes))
         appendSection("METAUX_PRECIEUX", lignesMetaux(data.metaux))
         appendSection("ACTIFS_LIBRES",   lignesActifsLibres(data.actifsLibres))
@@ -87,6 +89,13 @@ object CsvExporter {
         val entete = "id;bien;montant_centimes;date;devise"
         return listOf(entete) + list.map { a ->
             "${a.id};${echapper(a.propertyLabel)};${a.amountCents};${a.date};${a.currency.isoCode}"
+        }
+    }
+
+    private fun lignesVehiculeLocatif(list: List<VehicleRentalEntry>): List<String> {
+        val entete = "id;libelle;type;montant_centimes;date;devise"
+        return listOf(entete) + list.map { v ->
+            "${v.id};${echapper(v.label)};${v.entryType.displayName};${v.amountCents};${v.date};${v.currency.isoCode}"
         }
     }
 

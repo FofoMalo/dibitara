@@ -37,9 +37,10 @@ import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
         EmployeeSavingsEntity::class,
         PatrimoineSnapshotEntity::class,
         CategorizationRuleEntity::class,
-        CategoryEnvelopeEntity::class
+        CategoryEnvelopeEntity::class,
+        VehicleRentalEntryEntity::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -59,8 +60,25 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun patrimoineSnapshotDao(): PatrimoineSnapshotDao
     abstract fun categorizationRuleDao(): CategorizationRuleDao
     abstract fun categoryEnvelopeDao(): CategoryEnvelopeDao
+    abstract fun vehicleRentalEntryDao(): VehicleRentalEntryDao
 
     companion object {
+        // Migration v18 → v19 : nouvelle table vehicle_rental_entries pour l'activité de location de véhicule
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS vehicle_rental_entries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        label TEXT NOT NULL,
+                        entryType TEXT NOT NULL,
+                        amountCents INTEGER NOT NULL,
+                        dateEpochDay INTEGER NOT NULL,
+                        currency TEXT NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         // Migration v17 → v18 : nouvelle table category_envelopes pour les enveloppes budgétaires par catégorie
         val MIGRATION_17_18 = object : Migration(17, 18) {
             override fun migrate(db: SupportSQLiteDatabase) {

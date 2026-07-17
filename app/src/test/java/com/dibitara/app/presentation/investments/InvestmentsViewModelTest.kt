@@ -6,6 +6,7 @@ import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
@@ -13,6 +14,7 @@ import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.DeletePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
+import com.dibitara.app.domain.usecase.DeleteVehicleRentalEntryUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetCustomAssetsUseCase
@@ -22,12 +24,14 @@ import com.dibitara.app.domain.usecase.GetPreciousMetalsUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
+import com.dibitara.app.domain.usecase.GetVehicleRentalEntriesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
 import com.dibitara.app.domain.usecase.SaveEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.SavePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
+import com.dibitara.app.domain.usecase.SaveVehicleRentalEntryUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.UpdateCustomAssetUseCase
@@ -35,6 +39,7 @@ import com.dibitara.app.domain.usecase.UpdateEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.UpdatePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
+import com.dibitara.app.domain.usecase.UpdateVehicleRentalEntryUseCase
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -58,24 +63,28 @@ class InvestmentsViewModelTest {
     private val ucGetRealEstate: GetRealEstateUseCase = mockk()
     private val ucGetScpi: GetScpiUseCase = mockk()
     private val ucGetAirbnbByYear: GetAirbnbRentalsByYearUseCase = mockk()
+    private val ucGetVehicleRentals: GetVehicleRentalEntriesUseCase = mockk()
     private val ucGetPreciousMetals: GetPreciousMetalsUseCase = mockk()
     private val ucGetCustomAssets: GetCustomAssetsUseCase = mockk()
     private val ucGetEmployeeSavings: GetEmployeeSavingsUseCase = mockk()
     private val ucSaveRealEstate: SaveRealEstateUseCase = mockk()
     private val ucSaveScpi: SaveScpiUseCase = mockk()
     private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase = mockk()
+    private val ucSaveVehicleEntry: SaveVehicleRentalEntryUseCase = mockk()
     private val ucSavePreciousMetal: SavePreciousMetalUseCase = mockk(relaxed = true)
     private val ucSaveCustomAsset: SaveCustomAssetUseCase = mockk(relaxed = true)
     private val ucSaveEmployeeSavings: SaveEmployeeSavingsUseCase = mockk(relaxed = true)
     private val ucUpdateRealEstate: UpdateRealEstateUseCase = mockk()
     private val ucUpdateScpi: UpdateScpiUseCase = mockk()
     private val ucUpdateAirbnbRental: UpdateAirbnbRentalUseCase = mockk()
+    private val ucUpdateVehicleEntry: UpdateVehicleRentalEntryUseCase = mockk()
     private val ucUpdatePreciousMetal: UpdatePreciousMetalUseCase = mockk(relaxed = true)
     private val ucUpdateCustomAsset: UpdateCustomAssetUseCase = mockk(relaxed = true)
     private val ucUpdateEmployeeSavings: UpdateEmployeeSavingsUseCase = mockk(relaxed = true)
     private val ucDeleteRealEstate: DeleteRealEstateUseCase = mockk()
     private val ucDeleteScpi: DeleteScpiUseCase = mockk()
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase = mockk()
+    private val ucDeleteVehicleEntry: DeleteVehicleRentalEntryUseCase = mockk(relaxed = true)
     private val ucDeletePreciousMetal: DeletePreciousMetalUseCase = mockk(relaxed = true)
     private val ucDeleteCustomAsset: DeleteCustomAssetUseCase = mockk(relaxed = true)
     private val ucDeleteEmployeeSavings: DeleteEmployeeSavingsUseCase = mockk(relaxed = true)
@@ -93,6 +102,7 @@ class InvestmentsViewModelTest {
         every { ucGetRealEstate() } returns flowOf(emptyList())
         every { ucGetScpi() } returns flowOf(emptyList())
         every { ucGetAirbnbByYear(any()) } returns flowOf(emptyList())
+        every { ucGetVehicleRentals() } returns flowOf(emptyList())
         every { ucGetPreciousMetals() } returns flowOf(emptyList())
         every { ucGetCustomAssets() } returns flowOf(emptyList())
         every { ucGetEmployeeSavings() } returns flowOf(emptyList())
@@ -100,13 +110,13 @@ class InvestmentsViewModelTest {
         every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
         every { ucGetDebts() } returns flowOf(emptyList())
         viewModel = InvestmentsViewModel(
-            ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear,
+            ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear, ucGetVehicleRentals,
             ucGetPreciousMetals, ucGetCustomAssets, ucGetEmployeeSavings,
-            ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental,
+            ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental, ucSaveVehicleEntry,
             ucSavePreciousMetal, ucSaveCustomAsset, ucSaveEmployeeSavings,
-            ucUpdateRealEstate, ucUpdateScpi, ucUpdateAirbnbRental,
+            ucUpdateRealEstate, ucUpdateScpi, ucUpdateAirbnbRental, ucUpdateVehicleEntry,
             ucUpdatePreciousMetal, ucUpdateCustomAsset, ucUpdateEmployeeSavings,
-            ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental,
+            ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental, ucDeleteVehicleEntry,
             ucDeletePreciousMetal, ucDeleteCustomAsset, ucDeleteEmployeeSavings,
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts
         )
@@ -122,6 +132,7 @@ class InvestmentsViewModelTest {
         assertTrue(state.realEstate.isEmpty())
         assertTrue(state.scpi.isEmpty())
         assertTrue(state.airbnbRentals.isEmpty())
+        assertTrue(state.vehicleRentalEntries.isEmpty())
         job.cancel()
     }
 
@@ -175,6 +186,68 @@ class InvestmentsViewModelTest {
         testScheduler.advanceUntilIdle()
 
         assertTrue(events.any { it is InvestmentsEvent.Saved })
+        job.cancel()
+    }
+
+    @Test
+    fun `addVehicleRentalEntry avec montant valide émet Saved`() = runTest {
+        coEvery { ucSaveVehicleEntry(any()) } returns Result.success(1L)
+        val events = mutableListOf<InvestmentsEvent>()
+        val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
+
+        viewModel.addVehicleRentalEntry("Location weekend", "150.00", VehicleEntryType.REVENU, LocalDate.now(), Currency.EUR)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(events.any { it is InvestmentsEvent.Saved })
+        job.cancel()
+    }
+
+    @Test
+    fun `updateVehicleRentalEntry avec montant valide émet Saved`() = runTest {
+        val entry = com.dibitara.app.domain.model.VehicleRentalEntry(
+            id = 1L, label = "Vidange", entryType = VehicleEntryType.CHARGE,
+            amountCents = 8000L, date = LocalDate.now(), currency = Currency.EUR
+        )
+        coEvery { ucUpdateVehicleEntry(any()) } returns Result.success(Unit)
+        val events = mutableListOf<InvestmentsEvent>()
+        val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
+
+        viewModel.updateVehicleRentalEntry(entry, "Vidange + filtre", "95.00", VehicleEntryType.CHARGE, LocalDate.now(), Currency.EUR)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(events.any { it is InvestmentsEvent.Saved })
+        job.cancel()
+    }
+
+    @Test
+    fun `uiState sépare les revenus et les charges du véhicule locatif`() = runTest {
+        val revenu = com.dibitara.app.domain.model.VehicleRentalEntry(
+            id = 1L, label = "Location weekend", entryType = VehicleEntryType.REVENU,
+            amountCents = 15000L, date = LocalDate.now(), currency = Currency.EUR
+        )
+        val charge = com.dibitara.app.domain.model.VehicleRentalEntry(
+            id = 2L, label = "Vidange", entryType = VehicleEntryType.CHARGE,
+            amountCents = 8000L, date = LocalDate.now(), currency = Currency.EUR
+        )
+        every { ucGetVehicleRentals() } returns flowOf(listOf(revenu, charge))
+
+        viewModel = InvestmentsViewModel(
+            ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear, ucGetVehicleRentals,
+            ucGetPreciousMetals, ucGetCustomAssets, ucGetEmployeeSavings,
+            ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental, ucSaveVehicleEntry,
+            ucSavePreciousMetal, ucSaveCustomAsset, ucSaveEmployeeSavings,
+            ucUpdateRealEstate, ucUpdateScpi, ucUpdateAirbnbRental, ucUpdateVehicleEntry,
+            ucUpdatePreciousMetal, ucUpdateCustomAsset, ucUpdateEmployeeSavings,
+            ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental, ucDeleteVehicleEntry,
+            ucDeletePreciousMetal, ucDeleteCustomAsset, ucDeleteEmployeeSavings,
+            ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts
+        )
+
+        val job = launch { viewModel.uiState.collect {} }
+        val state = viewModel.uiState.first { it is InvestmentsUiState.Success } as InvestmentsUiState.Success
+
+        assertEquals(15000L, state.vehicleRentalRevenueCents)
+        assertEquals(8000L, state.vehicleRentalChargeCents)
         job.cancel()
     }
 }

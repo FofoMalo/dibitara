@@ -23,6 +23,7 @@ import com.dibitara.app.data.local.entity.RealEstateAssetEntity
 import com.dibitara.app.data.local.entity.SavingsAccountEntity
 import com.dibitara.app.data.local.entity.ScpiInvestmentEntity
 import com.dibitara.app.data.local.entity.TransactionEntity
+import com.dibitara.app.data.local.entity.VehicleRentalEntryEntity
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Child
@@ -34,6 +35,7 @@ import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.VehicleRentalEntry
 import com.dibitara.app.domain.repository.RestoreRepository
 import com.dibitara.app.domain.repository.RestoreResult
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -90,6 +92,7 @@ class RestoreRepositoryImpl @Inject constructor(
             val immobilier   = parseList<RealEstateAsset>(jsonObj, "immobilier")
             val scpi         = parseList<ScpiInvestment>(jsonObj, "scpi")
             val airbnb       = parseList<AirbnbRental>(jsonObj, "airbnb")
+            val vehiculeLocatif = parseList<VehicleRentalEntry>(jsonObj, "vehicule_locatif")
             val dettes       = parseList<Debt>(jsonObj, "dettes")
             val metaux       = parseList<PreciousMetalAsset>(jsonObj, "metaux_precieux")
             val actifs       = parseList<CustomAsset>(jsonObj, "actifs_libres")
@@ -107,14 +110,15 @@ class RestoreRepositoryImpl @Inject constructor(
             immobilier.forEach   { database.realEstateAssetDao().insert(RealEstateAssetEntity.fromDomain(it)) }
             scpi.forEach         { database.scpiInvestmentDao().insert(ScpiInvestmentEntity.fromDomain(it)) }
             airbnb.forEach       { database.airbnbRentalDao().insert(AirbnbRentalEntity.fromDomain(it)) }
+            vehiculeLocatif.forEach { database.vehicleRentalEntryDao().insert(VehicleRentalEntryEntity.fromDomain(it)) }
             dettes.forEach       { database.debtDao().insert(DebtEntity.fromDomain(it)) }
             metaux.forEach       { database.preciousMetalDao().insert(PreciousMetalEntity.fromDomain(it)) }
             actifs.forEach       { database.customAssetDao().insert(CustomAssetEntity.fromDomain(it)) }
             epargneSal.forEach   { database.employeeSavingsDao().insert(EmployeeSavingsEntity.fromDomain(it)) }
 
             val total = enfants.size + transactions.size + budgets.size + epargne.size +
-                immobilier.size + scpi.size + airbnb.size + dettes.size + metaux.size +
-                actifs.size + epargneSal.size
+                immobilier.size + scpi.size + airbnb.size + vehiculeLocatif.size + dettes.size +
+                metaux.size + actifs.size + epargneSal.size
 
             RestoreResult.Success(total)
 

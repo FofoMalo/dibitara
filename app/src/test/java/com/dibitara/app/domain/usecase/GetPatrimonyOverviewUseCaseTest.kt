@@ -66,6 +66,10 @@ class GetPatrimonyOverviewUseCaseTest {
         val airbnb = listOf(
             AirbnbRental(propertyLabel = "Studio", amountCents = 90000L, date = LocalDate.now(), currency = Currency.EUR)
         )
+        val vehicule = listOf(
+            VehicleRentalEntry(label = "Location weekend", entryType = VehicleEntryType.REVENU, amountCents = 30000L, date = LocalDate.now(), currency = Currency.EUR),
+            VehicleRentalEntry(label = "Vidange", entryType = VehicleEntryType.CHARGE, amountCents = 8000L, date = LocalDate.now(), currency = Currency.EUR)
+        )
         val debts = listOf(
             Debt(label = "Crédit", totalCents = 5000000L, monthlyPaymentCents = 50000L,
                 currency = Currency.EUR, type = DebtType.CREDIT_IMMO, updatedAt = LocalDate.now())
@@ -77,6 +81,7 @@ class GetPatrimonyOverviewUseCaseTest {
         every { investmentRepo.getAllRealEstate() } returns flowOf(realEstate)
         every { investmentRepo.getAllScpi() } returns flowOf(scpi)
         every { investmentRepo.getAirbnbRentalsByYear(2026) } returns flowOf(airbnb)
+        every { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(vehicule)
         every { debtRepo.getAll() } returns flowOf(debts)
         every { customInvestRepo.getAllPreciousMetals() } returns flowOf(emptyList())
         every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())
@@ -90,8 +95,10 @@ class GetPatrimonyOverviewUseCaseTest {
         // investissements = immo + scpi = 20 000 000 + 200 000 = 20 200 000
         assertEquals(20200000L, overview.investissementsCents)
         assertEquals(90000L, overview.airbnbAnnualRevenueCents)
+        // véhicule locatif net = revenu − charge = 30 000 − 8 000 = 22 000
+        assertEquals(22000L, overview.vehicleRentalNetRevenueCents)
         assertEquals(5000000L, overview.dettesTotalCents)
-        // patrimoine brut = liquidités + épargne + investissements (Airbnb exclu)
+        // patrimoine brut = liquidités + épargne + investissements (Airbnb et véhicule locatif exclus)
         assertEquals(200000L + 500000L + 20200000L, overview.patrimoineBrutCents)
         assertEquals(Currency.EUR, overview.currency)
     }
@@ -113,6 +120,7 @@ class GetPatrimonyOverviewUseCaseTest {
         every { investmentRepo.getAllRealEstate() } returns flowOf(emptyList())
         every { investmentRepo.getAllScpi() } returns flowOf(emptyList())
         every { investmentRepo.getAirbnbRentalsByYear(2026) } returns flowOf(emptyList())
+        every { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(emptyList())
         every { debtRepo.getAll() } returns flowOf(emptyList())
         every { customInvestRepo.getAllPreciousMetals() } returns flowOf(emptyList())
         every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())
@@ -132,6 +140,7 @@ class GetPatrimonyOverviewUseCaseTest {
         every { investmentRepo.getAllRealEstate() } returns flowOf(emptyList())
         every { investmentRepo.getAllScpi() } returns flowOf(emptyList())
         every { investmentRepo.getAirbnbRentalsByYear(any()) } returns flowOf(emptyList())
+        every { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(emptyList())
         every { debtRepo.getAll() } returns flowOf(emptyList())
         every { customInvestRepo.getAllPreciousMetals() } returns flowOf(emptyList())
         every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())

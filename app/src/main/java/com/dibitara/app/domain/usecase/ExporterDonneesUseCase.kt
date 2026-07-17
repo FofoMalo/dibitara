@@ -40,6 +40,7 @@ class ExporterDonneesUseCase @Inject constructor(
             immobilier      = investmentRepository.getAllRealEstate().first(),
             scpi            = investmentRepository.getAllScpi().first(),
             airbnb          = investmentRepository.getAllAirbnbRentals().first(),
+            vehiculeLocatif = investmentRepository.getAllVehicleRentalEntries().first(),
             dettes          = debtRepository.getAll().first(),
             metaux          = customInvestmentRepository.getAllPreciousMetals().first(),
             actifsLibres    = customInvestmentRepository.getAllCustomAssets().first(),

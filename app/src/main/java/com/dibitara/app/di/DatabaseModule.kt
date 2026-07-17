@@ -62,7 +62,8 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_14_15,
                 DibitaraDatabase.MIGRATION_15_16,
                 DibitaraDatabase.MIGRATION_16_17,
-                DibitaraDatabase.MIGRATION_17_18
+                DibitaraDatabase.MIGRATION_17_18,
+                DibitaraDatabase.MIGRATION_18_19
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
@@ -83,6 +84,7 @@ object DatabaseModule {
     @Provides fun providePatrimoineSnapshotDao(db: DibitaraDatabase): PatrimoineSnapshotDao = db.patrimoineSnapshotDao()
     @Provides fun provideCategorizationRuleDao(db: DibitaraDatabase): CategorizationRuleDao = db.categorizationRuleDao()
     @Provides fun provideCategoryEnvelopeDao(db: DibitaraDatabase): CategoryEnvelopeDao = db.categoryEnvelopeDao()
+    @Provides fun provideVehicleRentalEntryDao(db: DibitaraDatabase): VehicleRentalEntryDao = db.vehicleRentalEntryDao()
 }
 
 @Module

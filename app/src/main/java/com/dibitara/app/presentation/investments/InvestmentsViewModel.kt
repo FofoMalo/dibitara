@@ -13,7 +13,10 @@ import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.PreciousMetalAsset
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
+import com.dibitara.app.domain.model.VehicleEntryType
+import com.dibitara.app.domain.model.VehicleRentalEntry
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.DeleteVehicleRentalEntryUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
 import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.DeletePreciousMetalUseCase
@@ -26,6 +29,7 @@ import com.dibitara.app.domain.usecase.GetEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.GetPreciousMetalsUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
+import com.dibitara.app.domain.usecase.GetVehicleRentalEntriesUseCase
 import com.dibitara.app.domain.model.CurrencyConverter
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.repository.ExchangeRateRepository
@@ -37,6 +41,7 @@ import com.dibitara.app.domain.usecase.SaveEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.SavePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
+import com.dibitara.app.domain.usecase.SaveVehicleRentalEntryUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.UpdateCustomAssetUseCase
@@ -44,6 +49,7 @@ import com.dibitara.app.domain.usecase.UpdateEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.UpdatePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
+import com.dibitara.app.domain.usecase.UpdateVehicleRentalEntryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -56,24 +62,28 @@ class InvestmentsViewModel @Inject constructor(
     private val ucGetRealEstate: GetRealEstateUseCase,
     private val ucGetScpi: GetScpiUseCase,
     private val ucGetAirbnbByYear: GetAirbnbRentalsByYearUseCase,
+    private val ucGetVehicleRentals: GetVehicleRentalEntriesUseCase,
     private val ucGetPreciousMetals: GetPreciousMetalsUseCase,
     private val ucGetCustomAssets: GetCustomAssetsUseCase,
     private val ucGetEmployeeSavings: GetEmployeeSavingsUseCase,
     private val ucSaveRealEstate: SaveRealEstateUseCase,
     private val ucSaveScpi: SaveScpiUseCase,
     private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase,
+    private val ucSaveVehicleEntry: SaveVehicleRentalEntryUseCase,
     private val ucSavePreciousMetal: SavePreciousMetalUseCase,
     private val ucSaveCustomAsset: SaveCustomAssetUseCase,
     private val ucSaveEmployeeSavings: SaveEmployeeSavingsUseCase,
     private val ucUpdateRealEstate: UpdateRealEstateUseCase,
     private val ucUpdateScpi: UpdateScpiUseCase,
     private val ucUpdateAirbnbRental: UpdateAirbnbRentalUseCase,
+    private val ucUpdateVehicleEntry: UpdateVehicleRentalEntryUseCase,
     private val ucUpdatePreciousMetal: UpdatePreciousMetalUseCase,
     private val ucUpdateCustomAsset: UpdateCustomAssetUseCase,
     private val ucUpdateEmployeeSavings: UpdateEmployeeSavingsUseCase,
     private val ucDeleteRealEstate: DeleteRealEstateUseCase,
     private val ucDeleteScpi: DeleteScpiUseCase,
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase,
+    private val ucDeleteVehicleEntry: DeleteVehicleRentalEntryUseCase,
     private val ucDeletePreciousMetal: DeletePreciousMetalUseCase,
     private val ucDeleteCustomAsset: DeleteCustomAssetUseCase,
     private val ucDeleteEmployeeSavings: DeleteEmployeeSavingsUseCase,
@@ -94,9 +104,12 @@ class InvestmentsViewModel @Inject constructor(
         ucGetRealEstate(),
         ucGetScpi(),
         ucGetAirbnbByYear(currentYear),
-        ucGetDebts()
-    ) { realEstate, scpi, airbnb, debts ->
-        BaseData(realEstate, scpi, airbnb, debts)
+        ucGetDebts(),
+        // Cumulé depuis le début de l'activité, pas filtré par année (une grosse charge
+        // initiale peut précéder les revenus qu'elle a permis de générer).
+        ucGetVehicleRentals()
+    ) { realEstate, scpi, airbnb, debts, vehicleEntries ->
+        BaseData(realEstate, scpi, airbnb, debts, vehicleEntries)
     }
 
     private val customFlow = combine(
@@ -122,6 +135,13 @@ class InvestmentsViewModel @Inject constructor(
             airbnbRentals         = base.airbnb,
             airbnbAnnualTotal     = base.airbnb.sumOf { it.amountCents.cvt(it.currency) },
             anneeLocatifs         = currentYear,
+            vehicleRentalEntries       = base.vehicleEntries,
+            vehicleRentalRevenueCents  = base.vehicleEntries
+                .filter { it.entryType == VehicleEntryType.REVENU }
+                .sumOf { it.amountCents.cvt(it.currency) },
+            vehicleRentalChargeCents   = base.vehicleEntries
+                .filter { it.entryType == VehicleEntryType.CHARGE }
+                .sumOf { it.amountCents.cvt(it.currency) },
             preciousMetals        = metals,
             customAssets          = assets,
             employeeSavings       = empSavings,
@@ -246,6 +266,38 @@ class InvestmentsViewModel @Inject constructor(
 
     fun deleteAirbnb(rental: AirbnbRental) {
         viewModelScope.launch { ucDeleteAirbnbRental(rental) }
+    }
+
+    // ─── Véhicule locatif ──────────────────────────────────────────────────────
+
+    fun addVehicleRentalEntry(label: String, amountStr: String, type: VehicleEntryType, date: LocalDate, currency: Currency) {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
+            return
+        }
+        viewModelScope.launch {
+            ucSaveVehicleEntry(
+                VehicleRentalEntry(label = label, entryType = type, amountCents = cents, date = date, currency = currency)
+            )
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun updateVehicleRentalEntry(entry: VehicleRentalEntry, label: String, amountStr: String, type: VehicleEntryType, date: LocalDate, currency: Currency) {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
+            return
+        }
+        viewModelScope.launch {
+            ucUpdateVehicleEntry(entry.copy(label = label, entryType = type, amountCents = cents, date = date, currency = currency))
+                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun deleteVehicleRentalEntry(entry: VehicleRentalEntry) {
+        viewModelScope.launch { ucDeleteVehicleEntry(entry) }
     }
 
     // ─── Métaux précieux ───────────────────────────────────────────────────────
@@ -386,6 +438,9 @@ sealed class InvestmentsUiState {
         val airbnbRentals         : List<AirbnbRental>,
         val airbnbAnnualTotal     : Long,
         val anneeLocatifs         : Int,
+        val vehicleRentalEntries      : List<VehicleRentalEntry> = emptyList(),
+        val vehicleRentalRevenueCents : Long = 0L,
+        val vehicleRentalChargeCents  : Long = 0L,
         val preciousMetals        : List<PreciousMetalAsset> = emptyList(),
         val customAssets          : List<CustomAsset>        = emptyList(),
         val employeeSavings       : List<EmployeeSavings>    = emptyList(),
@@ -398,10 +453,11 @@ sealed class InvestmentsUiState {
 
 // Holder interne : contourne la limite de 5 arguments de combine()
 private data class BaseData(
-    val realEstate : List<RealEstateAsset>,
-    val scpi       : List<ScpiInvestment>,
-    val airbnb     : List<AirbnbRental>,
-    val debts      : List<Debt>
+    val realEstate     : List<RealEstateAsset>,
+    val scpi           : List<ScpiInvestment>,
+    val airbnb         : List<AirbnbRental>,
+    val debts          : List<Debt>,
+    val vehicleEntries : List<VehicleRentalEntry>
 )
 
 sealed class InvestmentsEvent {

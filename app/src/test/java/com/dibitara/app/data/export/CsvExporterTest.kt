@@ -14,6 +14,8 @@ import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.model.VehicleEntryType
+import com.dibitara.app.domain.model.VehicleRentalEntry
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -28,6 +30,7 @@ class CsvExporterTest {
         immobilier      = emptyList(),
         scpi            = emptyList(),
         airbnb          = emptyList(),
+        vehiculeLocatif = emptyList(),
         dettes          = emptyList(),
         metaux          = emptyList(),
         actifsLibres    = emptyList(),
@@ -35,7 +38,7 @@ class CsvExporterTest {
     )
 
     @Test
-    fun `le CSV contient les dix sections`() {
+    fun `le CSV contient les onze sections`() {
         val csv = CsvExporter.generer(donneesVides())
         assertTrue(csv.contains("# TRANSACTIONS"))
         assertTrue(csv.contains("# BUDGETS"))
@@ -43,10 +46,28 @@ class CsvExporterTest {
         assertTrue(csv.contains("# IMMOBILIER"))
         assertTrue(csv.contains("# SCPI"))
         assertTrue(csv.contains("# AIRBNB"))
+        assertTrue(csv.contains("# VEHICULE_LOCATIF"))
         assertTrue(csv.contains("# DETTES"))
         assertTrue(csv.contains("# METAUX_PRECIEUX"))
         assertTrue(csv.contains("# ACTIFS_LIBRES"))
         assertTrue(csv.contains("# EPARGNE_SALARIALE"))
+    }
+
+    @Test
+    fun `une entrée revenu et une charge du véhicule locatif sont correctement sérialisées`() {
+        val revenu = VehicleRentalEntry(
+            id = 1L, label = "Location weekend", entryType = VehicleEntryType.REVENU,
+            amountCents = 15000L, date = LocalDate.of(2026, 5, 10), currency = Currency.EUR
+        )
+        val charge = VehicleRentalEntry(
+            id = 2L, label = "Vidange", entryType = VehicleEntryType.CHARGE,
+            amountCents = 8000L, date = LocalDate.of(2026, 5, 12), currency = Currency.EUR
+        )
+        val data = donneesVides().copy(vehiculeLocatif = listOf(revenu, charge))
+        val csv = CsvExporter.generer(data)
+
+        assertTrue(csv.contains("Location weekend;Revenu;15000"))
+        assertTrue(csv.contains("Vidange;Charge;8000"))
     }
 
     @Test

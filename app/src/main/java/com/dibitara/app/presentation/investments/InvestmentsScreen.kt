@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -32,6 +33,8 @@ import com.dibitara.app.domain.model.PreciousMetalAsset
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
+import com.dibitara.app.domain.model.VehicleEntryType
+import com.dibitara.app.domain.model.VehicleRentalEntry
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
@@ -54,6 +57,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     var showAddRealEstate    by remember { mutableStateOf(false) }
     var showAddScpi          by remember { mutableStateOf(false) }
     var showAddAirbnb        by remember { mutableStateOf(false) }
+    var showAddVehicle       by remember { mutableStateOf(false) }
     var showAddMetal         by remember { mutableStateOf(false) }
     var showAddCustomAsset   by remember { mutableStateOf(false) }
     var showAddEmpSavings    by remember { mutableStateOf(false) }
@@ -61,6 +65,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     var realEstateToEdit  by remember { mutableStateOf<RealEstateAsset?>(null) }
     var scpiToEdit        by remember { mutableStateOf<ScpiInvestment?>(null) }
     var airbnbToEdit      by remember { mutableStateOf<AirbnbRental?>(null) }
+    var vehicleToEdit     by remember { mutableStateOf<VehicleRentalEntry?>(null) }
     var metalToEdit       by remember { mutableStateOf<PreciousMetalAsset?>(null) }
     var customAssetToEdit by remember { mutableStateOf<CustomAsset?>(null) }
     var empSavingsToEdit  by remember { mutableStateOf<EmployeeSavings?>(null) }
@@ -70,9 +75,9 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
         viewModel.event.collect { event ->
             when (event) {
                 is InvestmentsEvent.Saved -> {
-                    showAddRealEstate = false; showAddScpi = false; showAddAirbnb = false
+                    showAddRealEstate = false; showAddScpi = false; showAddAirbnb = false; showAddVehicle = false
                     showAddMetal = false; showAddCustomAsset = false; showAddEmpSavings = false
-                    realEstateToEdit = null; scpiToEdit = null; airbnbToEdit = null
+                    realEstateToEdit = null; scpiToEdit = null; airbnbToEdit = null; vehicleToEdit = null
                     metalToEdit = null; customAssetToEdit = null; empSavingsToEdit = null
                     snackbarHostState.showSnackbar("Investissement enregistré")
                 }
@@ -99,18 +104,21 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                         onAddRealEstate = { showAddRealEstate = true },
                         onAddScpi = { showAddScpi = true },
                         onAddAirbnb = { showAddAirbnb = true },
+                        onAddVehicle = { showAddVehicle = true },
                         onAddMetal = { showAddMetal = true },
                         onAddCustomAsset = { showAddCustomAsset = true },
                         onAddEmpSavings = { showAddEmpSavings = true },
                         onEditRealEstate = { realEstateToEdit = it },
                         onEditScpi = { scpiToEdit = it },
                         onEditAirbnb = { airbnbToEdit = it },
+                        onEditVehicle = { vehicleToEdit = it },
                         onEditMetal = { metalToEdit = it },
                         onEditCustomAsset = { customAssetToEdit = it },
                         onEditEmpSavings = { empSavingsToEdit = it },
                         onDeleteRealEstate = viewModel::deleteRealEstate,
                         onDeleteScpi = viewModel::deleteScpi,
                         onDeleteAirbnb = viewModel::deleteAirbnb,
+                        onDeleteVehicle = viewModel::deleteVehicleRentalEntry,
                         onDeleteMetal = viewModel::deletePreciousMetal,
                         onDeleteCustomAsset = viewModel::deleteCustomAsset,
                         onDeleteEmpSavings = viewModel::deleteEmployeeSavings,
@@ -177,6 +185,13 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
             onDismiss = { showAddAirbnb = false }
         )
     }
+    if (showAddVehicle) {
+        AddVehicleRentalSheet(
+            defaultCurrency = defaultCurrency,
+            onSave = { label, amount, type, date, currency -> viewModel.addVehicleRentalEntry(label, amount, type, date, currency) },
+            onDismiss = { showAddVehicle = false }
+        )
+    }
 
     // Sheets d'édition
     realEstateToEdit?.let { asset ->
@@ -206,6 +221,13 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
             onDismiss = { airbnbToEdit = null }
         )
     }
+    vehicleToEdit?.let { entry ->
+        EditVehicleRentalSheet(
+            entry = entry,
+            onSave = { label, amount, type, date, currency -> viewModel.updateVehicleRentalEntry(entry, label, amount, type, date, currency) },
+            onDismiss = { vehicleToEdit = null }
+        )
+    }
 }
 
 @Composable
@@ -214,18 +236,21 @@ private fun InvestmentsContent(
     onAddRealEstate: () -> Unit,
     onAddScpi: () -> Unit,
     onAddAirbnb: () -> Unit,
+    onAddVehicle: () -> Unit,
     onAddMetal: () -> Unit,
     onAddCustomAsset: () -> Unit,
     onAddEmpSavings: () -> Unit,
     onEditRealEstate: (RealEstateAsset) -> Unit,
     onEditScpi: (ScpiInvestment) -> Unit,
     onEditAirbnb: (AirbnbRental) -> Unit,
+    onEditVehicle: (VehicleRentalEntry) -> Unit,
     onEditMetal: (PreciousMetalAsset) -> Unit,
     onEditCustomAsset: (CustomAsset) -> Unit,
     onEditEmpSavings: (EmployeeSavings) -> Unit,
     onDeleteRealEstate: (RealEstateAsset) -> Unit,
     onDeleteScpi: (ScpiInvestment) -> Unit,
     onDeleteAirbnb: (AirbnbRental) -> Unit,
+    onDeleteVehicle: (VehicleRentalEntry) -> Unit,
     onDeleteMetal: (PreciousMetalAsset) -> Unit,
     onDeleteCustomAsset: (CustomAsset) -> Unit,
     onDeleteEmpSavings: (EmployeeSavings) -> Unit,
@@ -301,6 +326,25 @@ private fun InvestmentsContent(
             }
         }
 
+        // --- Section Véhicule locatif ---
+        // Indépendante d'Airbnb : cumulée depuis le début de l'activité (pas filtrée par année),
+        // avec une carte de synthèse séparée puisque revenus ET charges sont suivis ici.
+        item { SectionHeader(title = "Véhicule locatif", onAdd = onAddVehicle) }
+        if (state.vehicleRentalEntries.isEmpty()) {
+            item { EmptySectionText("Aucune entrée enregistrée pour le véhicule locatif.") }
+        } else {
+            item {
+                VehicleRentalSummaryCard(
+                    revenueCents = state.vehicleRentalRevenueCents,
+                    chargeCents  = state.vehicleRentalChargeCents,
+                    currency     = state.summaryCurrency
+                )
+            }
+            items(state.vehicleRentalEntries, key = { "vehicle_${it.id}" }) { entry ->
+                VehicleRentalEntryCard(entry = entry, onEdit = { onEditVehicle(entry) }, onDelete = { onDeleteVehicle(entry) })
+            }
+        }
+
         // --- Section Métaux précieux ---
         item { SectionHeader(title = "Métaux précieux", onAdd = onAddMetal) }
         if (state.preciousMetals.isEmpty()) {
@@ -366,6 +410,59 @@ private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long, curr
                     airbnbAnnualCents.toCurrencyDisplay(currency),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VehicleRentalSummaryCard(revenueCents: Long, chargeCents: Long, currency: Currency) {
+    val netCents = revenueCents - chargeCents
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    "Revenus",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                )
+                Text(
+                    revenueCents.toCurrencyDisplay(currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            Column {
+                Text(
+                    "Charges",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                )
+                Text(
+                    chargeCents.toCurrencyDisplay(currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "Net",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                )
+                Text(
+                    netCents.toCurrencyDisplay(currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    // error réservé au cas net négatif, jamais utilisé pour signaler une simple charge
+                    color = if (netCents < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
         }
@@ -588,6 +685,64 @@ private fun AirbnbRentalCard(rental: AirbnbRental, onEdit: () -> Unit, onDelete:
         AlertDialog(
             onDismissRequest = { showConfirm = false },
             title = { Text("Supprimer ce revenu ?") },
+            confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
+            dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } }
+        )
+    }
+}
+
+@Composable
+private fun VehicleRentalEntryCard(entry: VehicleRentalEntry, onEdit: () -> Unit, onDelete: () -> Unit) {
+    var showConfirm by remember { mutableStateOf(false) }
+    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val isRevenu = entry.entryType == VehicleEntryType.REVENU
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(entry.label, style = MaterialTheme.typography.bodyLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        entry.date.format(formatter),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    AssistChip(
+                        onClick = {},
+                        label = { Text(entry.entryType.displayName, style = MaterialTheme.typography.labelSmall) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = if (isRevenu) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                            labelColor     = if (isRevenu) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    )
+                }
+                Text(
+                    "${if (isRevenu) "+" else "-"}${entry.amountCents.toCurrencyDisplay(entry.currency)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isRevenu) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+                }
+                IconButton(onClick = { showConfirm = true }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Supprimer cette entrée ?") },
             confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
             dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } }
         )
@@ -885,6 +1040,128 @@ private fun AddAirbnbSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddVehicleRentalSheet(
+    defaultCurrency: Currency = Currency.EUR,
+    onSave: (label: String, amount: String, type: VehicleEntryType, date: LocalDate, currency: Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(VehicleEntryType.REVENU) }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val focusManager = LocalFocusManager.current
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Véhicule locatif", style = MaterialTheme.typography.titleLarge)
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                VehicleEntryType.entries.forEachIndexed { index, type ->
+                    SegmentedButton(
+                        selected = selectedType == type,
+                        onClick = { selectedType = type },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = VehicleEntryType.entries.size)
+                    ) { Text(type.displayName) }
+                }
+            }
+
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it },
+                label = { Text(if (selectedType == VehicleEntryType.REVENU) "Source (ex. Location weekend)" else "Nature (ex. Entretien, Assurance)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = amount,
+                onValueChange = { amount = it },
+                label = { Text("Montant") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = selectedDate.format(dateFormatter),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Date") },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Filled.CalendarToday, contentDescription = "Choisir une date")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Devise") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    Currency.entries.forEach { c ->
+                        DropdownMenuItem(
+                            text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false }
+                        )
+                    }
+                }
+            }
+
+            Button(
+                onClick = { onSave(label, amount, selectedType, selectedDate, selectedCurrency) },
+                enabled = label.isNotBlank() && amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Ajouter") }
+        }
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = LocalDate.ofEpochDay(millis / 86_400_000L)
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Annuler") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
 // ─── Bottom Sheets d'édition ─────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1125,6 +1402,116 @@ private fun EditAirbnbSheet(
                 enabled = label.isNotBlank() && amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditVehicleRentalSheet(
+    entry: VehicleRentalEntry,
+    onSave: (label: String, amount: String, type: VehicleEntryType, date: LocalDate, currency: Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf(entry.label) }
+    var amount by remember { mutableStateOf("%.2f".format(entry.amountCents / 100.0).replace(',', '.')) }
+    var selectedType by remember { mutableStateOf(entry.entryType) }
+    var selectedDate by remember { mutableStateOf(entry.date) }
+    var selectedCurrency by remember { mutableStateOf(entry.currency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val focusManager = LocalFocusManager.current
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Modifier l'entrée véhicule", style = MaterialTheme.typography.titleLarge)
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                VehicleEntryType.entries.forEachIndexed { index, type ->
+                    SegmentedButton(
+                        selected = selectedType == type,
+                        onClick = { selectedType = type },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = VehicleEntryType.entries.size)
+                    ) { Text(type.displayName) }
+                }
+            }
+
+            OutlinedTextField(value = label, onValueChange = { label = it },
+                label = { Text(if (selectedType == VehicleEntryType.REVENU) "Source (ex. Location weekend)" else "Nature (ex. Entretien, Assurance)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(value = amount, onValueChange = { amount = it },
+                label = { Text("Montant") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(
+                value = selectedDate.format(dateFormatter),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Date") },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Filled.CalendarToday, contentDescription = "Choisir une date")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
+                    readOnly = true, label = { Text("Devise") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    Currency.entries.forEach { c ->
+                        DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false })
+                    }
+                }
+            }
+
+            Button(
+                onClick = { onSave(label, amount, selectedType, selectedDate, selectedCurrency) },
+                enabled = label.isNotBlank() && amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Enregistrer les modifications") }
+        }
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = LocalDate.ofEpochDay(millis / 86_400_000L)
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Annuler") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }

@@ -4,6 +4,8 @@ import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
+import com.dibitara.app.domain.model.VehicleEntryType
+import com.dibitara.app.domain.model.VehicleRentalEntry
 import com.dibitara.app.domain.repository.InvestmentRepository
 import io.mockk.*
 import kotlinx.coroutines.flow.flowOf
@@ -25,6 +27,9 @@ class InvestmentUseCasesTest {
 
     private fun buildAirbnb(label: String = "Studio Bordeaux", amount: Long = 90000L) =
         AirbnbRental(propertyLabel = label, amountCents = amount, date = LocalDate.now(), currency = Currency.EUR)
+
+    private fun buildVehicleEntry(label: String = "Location weekend", amount: Long = 15000L, type: VehicleEntryType = VehicleEntryType.REVENU) =
+        VehicleRentalEntry(label = label, entryType = type, amountCents = amount, date = LocalDate.now(), currency = Currency.EUR)
 
     // ─── GetRealEstateUseCase ────────────────────────────────────────────────
 
@@ -133,5 +138,71 @@ class InvestmentUseCasesTest {
         coJustRun { repository.deleteAirbnbRental(rental) }
         DeleteAirbnbRentalUseCase(repository)(rental)
         coVerify { repository.deleteAirbnbRental(rental) }
+    }
+
+    // ─── GetVehicleRentalEntriesUseCase ──────────────────────────────────────
+
+    @Test
+    fun `GetVehicleRentalEntries délègue au repository`() {
+        every { repository.getAllVehicleRentalEntries() } returns flowOf(emptyList())
+        assertNotNull(GetVehicleRentalEntriesUseCase(repository)())
+    }
+
+    // ─── GetVehicleRentalEntriesByYearUseCase ────────────────────────────────
+
+    @Test
+    fun `GetVehicleRentalEntriesByYear filtre par année`() {
+        every { repository.getVehicleRentalEntriesByYear(2026) } returns flowOf(emptyList())
+        assertNotNull(GetVehicleRentalEntriesByYearUseCase(repository)(2026))
+    }
+
+    // ─── SaveVehicleRentalEntryUseCase ───────────────────────────────────────
+
+    @Test
+    fun `SaveVehicleRentalEntry retourne succès pour un revenu`() = runTest {
+        val entry = buildVehicleEntry(type = VehicleEntryType.REVENU)
+        coEvery { repository.saveVehicleRentalEntry(entry) } returns Result.success(1L)
+        assertTrue(SaveVehicleRentalEntryUseCase(repository)(entry).isSuccess)
+    }
+
+    @Test
+    fun `SaveVehicleRentalEntry retourne succès pour une charge`() = runTest {
+        val entry = buildVehicleEntry(type = VehicleEntryType.CHARGE)
+        coEvery { repository.saveVehicleRentalEntry(entry) } returns Result.success(1L)
+        assertTrue(SaveVehicleRentalEntryUseCase(repository)(entry).isSuccess)
+    }
+
+    @Test
+    fun `SaveVehicleRentalEntry retourne échec si libellé vide`() = runTest {
+        assertTrue(SaveVehicleRentalEntryUseCase(repository)(buildVehicleEntry(label = "")).isFailure)
+    }
+
+    @Test
+    fun `SaveVehicleRentalEntry retourne échec si montant nul`() = runTest {
+        assertTrue(SaveVehicleRentalEntryUseCase(repository)(buildVehicleEntry(amount = 0L)).isFailure)
+    }
+
+    // ─── UpdateVehicleRentalEntryUseCase ─────────────────────────────────────
+
+    @Test
+    fun `UpdateVehicleRentalEntry retourne succès`() = runTest {
+        val entry = buildVehicleEntry()
+        coJustRun { repository.updateVehicleRentalEntry(entry) }
+        assertTrue(UpdateVehicleRentalEntryUseCase(repository)(entry).isSuccess)
+    }
+
+    @Test
+    fun `UpdateVehicleRentalEntry retourne échec si montant nul`() = runTest {
+        assertTrue(UpdateVehicleRentalEntryUseCase(repository)(buildVehicleEntry(amount = 0L)).isFailure)
+    }
+
+    // ─── DeleteVehicleRentalEntryUseCase ─────────────────────────────────────
+
+    @Test
+    fun `DeleteVehicleRentalEntry délègue au repository`() = runTest {
+        val entry = buildVehicleEntry()
+        coJustRun { repository.deleteVehicleRentalEntry(entry) }
+        DeleteVehicleRentalEntryUseCase(repository)(entry)
+        coVerify { repository.deleteVehicleRentalEntry(entry) }
     }
 }

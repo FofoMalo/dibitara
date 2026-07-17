@@ -15,6 +15,8 @@ import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.model.VehicleEntryType
+import com.dibitara.app.domain.model.VehicleRentalEntry
 import com.dibitara.app.domain.repository.BudgetRepository
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.DebtRepository
@@ -35,7 +37,7 @@ import javax.inject.Inject
  *
  * Structure des combines (combine() est limité à 5 flows) :
  *   Groupe A : budget + épargne + immo + transactions du mois
- *   Groupe B : SCPI + Airbnb + dettes
+ *   Groupe B : SCPI + Airbnb + véhicule locatif + dettes
  *   Groupe C : investissements personnalisés (métaux, actifs libres, épargne salariale)
  *   innerFlow = combine(A, B, C) → [RawOverview] (données brutes, sans conversion)
  *   groupD    = combine(préférences, taux de change)
@@ -65,8 +67,9 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
         val groupB = combine(
             investmentRepository.getAllScpi(),
             investmentRepository.getAirbnbRentalsByYear(year),
+            investmentRepository.getAllVehicleRentalEntries(),
             debtRepository.getAll()
-        ) { scpi, airbnb, debts -> GroupB(scpi, airbnb, debts) }
+        ) { scpi, airbnb, vehicle, debts -> GroupB(scpi, airbnb, vehicle, debts) }
 
         val groupC = combine(
             customInvestmentRepository.getAllPreciousMetals(),
@@ -101,6 +104,10 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
                     raw.c.assets.sumOf      { it.totalValueCents.cvt(it.currency) }    +
                     raw.c.empSavings.sumOf  { it.currentBalanceCents.cvt(it.currency) },
                 airbnbAnnualRevenueCents = raw.b.airbnb.sumOf { it.amountCents.cvt(it.currency) },
+                vehicleRentalNetRevenueCents = raw.b.vehicle.sumOf { entry ->
+                    val cents = entry.amountCents.cvt(entry.currency)
+                    if (entry.entryType == VehicleEntryType.REVENU) cents else -cents
+                },
                 dettesTotalCents         = raw.b.debts.sumOf  { it.totalCents.cvt(it.currency) },
                 currency                 = targetCurrency
             )
@@ -117,9 +124,10 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
     )
 
     private data class GroupB(
-        val scpi   : List<ScpiInvestment>,
-        val airbnb : List<AirbnbRental>,
-        val debts  : List<Debt>
+        val scpi    : List<ScpiInvestment>,
+        val airbnb  : List<AirbnbRental>,
+        val vehicle : List<VehicleRentalEntry>,
+        val debts   : List<Debt>
     )
 
     private data class GroupC(

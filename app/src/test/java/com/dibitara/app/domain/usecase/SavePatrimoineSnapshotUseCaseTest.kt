@@ -23,6 +23,7 @@ class SavePatrimoineSnapshotUseCaseTest {
         epargneCents             = 20_000_00L,
         investissementsCents     = 100_000_00L,
         airbnbAnnualRevenueCents = 0L,
+        vehicleRentalNetRevenueCents = 0L,
         dettesTotalCents         = 50_000_00L,
         currency                 = Currency.EUR
     )
