@@ -10,7 +10,6 @@ import com.dibitara.app.data.local.dao.CustomAssetDao
 import com.dibitara.app.data.local.dao.EmployeeSavingsDao
 import com.dibitara.app.data.local.dao.MonthlyVersementDao
 import com.dibitara.app.data.local.dao.PatrimoineSnapshotDao
-import com.dibitara.app.data.local.dao.PreciousMetalDao
 import com.dibitara.app.data.repository.*
 import com.dibitara.app.data.repository.CategorizationRuleRepositoryImpl
 import com.dibitara.app.data.repository.CategoryEnvelopeRepositoryImpl
@@ -63,7 +62,8 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_15_16,
                 DibitaraDatabase.MIGRATION_16_17,
                 DibitaraDatabase.MIGRATION_17_18,
-                DibitaraDatabase.MIGRATION_18_19
+                DibitaraDatabase.MIGRATION_18_19,
+                DibitaraDatabase.MIGRATION_19_20
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
@@ -78,7 +78,6 @@ object DatabaseModule {
     @Provides fun provideAirbnbRentalDao(db: DibitaraDatabase): AirbnbRentalDao = db.airbnbRentalDao()
     @Provides fun provideCustomSubCategoryDao(db: DibitaraDatabase): CustomSubCategoryDao = db.customSubCategoryDao()
     @Provides fun provideMonthlyVersementDao(db: DibitaraDatabase): MonthlyVersementDao = db.monthlyVersementDao()
-    @Provides fun providePreciousMetalDao(db: DibitaraDatabase): PreciousMetalDao = db.preciousMetalDao()
     @Provides fun provideCustomAssetDao(db: DibitaraDatabase): CustomAssetDao = db.customAssetDao()
     @Provides fun provideEmployeeSavingsDao(db: DibitaraDatabase): EmployeeSavingsDao = db.employeeSavingsDao()
     @Provides fun providePatrimoineSnapshotDao(db: DibitaraDatabase): PatrimoineSnapshotDao = db.patrimoineSnapshotDao()

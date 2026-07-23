@@ -3,37 +3,11 @@ package com.dibitara.app.domain.model
 import java.time.LocalDate
 
 /**
- * Type de métal précieux - détermine l'unité d'affichage dans l'interface.
- * La valeur de chaque métal est calculée : quantité (g) × prix unitaire (centimes/g).
- */
-enum class MetalType(val displayName: String) {
-    OR      ("Or"),
-    ARGENT  ("Argent"),
-    PLATINE ("Platine")
-}
-
-/**
  * Type de plan d'épargne salariale.
  */
 enum class EmployeeSavingsType(val displayName: String) {
     PEE  ("Plan d'Épargne Entreprise"),
     PERCO("Plan d'Épargne Retraite Collectif")
-}
-
-/**
- * Actif en métaux précieux.
- * [totalValueCents] = quantityGrams × pricePerGramCents (calculé, non stocké).
- */
-data class PreciousMetalAsset(
-    val id                : Long = 0,
-    val metalType         : MetalType,
-    val label             : String,
-    val quantityGrams     : Double,
-    val pricePerGramCents : Long,
-    val currency          : Currency,
-    val updatedAt         : LocalDate
-) {
-    val totalValueCents: Long get() = (quantityGrams * pricePerGramCents).toLong()
 }
 
 /**

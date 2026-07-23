@@ -9,7 +9,6 @@ import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.EmployeeSavings
 import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.PatrimonyOverview
-import com.dibitara.app.domain.model.PreciousMetalAsset
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.ScpiInvestment
@@ -38,7 +37,7 @@ import javax.inject.Inject
  * Structure des combines (combine() est limité à 5 flows) :
  *   Groupe A : budget + épargne + immo + transactions du mois
  *   Groupe B : SCPI + Airbnb + véhicule locatif + dettes
- *   Groupe C : investissements personnalisés (métaux, actifs libres, épargne salariale)
+ *   Groupe C : investissements personnalisés (actifs libres, épargne salariale)
  *   innerFlow = combine(A, B, C) → [RawOverview] (données brutes, sans conversion)
  *   groupD    = combine(préférences, taux de change)
  *   Résultat  = combine(innerFlow, groupD) → PatrimonyOverview converti
@@ -72,10 +71,9 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
         ) { scpi, airbnb, vehicle, debts -> GroupB(scpi, airbnb, vehicle, debts) }
 
         val groupC = combine(
-            customInvestmentRepository.getAllPreciousMetals(),
             customInvestmentRepository.getAllCustomAssets(),
             customInvestmentRepository.getAllEmployeeSavings()
-        ) { metals, assets, empSavings -> GroupC(metals, assets, empSavings) }
+        ) { assets, empSavings -> GroupC(assets, empSavings) }
 
         // Regroupe A, B, C sans encore convertir les devises
         val innerFlow = combine(groupA, groupB, groupC) { a, b, c -> RawOverview(a, b, c) }
@@ -100,7 +98,6 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
                 investissementsCents     =
                     raw.a.realEstate.sumOf  { it.currentValueCents.cvt(it.currency) }  +
                     raw.b.scpi.sumOf        { it.totalValueCents.cvt(it.currency) }    +
-                    raw.c.metals.sumOf      { it.totalValueCents.cvt(it.currency) }    +
                     raw.c.assets.sumOf      { it.totalValueCents.cvt(it.currency) }    +
                     raw.c.empSavings.sumOf  { it.currentBalanceCents.cvt(it.currency) },
                 airbnbAnnualRevenueCents = raw.b.airbnb.sumOf { it.amountCents.cvt(it.currency) },
@@ -131,7 +128,6 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
     )
 
     private data class GroupC(
-        val metals     : List<PreciousMetalAsset>,
         val assets     : List<CustomAsset>,
         val empSavings : List<EmployeeSavings>
     )

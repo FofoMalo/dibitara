@@ -73,7 +73,6 @@ class ExporterDonneesUseCaseTest {
         coEvery { investmentRepo.getAllAirbnbRentals()        } returns flowOf(emptyList())
         coEvery { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(emptyList())
         coEvery { debtRepo.getAll()                          } returns flowOf(emptyList())
-        coEvery { customInvestRepo.getAllPreciousMetals()     } returns flowOf(emptyList())
         coEvery { customInvestRepo.getAllCustomAssets()       } returns flowOf(emptyList())
         coEvery { customInvestRepo.getAllEmployeeSavings()    } returns flowOf(emptyList())
         coEvery { exportRepo.exporter(any(), any())          } returns uriMock

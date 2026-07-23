@@ -11,7 +11,6 @@ import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
 import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
-import com.dibitara.app.domain.usecase.DeletePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
 import com.dibitara.app.domain.usecase.DeleteVehicleRentalEntryUseCase
@@ -20,7 +19,6 @@ import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetCustomAssetsUseCase
 import com.dibitara.app.domain.usecase.GetDebtsUseCase
 import com.dibitara.app.domain.usecase.GetEmployeeSavingsUseCase
-import com.dibitara.app.domain.usecase.GetPreciousMetalsUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
@@ -28,7 +26,6 @@ import com.dibitara.app.domain.usecase.GetVehicleRentalEntriesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
 import com.dibitara.app.domain.usecase.SaveEmployeeSavingsUseCase
-import com.dibitara.app.domain.usecase.SavePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
 import com.dibitara.app.domain.usecase.SaveVehicleRentalEntryUseCase
@@ -36,7 +33,6 @@ import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.UpdateCustomAssetUseCase
 import com.dibitara.app.domain.usecase.UpdateEmployeeSavingsUseCase
-import com.dibitara.app.domain.usecase.UpdatePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
 import com.dibitara.app.domain.usecase.UpdateVehicleRentalEntryUseCase
@@ -64,28 +60,24 @@ class InvestmentsViewModelTest {
     private val ucGetScpi: GetScpiUseCase = mockk()
     private val ucGetAirbnbByYear: GetAirbnbRentalsByYearUseCase = mockk()
     private val ucGetVehicleRentals: GetVehicleRentalEntriesUseCase = mockk()
-    private val ucGetPreciousMetals: GetPreciousMetalsUseCase = mockk()
     private val ucGetCustomAssets: GetCustomAssetsUseCase = mockk()
     private val ucGetEmployeeSavings: GetEmployeeSavingsUseCase = mockk()
     private val ucSaveRealEstate: SaveRealEstateUseCase = mockk()
     private val ucSaveScpi: SaveScpiUseCase = mockk()
     private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase = mockk()
     private val ucSaveVehicleEntry: SaveVehicleRentalEntryUseCase = mockk()
-    private val ucSavePreciousMetal: SavePreciousMetalUseCase = mockk(relaxed = true)
     private val ucSaveCustomAsset: SaveCustomAssetUseCase = mockk(relaxed = true)
     private val ucSaveEmployeeSavings: SaveEmployeeSavingsUseCase = mockk(relaxed = true)
     private val ucUpdateRealEstate: UpdateRealEstateUseCase = mockk()
     private val ucUpdateScpi: UpdateScpiUseCase = mockk()
     private val ucUpdateAirbnbRental: UpdateAirbnbRentalUseCase = mockk()
     private val ucUpdateVehicleEntry: UpdateVehicleRentalEntryUseCase = mockk()
-    private val ucUpdatePreciousMetal: UpdatePreciousMetalUseCase = mockk(relaxed = true)
     private val ucUpdateCustomAsset: UpdateCustomAssetUseCase = mockk(relaxed = true)
     private val ucUpdateEmployeeSavings: UpdateEmployeeSavingsUseCase = mockk(relaxed = true)
     private val ucDeleteRealEstate: DeleteRealEstateUseCase = mockk()
     private val ucDeleteScpi: DeleteScpiUseCase = mockk()
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase = mockk()
     private val ucDeleteVehicleEntry: DeleteVehicleRentalEntryUseCase = mockk(relaxed = true)
-    private val ucDeletePreciousMetal: DeletePreciousMetalUseCase = mockk(relaxed = true)
     private val ucDeleteCustomAsset: DeleteCustomAssetUseCase = mockk(relaxed = true)
     private val ucDeleteEmployeeSavings: DeleteEmployeeSavingsUseCase = mockk(relaxed = true)
     private val ucSaveVersement: SaveVersementUseCase = mockk()
@@ -103,7 +95,6 @@ class InvestmentsViewModelTest {
         every { ucGetScpi() } returns flowOf(emptyList())
         every { ucGetAirbnbByYear(any()) } returns flowOf(emptyList())
         every { ucGetVehicleRentals() } returns flowOf(emptyList())
-        every { ucGetPreciousMetals() } returns flowOf(emptyList())
         every { ucGetCustomAssets() } returns flowOf(emptyList())
         every { ucGetEmployeeSavings() } returns flowOf(emptyList())
         every { ucGetPreferences() } returns flowOf(UserPreferences())
@@ -111,13 +102,13 @@ class InvestmentsViewModelTest {
         every { ucGetDebts() } returns flowOf(emptyList())
         viewModel = InvestmentsViewModel(
             ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear, ucGetVehicleRentals,
-            ucGetPreciousMetals, ucGetCustomAssets, ucGetEmployeeSavings,
+            ucGetCustomAssets, ucGetEmployeeSavings,
             ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental, ucSaveVehicleEntry,
-            ucSavePreciousMetal, ucSaveCustomAsset, ucSaveEmployeeSavings,
+            ucSaveCustomAsset, ucSaveEmployeeSavings,
             ucUpdateRealEstate, ucUpdateScpi, ucUpdateAirbnbRental, ucUpdateVehicleEntry,
-            ucUpdatePreciousMetal, ucUpdateCustomAsset, ucUpdateEmployeeSavings,
+            ucUpdateCustomAsset, ucUpdateEmployeeSavings,
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental, ucDeleteVehicleEntry,
-            ucDeletePreciousMetal, ucDeleteCustomAsset, ucDeleteEmployeeSavings,
+            ucDeleteCustomAsset, ucDeleteEmployeeSavings,
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts
         )
     }
@@ -233,13 +224,13 @@ class InvestmentsViewModelTest {
 
         viewModel = InvestmentsViewModel(
             ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear, ucGetVehicleRentals,
-            ucGetPreciousMetals, ucGetCustomAssets, ucGetEmployeeSavings,
+            ucGetCustomAssets, ucGetEmployeeSavings,
             ucSaveRealEstate, ucSaveScpi, ucSaveAirbnbRental, ucSaveVehicleEntry,
-            ucSavePreciousMetal, ucSaveCustomAsset, ucSaveEmployeeSavings,
+            ucSaveCustomAsset, ucSaveEmployeeSavings,
             ucUpdateRealEstate, ucUpdateScpi, ucUpdateAirbnbRental, ucUpdateVehicleEntry,
-            ucUpdatePreciousMetal, ucUpdateCustomAsset, ucUpdateEmployeeSavings,
+            ucUpdateCustomAsset, ucUpdateEmployeeSavings,
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental, ucDeleteVehicleEntry,
-            ucDeletePreciousMetal, ucDeleteCustomAsset, ucDeleteEmployeeSavings,
+            ucDeleteCustomAsset, ucDeleteEmployeeSavings,
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts
         )
 

@@ -83,7 +83,6 @@ class GetPatrimonyOverviewUseCaseTest {
         every { investmentRepo.getAirbnbRentalsByYear(2026) } returns flowOf(airbnb)
         every { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(vehicule)
         every { debtRepo.getAll() } returns flowOf(debts)
-        every { customInvestRepo.getAllPreciousMetals() } returns flowOf(emptyList())
         every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())
         every { customInvestRepo.getAllEmployeeSavings() } returns flowOf(emptyList())
 
@@ -122,7 +121,6 @@ class GetPatrimonyOverviewUseCaseTest {
         every { investmentRepo.getAirbnbRentalsByYear(2026) } returns flowOf(emptyList())
         every { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(emptyList())
         every { debtRepo.getAll() } returns flowOf(emptyList())
-        every { customInvestRepo.getAllPreciousMetals() } returns flowOf(emptyList())
         every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())
         every { customInvestRepo.getAllEmployeeSavings() } returns flowOf(emptyList())
 
@@ -142,7 +140,6 @@ class GetPatrimonyOverviewUseCaseTest {
         every { investmentRepo.getAirbnbRentalsByYear(any()) } returns flowOf(emptyList())
         every { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(emptyList())
         every { debtRepo.getAll() } returns flowOf(emptyList())
-        every { customInvestRepo.getAllPreciousMetals() } returns flowOf(emptyList())
         every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())
         every { customInvestRepo.getAllEmployeeSavings() } returns flowOf(emptyList())
 

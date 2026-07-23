@@ -6,7 +6,6 @@ import com.dibitara.app.domain.model.CustomAsset
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.EmployeeSavings
 import com.dibitara.app.domain.model.ExportData
-import com.dibitara.app.domain.model.PreciousMetalAsset
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.ScpiInvestment
@@ -29,7 +28,6 @@ object CsvExporter {
         appendSection("AIRBNB",          lignesAirbnb(data.airbnb))
         appendSection("VEHICULE_LOCATIF", lignesVehiculeLocatif(data.vehiculeLocatif))
         appendSection("DETTES",          lignesDettes(data.dettes))
-        appendSection("METAUX_PRECIEUX", lignesMetaux(data.metaux))
         appendSection("ACTIFS_LIBRES",   lignesActifsLibres(data.actifsLibres))
         appendSection("EPARGNE_SALARIALE", lignesEpargneSalariale(data.epargneSalariale))
     }
@@ -104,14 +102,6 @@ object CsvExporter {
         return listOf(entete) + list.map { d ->
             "${d.id};${echapper(d.label)};${d.type.displayName};${d.totalCents};" +
             "${d.monthlyPaymentCents};${d.currency.isoCode};${d.updatedAt}"
-        }
-    }
-
-    private fun lignesMetaux(list: List<PreciousMetalAsset>): List<String> {
-        val entete = "id;type_metal;libelle;quantite_grammes;prix_par_gramme_centimes;valeur_totale_centimes;devise;mise_a_jour"
-        return listOf(entete) + list.map { m ->
-            "${m.id};${m.metalType.displayName};${echapper(m.label)};${m.quantityGrams};" +
-            "${m.pricePerGramCents};${m.totalValueCents};${m.currency.isoCode};${m.updatedAt}"
         }
     }
 

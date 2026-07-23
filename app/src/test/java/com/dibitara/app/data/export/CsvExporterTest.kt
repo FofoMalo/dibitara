@@ -32,13 +32,12 @@ class CsvExporterTest {
         airbnb          = emptyList(),
         vehiculeLocatif = emptyList(),
         dettes          = emptyList(),
-        metaux          = emptyList(),
         actifsLibres    = emptyList(),
         epargneSalariale = emptyList()
     )
 
     @Test
-    fun `le CSV contient les onze sections`() {
+    fun `le CSV contient les dix sections`() {
         val csv = CsvExporter.generer(donneesVides())
         assertTrue(csv.contains("# TRANSACTIONS"))
         assertTrue(csv.contains("# BUDGETS"))
@@ -48,7 +47,6 @@ class CsvExporterTest {
         assertTrue(csv.contains("# AIRBNB"))
         assertTrue(csv.contains("# VEHICULE_LOCATIF"))
         assertTrue(csv.contains("# DETTES"))
-        assertTrue(csv.contains("# METAUX_PRECIEUX"))
         assertTrue(csv.contains("# ACTIFS_LIBRES"))
         assertTrue(csv.contains("# EPARGNE_SALARIALE"))
     }

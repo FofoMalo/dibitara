@@ -39,7 +39,6 @@ object JsonExporter {
             "airbnb"           to data.airbnb,
             "vehicule_locatif" to data.vehiculeLocatif,
             "dettes"           to data.dettes,
-            "metaux_precieux"  to data.metaux,
             "actifs_libres"    to data.actifsLibres,
             "epargne_salariale" to data.epargneSalariale
         )

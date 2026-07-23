@@ -32,7 +32,6 @@ import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
         AirbnbRentalEntity::class,
         CustomSubCategoryEntity::class,
         MonthlyVersementEntity::class,
-        PreciousMetalEntity::class,
         CustomAssetEntity::class,
         EmployeeSavingsEntity::class,
         PatrimoineSnapshotEntity::class,
@@ -40,7 +39,7 @@ import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
         CategoryEnvelopeEntity::class,
         VehicleRentalEntryEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -54,7 +53,6 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun airbnbRentalDao(): AirbnbRentalDao
     abstract fun customSubCategoryDao(): CustomSubCategoryDao
     abstract fun monthlyVersementDao(): MonthlyVersementDao
-    abstract fun preciousMetalDao(): PreciousMetalDao
     abstract fun customAssetDao(): CustomAssetDao
     abstract fun employeeSavingsDao(): EmployeeSavingsDao
     abstract fun patrimoineSnapshotDao(): PatrimoineSnapshotDao
@@ -63,6 +61,13 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun vehicleRentalEntryDao(): VehicleRentalEntryDao
 
     companion object {
+        // Migration v19 → v20 : suppression des métaux précieux (fonctionnalité retirée)
+        val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS precious_metals")
+            }
+        }
+
         // Migration v18 → v19 : nouvelle table vehicle_rental_entries pour l'activité de location de véhicule
         val MIGRATION_18_19 = object : Migration(18, 19) {
             override fun migrate(db: SupportSQLiteDatabase) {

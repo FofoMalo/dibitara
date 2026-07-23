@@ -18,7 +18,6 @@ import com.dibitara.app.data.local.entity.ChildEntity
 import com.dibitara.app.data.local.entity.CustomAssetEntity
 import com.dibitara.app.data.local.entity.DebtEntity
 import com.dibitara.app.data.local.entity.EmployeeSavingsEntity
-import com.dibitara.app.data.local.entity.PreciousMetalEntity
 import com.dibitara.app.data.local.entity.RealEstateAssetEntity
 import com.dibitara.app.data.local.entity.SavingsAccountEntity
 import com.dibitara.app.data.local.entity.ScpiInvestmentEntity
@@ -30,7 +29,6 @@ import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.CustomAsset
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.EmployeeSavings
-import com.dibitara.app.domain.model.PreciousMetalAsset
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.ScpiInvestment
@@ -57,7 +55,7 @@ import javax.inject.Singleton
  *  4. Réinsère chaque entité via son DAO, en conservant les identifiants d'origine
  *     (clés étrangères childId, debtId, sourceRecurringId… restent cohérentes).
  *
- * Limitation connue : seules les 10 collections présentes dans [ExportData] sont restaurées.
+ * Limitation connue : seules les 11 collections présentes dans [ExportData] sont restaurées.
  * Les règles de catégorisation, enveloppes budgétaires, sous-catégories personnalisées et
  * versements mensuels ne sont pas incluses dans le format d'export JSON actuel.
  */
@@ -94,7 +92,6 @@ class RestoreRepositoryImpl @Inject constructor(
             val airbnb       = parseList<AirbnbRental>(jsonObj, "airbnb")
             val vehiculeLocatif = parseList<VehicleRentalEntry>(jsonObj, "vehicule_locatif")
             val dettes       = parseList<Debt>(jsonObj, "dettes")
-            val metaux       = parseList<PreciousMetalAsset>(jsonObj, "metaux_precieux")
             val actifs       = parseList<CustomAsset>(jsonObj, "actifs_libres")
             val epargneSal   = parseList<EmployeeSavings>(jsonObj, "epargne_salariale")
 
@@ -112,13 +109,12 @@ class RestoreRepositoryImpl @Inject constructor(
             airbnb.forEach       { database.airbnbRentalDao().insert(AirbnbRentalEntity.fromDomain(it)) }
             vehiculeLocatif.forEach { database.vehicleRentalEntryDao().insert(VehicleRentalEntryEntity.fromDomain(it)) }
             dettes.forEach       { database.debtDao().insert(DebtEntity.fromDomain(it)) }
-            metaux.forEach       { database.preciousMetalDao().insert(PreciousMetalEntity.fromDomain(it)) }
             actifs.forEach       { database.customAssetDao().insert(CustomAssetEntity.fromDomain(it)) }
             epargneSal.forEach   { database.employeeSavingsDao().insert(EmployeeSavingsEntity.fromDomain(it)) }
 
             val total = enfants.size + transactions.size + budgets.size + epargne.size +
                 immobilier.size + scpi.size + airbnb.size + vehiculeLocatif.size + dettes.size +
-                metaux.size + actifs.size + epargneSal.size
+                actifs.size + epargneSal.size
 
             RestoreResult.Success(total)
 

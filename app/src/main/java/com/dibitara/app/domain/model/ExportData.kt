@@ -18,7 +18,6 @@ data class ExportData(
     val airbnb         : List<AirbnbRental>,
     val vehiculeLocatif: List<VehicleRentalEntry>,
     val dettes         : List<Debt>,
-    val metaux         : List<PreciousMetalAsset>,
     val actifsLibres   : List<CustomAsset>,
     val epargneSalariale: List<EmployeeSavings>
 )

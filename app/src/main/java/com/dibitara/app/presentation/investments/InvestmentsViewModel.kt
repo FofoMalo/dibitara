@@ -8,9 +8,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomAsset
 import com.dibitara.app.domain.model.EmployeeSavings
 import com.dibitara.app.domain.model.EmployeeSavingsType
-import com.dibitara.app.domain.model.MetalType
 import com.dibitara.app.domain.model.MonthlyVersement
-import com.dibitara.app.domain.model.PreciousMetalAsset
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.VehicleEntryType
@@ -19,14 +17,12 @@ import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteVehicleRentalEntryUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
 import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
-import com.dibitara.app.domain.usecase.DeletePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetCustomAssetsUseCase
 import com.dibitara.app.domain.usecase.GetEmployeeSavingsUseCase
-import com.dibitara.app.domain.usecase.GetPreciousMetalsUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.GetVehicleRentalEntriesUseCase
@@ -38,7 +34,6 @@ import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
 import com.dibitara.app.domain.usecase.SaveEmployeeSavingsUseCase
-import com.dibitara.app.domain.usecase.SavePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
 import com.dibitara.app.domain.usecase.SaveVehicleRentalEntryUseCase
@@ -46,7 +41,6 @@ import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.UpdateCustomAssetUseCase
 import com.dibitara.app.domain.usecase.UpdateEmployeeSavingsUseCase
-import com.dibitara.app.domain.usecase.UpdatePreciousMetalUseCase
 import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
 import com.dibitara.app.domain.usecase.UpdateVehicleRentalEntryUseCase
@@ -63,28 +57,24 @@ class InvestmentsViewModel @Inject constructor(
     private val ucGetScpi: GetScpiUseCase,
     private val ucGetAirbnbByYear: GetAirbnbRentalsByYearUseCase,
     private val ucGetVehicleRentals: GetVehicleRentalEntriesUseCase,
-    private val ucGetPreciousMetals: GetPreciousMetalsUseCase,
     private val ucGetCustomAssets: GetCustomAssetsUseCase,
     private val ucGetEmployeeSavings: GetEmployeeSavingsUseCase,
     private val ucSaveRealEstate: SaveRealEstateUseCase,
     private val ucSaveScpi: SaveScpiUseCase,
     private val ucSaveAirbnbRental: SaveAirbnbRentalUseCase,
     private val ucSaveVehicleEntry: SaveVehicleRentalEntryUseCase,
-    private val ucSavePreciousMetal: SavePreciousMetalUseCase,
     private val ucSaveCustomAsset: SaveCustomAssetUseCase,
     private val ucSaveEmployeeSavings: SaveEmployeeSavingsUseCase,
     private val ucUpdateRealEstate: UpdateRealEstateUseCase,
     private val ucUpdateScpi: UpdateScpiUseCase,
     private val ucUpdateAirbnbRental: UpdateAirbnbRentalUseCase,
     private val ucUpdateVehicleEntry: UpdateVehicleRentalEntryUseCase,
-    private val ucUpdatePreciousMetal: UpdatePreciousMetalUseCase,
     private val ucUpdateCustomAsset: UpdateCustomAssetUseCase,
     private val ucUpdateEmployeeSavings: UpdateEmployeeSavingsUseCase,
     private val ucDeleteRealEstate: DeleteRealEstateUseCase,
     private val ucDeleteScpi: DeleteScpiUseCase,
     private val ucDeleteAirbnbRental: DeleteAirbnbRentalUseCase,
     private val ucDeleteVehicleEntry: DeleteVehicleRentalEntryUseCase,
-    private val ucDeletePreciousMetal: DeletePreciousMetalUseCase,
     private val ucDeleteCustomAsset: DeleteCustomAssetUseCase,
     private val ucDeleteEmployeeSavings: DeleteEmployeeSavingsUseCase,
     private val ucSaveVersement: SaveVersementUseCase,
@@ -113,10 +103,9 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     private val customFlow = combine(
-        ucGetPreciousMetals(),
         ucGetCustomAssets(),
         ucGetEmployeeSavings()
-    ) { metals, assets, empSavings -> Triple(metals, assets, empSavings) }
+    ) { assets, empSavings -> assets to empSavings }
 
     // Flux de conversion : devise cible + taux en cache
     private val conversionFlow = combine(
@@ -125,7 +114,7 @@ class InvestmentsViewModel @Inject constructor(
     ) { prefs, rates -> prefs.deviseParDefaut to rates }
 
     val uiState: StateFlow<InvestmentsUiState> = combine(baseFlow, customFlow, conversionFlow) {
-        base, (metals, assets, empSavings), (target, rates) ->
+        base, (assets, empSavings), (target, rates) ->
         // Conversion de chaque actif vers la devise par défaut avant sommation
         fun Long.cvt(from: com.dibitara.app.domain.model.Currency) =
             CurrencyConverter.convertCents(this, from, target, rates)
@@ -142,14 +131,12 @@ class InvestmentsViewModel @Inject constructor(
             vehicleRentalChargeCents   = base.vehicleEntries
                 .filter { it.entryType == VehicleEntryType.CHARGE }
                 .sumOf { it.amountCents.cvt(it.currency) },
-            preciousMetals        = metals,
             customAssets          = assets,
             employeeSavings       = empSavings,
             availableDebts        = base.debts,
             totalInvestmentsCents =
                 base.realEstate.sumOf { it.currentValueCents.cvt(it.currency) } +
                 base.scpi.sumOf       { it.totalValueCents.cvt(it.currency) }   +
-                metals.sumOf          { it.totalValueCents.cvt(it.currency) }   +
                 assets.sumOf          { it.totalValueCents.cvt(it.currency) }   +
                 empSavings.sumOf      { it.currentBalanceCents.cvt(it.currency) },
             summaryCurrency       = target
@@ -300,38 +287,6 @@ class InvestmentsViewModel @Inject constructor(
         viewModelScope.launch { ucDeleteVehicleEntry(entry) }
     }
 
-    // ─── Métaux précieux ───────────────────────────────────────────────────────
-
-    fun addPreciousMetal(metalType: MetalType, label: String, quantityStr: String, priceStr: String, currency: Currency) {
-        val quantity = quantityStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 } ?: run {
-            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Quantité invalide")) }
-            return
-        }
-        val price = priceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        viewModelScope.launch {
-            ucSavePreciousMetal(PreciousMetalAsset(metalType = metalType, label = label, quantityGrams = quantity, pricePerGramCents = price, currency = currency, updatedAt = LocalDate.now()))
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
-                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
-        }
-    }
-
-    fun updatePreciousMetal(asset: PreciousMetalAsset, metalType: MetalType, label: String, quantityStr: String, priceStr: String, currency: Currency) {
-        val quantity = quantityStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 } ?: run {
-            viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Quantité invalide")) }
-            return
-        }
-        val price = priceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        viewModelScope.launch {
-            ucUpdatePreciousMetal(asset.copy(metalType = metalType, label = label, quantityGrams = quantity, pricePerGramCents = price, currency = currency, updatedAt = LocalDate.now()))
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
-                .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
-        }
-    }
-
-    fun deletePreciousMetal(asset: PreciousMetalAsset) {
-        viewModelScope.launch { ucDeletePreciousMetal(asset) }
-    }
-
     // ─── Actifs libres ─────────────────────────────────────────────────────────
 
     fun addCustomAsset(label: String, valueStr: String, currency: Currency) {
@@ -441,7 +396,6 @@ sealed class InvestmentsUiState {
         val vehicleRentalEntries      : List<VehicleRentalEntry> = emptyList(),
         val vehicleRentalRevenueCents : Long = 0L,
         val vehicleRentalChargeCents  : Long = 0L,
-        val preciousMetals        : List<PreciousMetalAsset> = emptyList(),
         val customAssets          : List<CustomAsset>        = emptyList(),
         val employeeSavings       : List<EmployeeSavings>    = emptyList(),
         val availableDebts        : List<Debt>               = emptyList(),
