@@ -147,7 +147,10 @@ fun DibitaraNavGraph(
             composable(Screen.ProjectionDetail.route) {
                 ProjectionDetailScreen(onNavigateBack = { navController.popBackStack() })
             }
-            composable(Screen.Budget.route) {
+            composable(
+                route = Screen.Budget.route,
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://budget" })
+            ) {
                 BudgetScreen(
                     onNavigateToExpenses = { category, type, month, year ->
                         navController.navigate(Screen.Expenses.withFilter(category, type, month, year))
@@ -170,11 +173,18 @@ fun DibitaraNavGraph(
                     navArgument("type")     { type = NavType.StringType; nullable = true; defaultValue = null },
                     navArgument("month")    { type = NavType.StringType; nullable = true; defaultValue = null },
                     navArgument("year")     { type = NavType.StringType; nullable = true; defaultValue = null }
-                )
+                ),
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://expenses?category={category}" })
             ) { ExpensesScreen() }
-            composable(Screen.Savings.route)     { SavingsScreen() }
+            composable(
+                route = Screen.Savings.route,
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://savings" })
+            ) { SavingsScreen() }
             composable(Screen.Investments.route) { InvestmentsScreen() }
-            composable(Screen.Debts.route) {
+            composable(
+                route = Screen.Debts.route,
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://debts" })
+            ) {
                 DebtsScreen(onNavigateBack = { navController.navigateUp() })
             }
             composable(
@@ -208,7 +218,10 @@ fun DibitaraNavGraph(
                     onNavigateBack = { navController.navigateUp() }
                 )
             }
-            composable(Screen.Report.route) {
+            composable(
+                route = Screen.Report.route,
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://report" })
+            ) {
                 MonthlyReportScreen(onNavigateBack = { navController.navigateUp() })
             }
             composable(Screen.PatrimoineDetail.route) {
