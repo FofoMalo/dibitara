@@ -40,18 +40,20 @@ sealed class Screen(val route: String) {
     data object Dashboard  : Screen("dashboard")
     data object Budget     : Screen("budget")
     // category et type sont des args optionnels pour pré-filtrer depuis BudgetScreen
-    data object Expenses   : Screen("expenses?category={category}&type={type}&month={month}&year={year}") {
+    data object Expenses   : Screen("expenses?category={category}&type={type}&month={month}&year={year}&transactionId={transactionId}") {
         fun withFilter(
             category: String? = null,
             type: String? = null,
             month: Int? = null,
-            year: Int? = null
+            year: Int? = null,
+            transactionId: Long? = null
         ): String {
             val args = buildString {
                 if (category != null) append("category=$category")
                 if (type != null) { if (isNotEmpty()) append("&"); append("type=$type") }
                 if (month != null) { if (isNotEmpty()) append("&"); append("month=$month") }
                 if (year != null)  { if (isNotEmpty()) append("&"); append("year=$year") }
+                if (transactionId != null) { if (isNotEmpty()) append("&"); append("transactionId=$transactionId") }
             }
             return if (args.isNotEmpty()) "expenses?$args" else "expenses"
         }
@@ -141,6 +143,9 @@ fun DibitaraNavGraph(
                     onNavigateToSavings      = { navController.navigate(Screen.Savings.route) },
                     onNavigateToInvestments  = { navController.navigate(Screen.Investments.route) },
                     onNavigateToPatrimoine   = { navController.navigate(Screen.PatrimoineDetail.route) },
+                    onNavigateToExpensesTransaction = { id ->
+                        navController.navigate(Screen.Expenses.withFilter(transactionId = id))
+                    },
                     navController            = navController
                 )
             }
@@ -172,7 +177,8 @@ fun DibitaraNavGraph(
                     navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null },
                     navArgument("type")     { type = NavType.StringType; nullable = true; defaultValue = null },
                     navArgument("month")    { type = NavType.StringType; nullable = true; defaultValue = null },
-                    navArgument("year")     { type = NavType.StringType; nullable = true; defaultValue = null }
+                    navArgument("year")     { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("transactionId") { type = NavType.StringType; nullable = true; defaultValue = null }
                 ),
                 deepLinks = listOf(navDeepLink { uriPattern = "dibitara://expenses?category={category}" })
             ) { ExpensesScreen() }

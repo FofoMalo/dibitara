@@ -154,18 +154,32 @@ private fun SavingsContent(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("Total épargne", style = MaterialTheme.typography.labelMedium)
-                        Text(state.totalEpargneCents.toCurrencyDisplay(state.summaryCurrency),
-                            style = MaterialTheme.typography.titleLarge)
+                Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Total épargne", style = MaterialTheme.typography.labelMedium)
+                            Text(state.totalEpargneCents.toCurrencyDisplay(state.summaryCurrency),
+                                style = MaterialTheme.typography.titleLarge)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Versements/mois", style = MaterialTheme.typography.labelMedium)
+                            Text(state.totalMensuelCents.toCurrencyDisplay(state.summaryCurrency),
+                                style = MaterialTheme.typography.titleMedium)
+                        }
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Versements/mois", style = MaterialTheme.typography.labelMedium)
-                        Text(state.totalMensuelCents.toCurrencyDisplay(state.summaryCurrency),
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Versé ce mois-ci", style = MaterialTheme.typography.labelMedium)
+                        Text(state.totalVerseMoisCents.toCurrencyDisplay(state.summaryCurrency),
                             style = MaterialTheme.typography.titleMedium)
                     }
                 }

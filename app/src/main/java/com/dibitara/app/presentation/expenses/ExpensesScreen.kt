@@ -57,10 +57,19 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
     var recatProposee by remember { mutableStateOf<ExpensesEvent.RecategorizationProposee?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val transactionToOpen by viewModel.transactionToOpen.collectAsState()
 
     // Sous-catégories personnalisées - disponibles dès que le state est chargé
     val customSubCategories = (uiState as? ExpensesUiState.Success)?.customSubCategories ?: emptyList()
     val focusManager = LocalFocusManager.current
+
+    // Ouvre automatiquement le sheet d'édition si on arrive avec un id de transaction (ex. lien depuis le Dashboard)
+    LaunchedEffect(transactionToOpen) {
+        transactionToOpen?.let {
+            editingExpense = it
+            viewModel.clearTransactionToOpen()
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->

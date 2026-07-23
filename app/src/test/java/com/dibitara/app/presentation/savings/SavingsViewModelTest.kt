@@ -1,8 +1,10 @@
 package com.dibitara.app.presentation.savings
 
 import com.dibitara.app.domain.model.Child
+import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ExchangeRates
+import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.domain.model.UserPreferences
@@ -12,6 +14,7 @@ import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
+import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
@@ -43,6 +46,7 @@ class SavingsViewModelTest {
     private val deleteChild: DeleteChildUseCase = mockk()
     private val saveVersement: SaveVersementUseCase = mockk()
     private val existeVersementMois: ExisteVersementMoisUseCase = mockk()
+    private val getVersementsMois: GetVersementsMoisUseCase = mockk()
     private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
     private val ratesRepo: ExchangeRateRepository = mockk()
     private lateinit var viewModel: SavingsViewModel
@@ -54,10 +58,11 @@ class SavingsViewModelTest {
         every { getChildren() } returns flowOf(emptyList())
         every { ucGetPreferences() } returns flowOf(UserPreferences())
         every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
+        coEvery { getVersementsMois(any(), any(), any()) } returns emptyList()
         viewModel = SavingsViewModel(
             getSavings, saveSavingsAccount, updateSavingsAccount,
             deleteSavingsAccount, getChildren, saveChild, deleteChild,
-            saveVersement, existeVersementMois, ucGetPreferences, ratesRepo
+            saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo
         )
     }
 
@@ -115,6 +120,21 @@ class SavingsViewModelTest {
 
         assertTrue(events.any { it is SavingsEvent.Deleted })
         job.cancel()
+    }
+
+    @Test
+    fun `uiState expose le total verse ce mois converti dans la devise par defaut`() = runTest {
+        coEvery { getVersementsMois(CompteType.EPARGNE, any(), any()) } returns listOf(
+            MonthlyVersement(
+                id = 1L, accountId = 1L, compteType = CompteType.EPARGNE,
+                year = LocalDate.now().year, month = LocalDate.now().monthValue,
+                montantCents = 20000L, currency = Currency.EUR
+            )
+        )
+
+        val state = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
+
+        assertEquals(20000L, state.totalVerseMoisCents)
     }
 
     private fun buildAccount() = SavingsAccount(

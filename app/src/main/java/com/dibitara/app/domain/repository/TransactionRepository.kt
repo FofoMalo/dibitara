@@ -12,6 +12,7 @@ import java.time.LocalDate
  */
 interface TransactionRepository {
     fun getAll(): Flow<List<Transaction>>
+    suspend fun getById(id: Long): Transaction?
     fun getByMonth(month: Int, year: Int): Flow<List<Transaction>>
     fun getByType(type: TransactionType): Flow<List<Transaction>>
     fun getByDateRange(from: LocalDate, to: LocalDate): Flow<List<Transaction>>

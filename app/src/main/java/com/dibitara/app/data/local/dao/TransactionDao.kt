@@ -10,6 +10,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY dateEpochDay DESC")
     fun getAll(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE id = :id")
+    suspend fun getById(id: Long): TransactionEntity?
+
     /**
      * Filtre par mois/année en utilisant l'epoch day.
      * On calcule les bornes côté Kotlin pour rester en Long dans Room.

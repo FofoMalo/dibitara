@@ -11,6 +11,7 @@ import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
+import com.dibitara.app.domain.usecase.GetTransactionByIdUseCase
 import com.dibitara.app.domain.usecase.GetTransactionSuggestionsUseCase
 import com.dibitara.app.domain.usecase.GetTransactionsByDateRangeUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
@@ -50,6 +51,7 @@ class ExpensesViewModelTest {
     private val ucGetPreferences         : GetUserPreferencesUseCase       = mockk()
     private val ucGetSuggestions         : GetTransactionSuggestionsUseCase = mockk()
     private val ucUpsertRule             : UpsertCategorizationRuleUseCase = mockk(relaxed = true)
+    private val ucGetTransactionById      : GetTransactionByIdUseCase      = mockk()
 
     private lateinit var viewModel: ExpensesViewModel
 
@@ -72,7 +74,7 @@ class ExpensesViewModelTest {
             ucGetMonthlyTransactions, ucGetByDateRange, ucGetAll,
             ucAdd, ucUpdate, ucDelete,
             ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
-            ucGetPreferences, ucGetSuggestions, ucUpsertRule,
+            ucGetPreferences, ucGetSuggestions, ucUpsertRule, ucGetTransactionById,
             savedState
         )
 
@@ -153,6 +155,18 @@ class ExpensesViewModelTest {
 
         assertTrue(events.any { it is ExpensesEvent.Error })
         job.cancel()
+    }
+
+    @Test
+    fun `transactionId dans les args de navigation résout transactionToOpen`() = runTest {
+        val transaction = buildTransaction(TransactionType.EXPENSE).copy(id = 42L)
+        coEvery { ucGetTransactionById(42L) } returns transaction
+
+        val savedState = SavedStateHandle(mapOf("transactionId" to "42"))
+        val vm = buildViewModel(savedState)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(transaction, vm.transactionToOpen.value)
     }
 
     private fun buildTransaction(type: TransactionType) = Transaction(

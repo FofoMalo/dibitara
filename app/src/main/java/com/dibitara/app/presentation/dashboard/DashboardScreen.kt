@@ -1,5 +1,6 @@
 package com.dibitara.app.presentation.dashboard
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -53,6 +54,7 @@ fun DashboardScreen(
     onNavigateToSavings      : () -> Unit = {},
     onNavigateToInvestments  : () -> Unit = {},
     onNavigateToPatrimoine   : () -> Unit = {},
+    onNavigateToExpensesTransaction : (Long) -> Unit = {},
     navController            : NavHostController? = null,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
@@ -80,6 +82,7 @@ fun DashboardScreen(
                     onNavigateToSavings         = onNavigateToSavings,
                     onNavigateToInvestments     = onNavigateToInvestments,
                     onNavigateToPatrimoine      = onNavigateToPatrimoine,
+                    onNavigateToExpensesTransaction = onNavigateToExpensesTransaction,
                     rapportMensuel              = state.rapportMensuel,
                     cashflowProjection          = state.cashflowProjection,
                     recategorizationSuggestions = state.recategorizationSuggestions,
@@ -107,6 +110,7 @@ private fun DashboardContent(
     onNavigateToSavings         : () -> Unit,
     onNavigateToInvestments     : () -> Unit,
     onNavigateToPatrimoine      : () -> Unit,
+    onNavigateToExpensesTransaction : (Long) -> Unit = {},
     rapportMensuel              : MonthlyReport?                    = null,
     cashflowProjection          : CashflowProjection?               = null,
     recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
@@ -136,7 +140,7 @@ private fun DashboardContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium)
+                Text("Dibitara", style = MaterialTheme.typography.headlineMedium)
                 IconButton(onClick = onToggleEditMode) {
                     Icon(
                         imageVector = Icons.Filled.Edit,
@@ -174,6 +178,7 @@ private fun DashboardContent(
                         onNavigateToBudget      = onNavigateToBudget,
                         onNavigateToSavings     = onNavigateToSavings,
                         onNavigateToInvestments = onNavigateToInvestments,
+                        onNavigateToExpensesTransaction = onNavigateToExpensesTransaction,
                         onApplyRecategorization = onApplyRecategorization,
                         onRefuseRecategorization = onRefuseRecategorization,
                         onVoirDetailProjection  = onVoirDetailProjection
@@ -204,6 +209,7 @@ private fun DashboardCardSlot(
     onNavigateToBudget          : () -> Unit,
     onNavigateToSavings         : () -> Unit,
     onNavigateToInvestments     : () -> Unit,
+    onNavigateToExpensesTransaction : (Long) -> Unit,
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
     onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
     onVoirDetailProjection      : () -> Unit = {}
@@ -216,7 +222,7 @@ private fun DashboardCardSlot(
                     card, overview, spendingHistory, upcomingPayments, rapportMensuel,
                     cashflowProjection, recategorizationSuggestions,
                     onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
-                    onNavigateToSavings, onNavigateToInvestments,
+                    onNavigateToSavings, onNavigateToInvestments, onNavigateToExpensesTransaction,
                     onApplyRecategorization, onRefuseRecategorization,
                     onVoirDetailProjection
                 )
@@ -233,7 +239,7 @@ private fun DashboardCardSlot(
             card, overview, spendingHistory, upcomingPayments, rapportMensuel,
             cashflowProjection, recategorizationSuggestions,
             onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
-            onNavigateToSavings, onNavigateToInvestments,
+            onNavigateToSavings, onNavigateToInvestments, onNavigateToExpensesTransaction,
             onApplyRecategorization, onRefuseRecategorization,
             onVoirDetailProjection
         )
@@ -254,6 +260,7 @@ private fun DashboardCardContent(
     onNavigateToBudget          : () -> Unit,
     onNavigateToSavings         : () -> Unit,
     onNavigateToInvestments     : () -> Unit,
+    onNavigateToExpensesTransaction : (Long) -> Unit,
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
     onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
     onVoirDetailProjection      : () -> Unit = {}
@@ -293,7 +300,7 @@ private fun DashboardCardContent(
                 )
         DashboardCard.PROCHAINS_PAIEMENTS ->
             if (upcomingPayments.isNotEmpty())
-                UpcomingPaymentsCard(payments = upcomingPayments)
+                UpcomingPaymentsCard(payments = upcomingPayments, onClick = onNavigateToExpensesTransaction)
     }
 }
 
@@ -562,7 +569,7 @@ private fun moisComplet(month: Int): String = when (month) {
 // ─── Carte "Prochains paiements" ──────────────────────────────────────────────
 
 @Composable
-private fun UpcomingPaymentsCard(payments: List<UpcomingPayment>) {
+private fun UpcomingPaymentsCard(payments: List<UpcomingPayment>, onClick: (Long) -> Unit = {}) {
     val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -578,7 +585,9 @@ private fun UpcomingPaymentsCard(payments: List<UpcomingPayment>) {
 
             payments.forEach { upcoming ->
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onClick(upcoming.template.id) },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {

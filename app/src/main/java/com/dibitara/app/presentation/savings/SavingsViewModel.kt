@@ -13,6 +13,7 @@ import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
+import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
@@ -37,6 +38,7 @@ class SavingsViewModel @Inject constructor(
     private val deleteChild: DeleteChildUseCase,
     private val saveVersement: SaveVersementUseCase,
     private val existeVersementMois: ExisteVersementMoisUseCase,
+    private val getVersementsMois: GetVersementsMoisUseCase,
     private val ucGetPreferences: GetUserPreferencesUseCase,
     private val exchangeRateRepository: ExchangeRateRepository
 ) : ViewModel() {
@@ -55,12 +57,16 @@ class SavingsViewModel @Inject constructor(
         val target = prefs.deviseParDefaut
         val totalBalance = accounts.sumOf { CurrencyConverter.convertCents(it.currentBalanceCents, it.currency, target, rates) }
         val totalMonthly = accounts.sumOf { CurrencyConverter.convertCents(it.monthlyContributionCents, it.currency, target, rates) }
+        val now = LocalDate.now()
+        val totalVerse = getVersementsMois(CompteType.EPARGNE, now.year, now.monthValue)
+            .sumOf { CurrencyConverter.convertCents(it.montantCents, it.currency, target, rates) }
         SavingsUiState.Success(
-            accounts          = accounts,
-            children          = children,
-            totalEpargneCents = totalBalance,
-            totalMensuelCents = totalMonthly,
-            summaryCurrency   = target
+            accounts            = accounts,
+            children            = children,
+            totalEpargneCents   = totalBalance,
+            totalMensuelCents   = totalMonthly,
+            totalVerseMoisCents = totalVerse,
+            summaryCurrency     = target
         ) as SavingsUiState
     }
         .catch { emit(SavingsUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -227,9 +233,10 @@ sealed class SavingsUiState {
     data class Success(
         val accounts          : List<SavingsAccount>,
         val children          : List<Child>,
-        val totalEpargneCents : Long     = 0L,
-        val totalMensuelCents : Long     = 0L,
-        val summaryCurrency   : Currency = Currency.EUR
+        val totalEpargneCents   : Long     = 0L,
+        val totalMensuelCents   : Long     = 0L,
+        val totalVerseMoisCents : Long     = 0L,
+        val summaryCurrency     : Currency = Currency.EUR
     ) : SavingsUiState()
     data class Error(val message: String) : SavingsUiState()
 }

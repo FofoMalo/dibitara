@@ -16,6 +16,7 @@ import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
+import com.dibitara.app.domain.usecase.GetTransactionByIdUseCase
 import com.dibitara.app.domain.usecase.GetTransactionSuggestionsUseCase
 import com.dibitara.app.domain.usecase.GetTransactionsByDateRangeUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
@@ -45,6 +46,7 @@ class ExpensesViewModel @Inject constructor(
     private val ucGetPreferences         : GetUserPreferencesUseCase,
     private val ucGetSuggestions         : GetTransactionSuggestionsUseCase,
     private val ucUpsertRule             : UpsertCategorizationRuleUseCase,
+    private val ucGetTransactionById     : GetTransactionByIdUseCase,
     savedStateHandle                     : SavedStateHandle
 ) : ViewModel() {
 
@@ -80,6 +82,20 @@ class ExpensesViewModel @Inject constructor(
         )
     )
     val filter: StateFlow<ExpensesFilter> = _filter.asStateFlow()
+
+    // Transaction à ouvrir automatiquement si on arrive depuis un lien (ex. "Prochains paiements" du Dashboard)
+    private val _transactionToOpen = MutableStateFlow<Transaction?>(null)
+    val transactionToOpen: StateFlow<Transaction?> = _transactionToOpen.asStateFlow()
+
+    init {
+        savedStateHandle.get<String>("transactionId")?.toLongOrNull()?.let { id ->
+            viewModelScope.launch { _transactionToOpen.value = ucGetTransactionById(id) }
+        }
+    }
+
+    fun clearTransactionToOpen() {
+        _transactionToOpen.value = null
+    }
 
     /**
      * L'UI observe ce flow pour afficher la liste.

@@ -22,6 +22,9 @@ class TransactionRepositoryImpl @Inject constructor(
     override fun getAll(): Flow<List<Transaction>> =
         dao.getAll().map { list -> list.map { it.toDomain() } }
 
+    override suspend fun getById(id: Long): Transaction? =
+        dao.getById(id)?.toDomain()
+
     override fun getByMonth(month: Int, year: Int): Flow<List<Transaction>> {
         val from = LocalDate.of(year, month, 1).toEpochDay()
         val to   = LocalDate.of(year, month, 1).plusMonths(1).minusDays(1).toEpochDay()
