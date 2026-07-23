@@ -19,6 +19,7 @@ app/google-services.json
 
 # Fichiers de logs
 *.log
+*.logcat
 
 # Schémas Room — doit être versionné pour valider les migrations
 !app/schemas/
@@ -28,3 +29,4 @@ app/google-services.json
 AMELIORATIONS.md
 QUESTIONNAIRE.md
 session_reprise.md
+Relevé_n°5_daté_du_4_mai_2026_.pdf
