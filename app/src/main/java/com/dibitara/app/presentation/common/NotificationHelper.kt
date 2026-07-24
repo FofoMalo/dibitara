@@ -5,9 +5,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
 import com.dibitara.app.R
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.MonthlyReport
@@ -210,7 +210,7 @@ class NotificationHelper @Inject constructor(
      * [requestCode] doit être unique par notification pour éviter qu'un PendingIntent en écrase un autre.
      */
     private fun deepLinkPendingIntent(uri: String, requestCode: Int): PendingIntent {
-        val deepLinkIntent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
+        val deepLinkIntent = Intent(Intent.ACTION_VIEW, uri.toUri()).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         return PendingIntent.getActivity(

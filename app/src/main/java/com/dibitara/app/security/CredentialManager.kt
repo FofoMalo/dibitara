@@ -1,6 +1,7 @@
 package com.dibitara.app.security
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -97,10 +98,10 @@ class CredentialManager @Inject constructor(
     suspend fun setupPin(pin: String) = withContext(Dispatchers.IO) {
         val salt = generateSalt()
         val hash = hashWithPbkdf2(pin, salt, ITERATIONS_PIN)
-        prefs.edit()
-            .putString(KEY_PIN_HASH, hash)
-            .putString(KEY_PIN_SALT, salt.toHex())
-            .apply()
+        prefs.edit {
+            putString(KEY_PIN_HASH, hash)
+            putString(KEY_PIN_SALT, salt.toHex())
+        }
     }
 
     /**
@@ -130,11 +131,11 @@ class CredentialManager @Inject constructor(
     suspend fun setupPassword(email: String, password: String) = withContext(Dispatchers.IO) {
         val salt = generateSalt()
         val hash = hashWithPbkdf2(password, salt, ITERATIONS_PWD)
-        prefs.edit()
-            .putString(KEY_EMAIL, email)
-            .putString(KEY_PWD_HASH, hash)
-            .putString(KEY_PWD_SALT, salt.toHex())
-            .apply()
+        prefs.edit {
+            putString(KEY_EMAIL, email)
+            putString(KEY_PWD_HASH, hash)
+            putString(KEY_PWD_SALT, salt.toHex())
+        }
     }
 
     /**
@@ -161,12 +162,12 @@ class CredentialManager @Inject constructor(
 
     /** Enregistre le secret TOTP (Base32) dans le stockage chiffré. */
     suspend fun setupTotp(secret: String) = withContext(Dispatchers.IO) {
-        prefs.edit().putString(KEY_TOTP_SECRET, secret).apply()
+        prefs.edit { putString(KEY_TOTP_SECRET, secret) }
     }
 
     /** Efface le secret TOTP uniquement. */
     fun clearTotp() {
-        prefs.edit().remove(KEY_TOTP_SECRET).apply()
+        prefs.edit { remove(KEY_TOTP_SECRET) }
     }
 
     // ─── Réinitialisation ────────────────────────────────────────────────────
@@ -177,14 +178,14 @@ class CredentialManager @Inject constructor(
      * À n'appeler qu'après une vérification biométrique réussie.
      */
     fun clearCredentials() {
-        prefs.edit()
-            .remove(KEY_PIN_HASH)
-            .remove(KEY_PIN_SALT)
-            .remove(KEY_PWD_HASH)
-            .remove(KEY_PWD_SALT)
-            .remove(KEY_EMAIL)
-            .remove(KEY_TOTP_SECRET)
-            .apply()
+        prefs.edit {
+            remove(KEY_PIN_HASH)
+            remove(KEY_PIN_SALT)
+            remove(KEY_PWD_HASH)
+            remove(KEY_PWD_SALT)
+            remove(KEY_EMAIL)
+            remove(KEY_TOTP_SECRET)
+        }
     }
 
     // ─── Utilitaires cryptographiques ─────────────────────────────────────────

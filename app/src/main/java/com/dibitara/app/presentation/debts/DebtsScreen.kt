@@ -29,6 +29,7 @@ import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
 import com.dibitara.app.domain.model.SimulateurCredit
 import com.dibitara.app.presentation.common.toCurrencyDisplay
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -241,7 +242,7 @@ private fun DebtCard(
                     if (debt.monthlyPaymentCents > 0) {
                         Text(
                             "${debt.monthlyPaymentCents.toCurrencyDisplay(debt.currency)}/mois" +
-                                (debt.tauxInteret?.let { " · ${String.format("%.2f", it).replace('.', ',')} %" } ?: ""),
+                                (debt.tauxInteret?.let { " · ${String.format(Locale.US, "%.2f", it).replace('.', ',')} %" } ?: ""),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -531,7 +532,7 @@ private fun EditDebtSheet(
     var monthly by remember { mutableStateOf(if (debt.monthlyPaymentCents > 0) (debt.monthlyPaymentCents.toDouble() / 100.0).toString() else "") }
     var original by remember { mutableStateOf(if (debt.originalAmountCents > 0) (debt.originalAmountCents.toDouble() / 100.0).toString() else "") }
     var paymentDayStr by remember { mutableStateOf(debt.paymentDay?.toString() ?: "") }
-    var tauxStr by remember { mutableStateOf(debt.tauxInteret?.let { String.format("%.2f", it).replace('.', ',') } ?: "") }
+    var tauxStr by remember { mutableStateOf(debt.tauxInteret?.let { String.format(Locale.US, "%.2f", it).replace('.', ',') } ?: "") }
     var selectedCurrency by remember { mutableStateOf(debt.currency) }
     var selectedType by remember { mutableStateOf(debt.type) }
     var typeExpanded by remember { mutableStateOf(false) }
@@ -693,7 +694,7 @@ private fun SimulationSheet(debt: Debt, onDismiss: () -> Unit) {
         ) {
             Text("Simulation - Remboursement anticipé", style = MaterialTheme.typography.titleLarge)
             Text(
-                "${debt.label} · ${String.format("%.2f", taux).replace('.', ',')} % · " +
+                "${debt.label} · ${String.format(Locale.US, "%.2f", taux).replace('.', ',')} % · " +
                     "${debt.totalCents.toCurrencyDisplay(debt.currency)} restant",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
