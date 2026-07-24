@@ -8,6 +8,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomAsset
 import com.dibitara.app.domain.model.EmployeeSavings
 import com.dibitara.app.domain.model.EmployeeSavingsType
+import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
@@ -139,7 +140,8 @@ class InvestmentsViewModel @Inject constructor(
                 base.scpi.sumOf       { it.totalValueCents.cvt(it.currency) }   +
                 assets.sumOf          { it.totalValueCents.cvt(it.currency) }   +
                 empSavings.sumOf      { it.currentBalanceCents.cvt(it.currency) },
-            summaryCurrency       = target
+            summaryCurrency       = target,
+            rates                 = rates
         ) as InvestmentsUiState
     }
         .catch { emit(InvestmentsUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -400,7 +402,8 @@ sealed class InvestmentsUiState {
         val employeeSavings       : List<EmployeeSavings>    = emptyList(),
         val availableDebts        : List<Debt>               = emptyList(),
         val totalInvestmentsCents : Long                     = 0L,
-        val summaryCurrency       : Currency                 = Currency.EUR
+        val summaryCurrency       : Currency                 = Currency.EUR,
+        val rates                 : ExchangeRates             = ExchangeRates(usdParEur = 1.0, xofParEur = 1.0, horodatage = 0L)
     ) : InvestmentsUiState()
     data class Error(val message: String) : InvestmentsUiState()
 }

@@ -28,7 +28,9 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomAsset
 import com.dibitara.app.domain.model.EmployeeSavings
 import com.dibitara.app.domain.model.EmployeeSavingsType
+import com.dibitara.app.domain.model.CurrencyConverter
 import com.dibitara.app.domain.model.Debt
+import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.VehicleEntryType
@@ -269,6 +271,7 @@ private fun InvestmentsContent(
                 RealEstateCard(
                     asset       = asset,
                     linkedDebt  = linkedDebt,
+                    rates       = state.rates,
                     onEdit      = { onEditRealEstate(asset) },
                     onDelete    = { onDeleteRealEstate(asset) }
                 )
@@ -468,6 +471,7 @@ private fun EmptySectionText(text: String) {
 private fun RealEstateCard(
     asset      : RealEstateAsset,
     linkedDebt : com.dibitara.app.domain.model.Debt?,
+    rates      : ExchangeRates,
     onEdit     : () -> Unit,
     onDelete   : () -> Unit
 ) {
@@ -492,7 +496,11 @@ private fun RealEstateCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
-                    val equite = asset.currentValueCents - linkedDebt.totalCents
+                    // Conversion nécessaire : le crédit lié peut être dans une devise différente du bien
+                    val detteDansDeviseDuBien = CurrencyConverter.convertCents(
+                        linkedDebt.totalCents, linkedDebt.currency, asset.currency, rates
+                    )
+                    val equite = asset.currentValueCents - detteDansDeviseDuBien
                     Text(
                         "Équité nette : ${equite.toCurrencyDisplay(asset.currency)}",
                         style = MaterialTheme.typography.bodySmall,
