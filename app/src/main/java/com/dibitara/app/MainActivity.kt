@@ -1,6 +1,7 @@
 package com.dibitara.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -10,6 +11,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.dibitara.app.presentation.AppViewModel
 import com.dibitara.app.presentation.navigation.DibitaraNavGraph
 import com.dibitara.app.presentation.common.theme.DibitaraTheme
@@ -25,6 +28,10 @@ class MainActivity : AppCompatActivity() {
 
     // Instancié ici pour que GenerateRecurringUseCase s'exécute dès le démarrage
     private val appViewModel: AppViewModel by viewModels()
+
+    // Conservé pour transmettre les deep links des notifications quand l'activité
+    // est déjà au premier plan (launchMode singleTop -> onNewIntent, pas onCreate)
+    private lateinit var navController: NavHostController
 
     /**
      * Demande POST_NOTIFICATIONS à l'exécution (obligatoire Android 13+).
@@ -45,9 +52,21 @@ class MainActivity : AppCompatActivity() {
         demanderPermissionNotificationsSiNecessaire()
         setContent {
             DibitaraTheme {
-                DibitaraNavGraph()
+                navController = rememberNavController()
+                DibitaraNavGraph(navController = navController)
             }
         }
+    }
+
+    /**
+     * En launchMode singleTop, un clic sur une notification alors que l'app est déjà
+     * au premier plan ne redéclenche pas onCreate : Android appelle onNewIntent, qui ne
+     * fait rien par défaut. Il faut transmettre l'intent au NavController à la main.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        navController.handleDeepLink(intent)
     }
 
     private fun demanderPermissionNotificationsSiNecessaire() {

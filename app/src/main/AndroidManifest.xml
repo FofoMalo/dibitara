@@ -29,11 +29,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Deep link depuis les notifications : dibitara://settings -->
+            <!-- Deep links depuis les notifications : dibitara://<host> -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="dibitara" android:host="settings" />
+                <data android:scheme="dibitara" android:host="budget" />
+                <data android:scheme="dibitara" android:host="debts" />
+                <data android:scheme="dibitara" android:host="report" />
+                <data android:scheme="dibitara" android:host="savings" />
+                <data android:scheme="dibitara" android:host="expenses" />
             </intent-filter>
         </activity>
 
