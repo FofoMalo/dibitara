@@ -31,6 +31,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.PlafondDefaut
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
+import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @Composable
@@ -150,35 +151,35 @@ private fun SavingsContent(
 
         // Résumé global
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
+            HeroCard {
                 Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("Total épargne", style = MaterialTheme.typography.labelMedium)
+                            Text("Total épargne", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(state.totalEpargneCents.toCurrencyDisplay(state.summaryCurrency),
                                 style = MaterialTheme.typography.titleLarge)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("Versements/mois", style = MaterialTheme.typography.labelMedium)
+                            Text("Versements/mois", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(state.totalMensuelCents.toCurrencyDisplay(state.summaryCurrency),
                                 style = MaterialTheme.typography.titleMedium)
                         }
                     }
                     Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Versé ce mois-ci", style = MaterialTheme.typography.labelMedium)
+                        Text("Versé ce mois-ci", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(state.totalVerseMoisCents.toCurrencyDisplay(state.summaryCurrency),
                             style = MaterialTheme.typography.titleMedium)
                     }
