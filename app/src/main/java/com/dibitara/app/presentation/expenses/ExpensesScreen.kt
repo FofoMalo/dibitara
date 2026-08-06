@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -546,6 +547,7 @@ private fun ExpenseItem(
 ) {
     val formatter = DateTimeFormatter.ofPattern("dd/MM")
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
     val estRevenu = expense.type == TransactionType.INCOME
     val couleurCategorie = if (estRevenu) MaterialTheme.colorScheme.tertiary else expense.category.chartColor()
 
@@ -612,14 +614,28 @@ private fun ExpenseItem(
                 else
                     MaterialTheme.colorScheme.primary
             )
-            Spacer(Modifier.width(8.dp))
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = "Modifier",
-                    tint = MaterialTheme.colorScheme.primary)
-            }
-            IconButton(onClick = { showDeleteConfirm = true }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Supprimer",
-                    tint = MaterialTheme.colorScheme.error)
+            // Un seul bouton "..." plutôt que deux IconButton (Modifier + Supprimer) : avec la
+            // pastille de catégorie ajoutée par la refonte, les deux boutons laissaient trop peu
+            // de largeur à la colonne de libellé (retour au texte qui passait à la ligne).
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Modifier") },
+                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary) },
+                        onClick = { showMenu = false; onEdit() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error) },
+                        onClick = { showMenu = false; showDeleteConfirm = true }
+                    )
+                }
             }
         }
     }

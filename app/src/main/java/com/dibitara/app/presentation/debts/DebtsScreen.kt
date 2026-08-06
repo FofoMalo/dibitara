@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.debts
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import kotlin.math.roundToLong
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -217,6 +219,7 @@ private fun DebtCard(
 ) {
     var showConfirm    by remember { mutableStateOf(false) }
     var showSimulation by remember { mutableStateOf(false) }
+    var showMenu       by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -256,11 +259,25 @@ private fun DebtCard(
                                 tint = MaterialTheme.colorScheme.tertiary)
                         }
                     }
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Modifier", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = { showConfirm = true }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Modifier") },
+                                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary) },
+                                onClick = { showMenu = false; onEdit() }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error) },
+                                onClick = { showMenu = false; showConfirm = true }
+                            )
+                        }
                     }
                 }
             }
@@ -672,7 +689,7 @@ private fun SimulationSheet(debt: Debt, onDismiss: () -> Unit) {
     var montantStr by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
 
-    val montantCents = montantStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+    val montantCents = montantStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
     val resultat = if (montantCents > 0) {
         SimulateurCredit.simuler(
             capitalRestantCents        = debt.totalCents,
