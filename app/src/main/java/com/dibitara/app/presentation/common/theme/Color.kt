@@ -16,6 +16,11 @@ val DibitaraOr       = Color(0xFFF5C542)   // or principal - action, CTA
 val DibitaraNoir     = Color(0xFF0D0D0D)   // fond sombre
 val DibitaraNeutre   = Color(0xFFFAFAFA)   // texte et surfaces claires
 
+// Teintes data-viz additionnelles (refonte UX/UI 2026-08) - pour palettes de
+// catégories/graphiques à plusieurs séries, proches en chroma/luminosité de l'or
+val DibitaraTeal     = Color(0xFF7FB6B0)
+val DibitaraMauve    = Color(0xFFC79AB0)
+
 // ─── Rôles dark (utilisés par défaut) ────────────────────────────────────────
 
 // Primary - or Dibitara
@@ -36,8 +41,9 @@ val md_dark_onTertiary           = Color(0xFF12361C)
 val md_dark_tertiaryContainer    = Color(0xFF294D30)
 val md_dark_onTertiaryContainer  = Color(0xFFC4E3BC)
 
-// Error - rouge standard M3
-val md_dark_error                = Color(0xFFCF6679)
+// Error - rouge éclairci (refonte 2026-08 : #CF6679 manquait de lisibilité sur les
+// cartes d'alerte à fond #161616 - #E5687A garde un onError blanc lisible)
+val md_dark_error                = Color(0xFFE5687A)
 val md_dark_onError              = Color(0xFF690018)
 val md_dark_errorContainer       = Color(0xFF93000A)
 val md_dark_onErrorContainer     = Color(0xFFFFDAD6)
@@ -45,7 +51,7 @@ val md_dark_onErrorContainer     = Color(0xFFFFDAD6)
 // Background & Surface
 val md_dark_background           = Color(0xFF0D0D0D)   // fond global
 val md_dark_onBackground         = Color(0xFFFAFAFA)
-val md_dark_surface              = Color(0xFF1A1A1A)   // cartes, bottom sheets
+val md_dark_surface              = Color(0xFF161616)   // cartes, bottom sheets (refonte 2026-08, était #1A1A1A)
 val md_dark_onSurface            = Color(0xFFFAFAFA)
 val md_dark_surfaceVariant       = Color(0xFF2C2B26)   // variante tiède
 val md_dark_onSurfaceVariant     = Color(0xFFCEC6AA)   // texte secondaire
