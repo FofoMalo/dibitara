@@ -1,11 +1,13 @@
 package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.AirbnbRental
+import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.model.VehicleRentalEntry
+import com.dibitara.app.domain.repository.AssetValuationSnapshotRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
 import io.mockk.*
 import kotlinx.coroutines.flow.flowOf
@@ -17,6 +19,7 @@ import java.time.LocalDate
 class InvestmentUseCasesTest {
 
     private val repository: InvestmentRepository = mockk()
+    private val snapshotRepository: AssetValuationSnapshotRepository = mockk(relaxed = true)
 
     private fun buildRealEstate(label: String = "Appart Lyon", value: Long = 200000L) =
         RealEstateAsset(label = label, currentValueCents = value, currency = Currency.EUR, updatedAt = LocalDate.now())
@@ -113,21 +116,23 @@ class InvestmentUseCasesTest {
     // ─── DeleteRealEstateUseCase ─────────────────────────────────────────────
 
     @Test
-    fun `DeleteRealEstate délègue au repository`() = runTest {
+    fun `DeleteRealEstate délègue au repository et purge l'historique de valorisation`() = runTest {
         val asset = buildRealEstate()
         coJustRun { repository.deleteRealEstate(asset) }
-        DeleteRealEstateUseCase(repository)(asset)
+        DeleteRealEstateUseCase(repository, snapshotRepository)(asset)
         coVerify { repository.deleteRealEstate(asset) }
+        coVerify { snapshotRepository.deleteForAsset(AssetValuationType.REAL_ESTATE, asset.id) }
     }
 
     // ─── DeleteScpiUseCase ───────────────────────────────────────────────────
 
     @Test
-    fun `DeleteScpi délègue au repository`() = runTest {
+    fun `DeleteScpi délègue au repository et purge l'historique de valorisation`() = runTest {
         val scpi = buildScpi()
         coJustRun { repository.deleteScpi(scpi) }
-        DeleteScpiUseCase(repository)(scpi)
+        DeleteScpiUseCase(repository, snapshotRepository)(scpi)
         coVerify { repository.deleteScpi(scpi) }
+        coVerify { snapshotRepository.deleteForAsset(AssetValuationType.SCPI, scpi.id) }
     }
 
     // ─── DeleteAirbnbRentalUseCase ───────────────────────────────────────────

@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dibitara.app.data.local.dao.*
 import com.dibitara.app.data.local.entity.*
+import com.dibitara.app.data.local.entity.AssetValuationSnapshotEntity
 import com.dibitara.app.data.local.entity.CategorizationRuleEntity
 import com.dibitara.app.data.local.entity.CategoryEnvelopeEntity
 import com.dibitara.app.data.local.entity.CustomSubCategoryEntity
@@ -37,9 +38,10 @@ import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
         PatrimoineSnapshotEntity::class,
         CategorizationRuleEntity::class,
         CategoryEnvelopeEntity::class,
-        VehicleRentalEntryEntity::class
+        VehicleRentalEntryEntity::class,
+        AssetValuationSnapshotEntity::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -59,8 +61,28 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun categorizationRuleDao(): CategorizationRuleDao
     abstract fun categoryEnvelopeDao(): CategoryEnvelopeDao
     abstract fun vehicleRentalEntryDao(): VehicleRentalEntryDao
+    abstract fun assetValuationSnapshotDao(): AssetValuationSnapshotDao
 
     companion object {
+        // Migration v20 → v21 : nouvelle table asset_valuation_snapshots pour les badges de tendance par actif (Immobilier/SCPI)
+        val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS asset_valuation_snapshots (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        assetType TEXT NOT NULL,
+                        assetId INTEGER NOT NULL,
+                        snapshotEpochDay INTEGER NOT NULL,
+                        valueCents INTEGER NOT NULL,
+                        currency TEXT NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_asset_valuation_snapshots_asset ON asset_valuation_snapshots(assetType, assetId, snapshotEpochDay)"
+                )
+            }
+        }
+
         // Migration v19 → v20 : suppression des métaux précieux (fonctionnalité retirée)
         val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(db: SupportSQLiteDatabase) {
