@@ -103,8 +103,14 @@ private fun ProjectionDetailContent(projection: CashflowProjection) {
                             chartModelProducer = producer,
                             startAxis = rememberStartAxis(),
                             bottomAxis = rememberBottomAxis(
+                                // 30 points quotidiens ne tiennent pas tous sur l'axe - Vico les
+                                // tronquait par caractère ("06/08" → "0…"). On n'affiche qu'un
+                                // label sur 5 (+ le dernier jour), en dd/MM complet, jamais tronqué.
                                 valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-                                    labels.getOrElse(value.toInt()) { "" }
+                                    val index = value.toInt()
+                                    if (index % 5 == 0 || index == labels.lastIndex)
+                                        labels.getOrElse(index) { "" }
+                                    else ""
                                 }
                             ),
                             modifier = Modifier
@@ -207,7 +213,7 @@ private fun ProjectionDetailContent(projection: CashflowProjection) {
                         )
                     }
                     items(evenements, key = { evt -> "${date}_${evt.label}_${evt.montantCents}" }) { evt ->
-                        EvenementRow(event = evt, currency = projection.currency)
+                        EvenementRow(event = evt)
                     }
                 }
         }
@@ -215,7 +221,7 @@ private fun ProjectionDetailContent(projection: CashflowProjection) {
 }
 
 @Composable
-private fun EvenementRow(event: EventProjecte, currency: com.dibitara.app.domain.model.Currency) {
+private fun EvenementRow(event: EventProjecte) {
     val dateFmt = DateTimeFormatter.ofPattern("dd/MM")
     val isEntree = event.sens == SensFlux.ENTREE
     val color = if (isEntree) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
@@ -234,7 +240,7 @@ private fun EvenementRow(event: EventProjecte, currency: com.dibitara.app.domain
             modifier = Modifier.weight(1f)
         )
         Text(
-            text = "$sign${event.montantCents.toCurrencyDisplay(currency)}",
+            text = "$sign${event.montantCents.toCurrencyDisplay(event.currency)}",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = color
