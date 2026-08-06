@@ -379,6 +379,13 @@ private fun PatrimonyNetCard(overview: PatrimonyOverview, trendPct: Float?, onCl
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            if (overview.dettesTotalCents > 0L) {
+                Text(
+                    "Dettes : -${overview.dettesTotalCents.toCurrencyDisplay(overview.currency)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(8.dp))
@@ -787,11 +794,18 @@ private fun CashflowProjectionCard(projection: CashflowProjection, onVoirDetail:
 
             if (enDanger) {
                 val dateFmt = DateTimeFormatter.ofPattern("dd/MM")
-                Text(
-                    text  = "Solde sous le seuil à partir du ${projection.jourPassageSeuilNegatif!!.format(dateFmt)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row {
+                    Text(
+                        text  = "Solde sous le seuil à partir du ",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text  = projection.jourPassageSeuilNegatif!!.format(dateFmt),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
             TextButton(

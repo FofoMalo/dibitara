@@ -20,6 +20,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -353,10 +355,22 @@ private fun BilanBudgetCard(
 
     HeroCard {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Ligne bilan : Revenus | Dépenses | Solde
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+            // Ligne bilan : Revenus | Dépenses | Solde, séparés par des filets verticaux
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 BilanColonne("Revenus",  revenusCents,  currency, MaterialTheme.colorScheme.primary)
+                VerticalDivider(
+                    modifier = Modifier.height(32.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
                 BilanColonne("Dépenses", depensesCents, currency, MaterialTheme.colorScheme.error)
+                VerticalDivider(
+                    modifier = Modifier.height(32.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
                 BilanColonne(
                     label      = "Solde",
                     valueCents = soldeCents,
@@ -380,7 +394,8 @@ private fun BilanBudgetCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Budget ${budget.allocatedCents.toCurrencyDisplay(currency)}",
+                        "Budget ${budget.allocatedCents.toCurrencyDisplay(currency)} · " +
+                            "${(progress.coerceIn(0f, 1f) * 100).toInt()}% utilisé",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -393,11 +408,12 @@ private fun BilanBudgetCard(
                         )
                     }
                 }
-                LinearProgressIndicator(
-                    progress = { progress.coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth(),
-                    color    = if (isOver) MaterialTheme.colorScheme.error
-                               else MaterialTheme.colorScheme.primary
+                BudgetGauge(
+                    progress   = progress,
+                    color      = if (isOver) MaterialTheme.colorScheme.error
+                                 else MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier   = Modifier.fillMaxWidth()
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
@@ -432,6 +448,19 @@ private fun BilanBudgetCard(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Jauge de budget custom (11dp, coins entièrement arrondis) - remplace le LinearProgressIndicator M3 par défaut. */
+@Composable
+private fun BudgetGauge(progress: Float, color: Color, trackColor: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.height(11.dp)) {
+        val radius = CornerRadius(size.height / 2)
+        drawRoundRect(color = trackColor, cornerRadius = radius)
+        val fillWidth = size.width * progress.coerceIn(0f, 1f)
+        if (fillWidth > 0f) {
+            drawRoundRect(color = color, size = Size(fillWidth, size.height), cornerRadius = radius)
         }
     }
 }
