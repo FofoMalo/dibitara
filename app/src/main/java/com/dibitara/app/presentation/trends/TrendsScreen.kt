@@ -13,7 +13,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.CategoryTrend
-import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
@@ -114,26 +113,42 @@ private fun CategoryTrendCard(trend: CategoryTrend) {
                 VariationBadge(variationPct = trend.variationPct)
             }
 
-            // Mini graphique en barres Vico
+            // Mini graphique en barres Vico. Le label d'axe bas de Vico tronque tout libellé
+            // de 4 caractères ou plus (ex. "Mars" -> "Ma…") quel que soit l'espace disponible -
+            // même en n'affichant qu'un label sur deux, la troncature persiste (constaté à
+            // l'écran) : Vico réserve la largeur de chaque tick selon le nombre total de points,
+            // pas selon les libellés réellement affichés. On masque donc le label Vico et on
+            // affiche les mois nous-mêmes en dessous (même stratégie que HorizontalBarChart,
+            // qui avait remplacé Vico pour la même raison sur l'écran Placements).
             ProvideChartStyle(m3ChartStyle()) {
                 Chart(
                     chart = columnChart(),
                     chartModelProducer = producer,
                     startAxis = rememberStartAxis(),
                     bottomAxis = rememberBottomAxis(
-                        valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-                            labels.getOrElse(value.toInt()) { "" }
-                        }
+                        valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { _, _ -> "" }
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(80.dp)
                 )
             }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                labels.forEach { label ->
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             // Total 6 mois
             Text(
-                text = "Total 6 mois : ${trend.totalSixMoisCents.toCurrencyDisplay(Currency.EUR)}",
+                text = "Total 6 mois : ${trend.totalSixMoisCents.toCurrencyDisplay(trend.currency)}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
