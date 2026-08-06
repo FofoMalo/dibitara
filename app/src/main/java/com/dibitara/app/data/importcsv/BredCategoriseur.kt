@@ -126,6 +126,16 @@ internal object BredCategoriseur {
         return "${prefix}_${Integer.toUnsignedString(cle.hashCode())}"
     }
 
+    /**
+     * Identifiant sans libellé : utilisé pour les captures live (notifications push),
+     * dont le texte ne permet pas de reconstituer un libellé comparable à celui du CSV.
+     * Permet la réconciliation ultérieure par montant + date quand le CSV est importé.
+     */
+    fun genererExternalIdMontantDate(prefix: String, date: LocalDate, amountCents: Long): String {
+        val cle = "${date}_$amountCents"
+        return "${prefix}_${Integer.toUnsignedString(cle.hashCode())}"
+    }
+
     // ─── Normalisation ────────────────────────────────────────────────────────
 
     /** Majuscules + suppression des accents via décomposition NFD. */

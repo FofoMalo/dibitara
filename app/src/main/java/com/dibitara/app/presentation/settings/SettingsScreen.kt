@@ -1,6 +1,8 @@
 package com.dibitara.app.presentation.settings
 
 import android.content.Intent
+import android.provider.Settings
+import com.dibitara.app.BuildConfig
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -11,6 +13,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -66,6 +71,20 @@ fun SettingsScreen(
         mutableStateOf((prefs.seuilFondsCents / 100).toString())
     }
     val focusManager = LocalFocusManager.current
+
+    // L'activation de la capture live se fait dans les réglages système (hors de l'app) :
+    // on revérifie l'état au retour sur l'écran plutôt qu'une seule fois à la composition.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var captureLiveBredActivee by remember { mutableStateOf(viewModel.captureLiveBredActivee()) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                captureLiveBredActivee = viewModel.captureLiveBredActivee()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Dialogues de sécurité
     var showChangerPin        by remember { mutableStateOf(false) }
@@ -385,27 +404,43 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                 }
-                OutlinedButton(
-                    onClick = onNavigateToImportBred,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Importer depuis BRED (CSV)")
+                // Imports bancaires personnels (BRED/TradeRepublic) - masqués sur un build
+                // partagé avec quelqu'un qui n'a pas ces comptes (voir AFFICHER_IMPORTS_BANCAIRES_PERSO)
+                if (BuildConfig.AFFICHER_IMPORTS_BANCAIRES_PERSO) {
+                    OutlinedButton(
+                        onClick = onNavigateToImportBred,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Importer depuis BRED (CSV)")
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = {
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (captureLiveBredActivee) "Capture live BRED activée ✓"
+                            else "Activer la capture live BRED (paiements carte)"
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = onNavigateToImportBredPdf,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Importer relevé PDF BRED")
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = onNavigateToImportTR,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Importer depuis TradeRepublic")
+                    }
+                    Spacer(Modifier.height(4.dp))
                 }
-                Spacer(Modifier.height(4.dp))
-                OutlinedButton(
-                    onClick = onNavigateToImportBredPdf,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Importer relevé PDF BRED")
-                }
-                Spacer(Modifier.height(4.dp))
-                OutlinedButton(
-                    onClick = onNavigateToImportTR,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Importer depuis TradeRepublic")
-                }
-                Spacer(Modifier.height(4.dp))
                 OutlinedButton(
                     onClick = onNavigateToDuplicateCleanup,
                     modifier = Modifier.fillMaxWidth()
