@@ -36,6 +36,12 @@ android {
         // Activé uniquement si google-services.json est présent (Firebase configuré)
         val googleServicesFile = rootProject.file("app/google-services.json")
         buildConfigField("boolean", "CRASHLYTICS_ENABLED", googleServicesFile.exists().toString())
+
+        // Masque les imports bancaires personnels (BRED CSV/PDF, TradeRepublic, capture live BRED)
+        // pour un build destiné à être partagé avec quelqu'un qui n'a pas ces comptes -
+        // activé par défaut (usage perso), désactivable via -PmasquerImportsPerso=true.
+        val masquerImportsPerso = (project.findProperty("masquerImportsPerso") as? String)?.toBoolean() ?: false
+        buildConfigField("boolean", "AFFICHER_IMPORTS_BANCAIRES_PERSO", (!masquerImportsPerso).toString())
     }
 
     buildFeatures {
