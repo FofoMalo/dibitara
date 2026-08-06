@@ -74,6 +74,17 @@ class BredCsvParserTest {
     }
 
     @Test
+    fun `montant dont la représentation binaire double tronquerait le centime est arrondi correctement`() {
+        // 35.30 * 100 = 3529.9999999999995 en IEEE754 - .toLong() donnerait 3529 sans arrondi
+        val result = BredCsvParser.parse(
+            csvFormatA("03/08/2026;CARTE BAR LES ARCADES;-35,30;EUR").inputStream()
+        )
+
+        assertEquals(1, result.size)
+        assertEquals(3530L, result[0].amountCents)
+    }
+
+    @Test
     fun `revenu virement est parsé avec type INCOME (format A)`() {
         val result = BredCsvParser.parse(
             csvFormatA("30/04/2026;VIR SEPA RECU SALAIRE ENTREPRISE;3500,00;EUR").inputStream()

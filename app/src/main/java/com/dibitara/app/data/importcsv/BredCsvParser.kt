@@ -8,6 +8,7 @@ import java.io.InputStream
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
+import kotlin.math.roundToLong
 
 /**
  * Parse un export CSV BRED et retourne une liste de [ImportedTransaction].
@@ -69,7 +70,9 @@ object BredCsvParser {
         if (abs(montant) < 0.001) return null
 
         val devise      = if (c.size > 3 + offsetLib) parseCurrency(c[3 + offsetLib]) else Currency.EUR
-        val amountCents = abs((montant * 100).toLong())
+        // roundToLong() plutôt que toLong() : évite qu'une imprécision binaire double
+        // (ex. 35.30 * 100 = 3529.9999999999995) tronque le montant d'un centime.
+        val amountCents = abs((montant * 100).roundToLong())
         val type        = if (montant >= 0) TransactionType.INCOME else TransactionType.EXPENSE
 
         return ImportedTransaction(
