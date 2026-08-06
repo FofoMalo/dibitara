@@ -1,11 +1,15 @@
 package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.CategoryTrend
+import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CurrencyConverter
 import com.dibitara.app.domain.model.MonthlyAmount
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.repository.TransactionRepository
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -15,22 +19,34 @@ import javax.inject.Inject
  * Retourne au maximum les 8 catégories les plus dépensières, ordonnées par
  * [CategoryTrend.totalSixMoisCents] décroissant. Les catégories dont toutes
  * les 6 valeurs sont nulles sont exclues.
+ *
+ * Chaque montant est converti vers [com.dibitara.app.domain.model.UserPreferences.deviseParDefaut]
+ * avant sommation, comme pour le rapport mensuel et le patrimoine.
  */
 class GetCategoryTrendsUseCase @Inject constructor(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val exchangeRateRepository: ExchangeRateRepository
 ) {
     operator fun invoke(): Flow<List<CategoryTrend>> {
         val today = LocalDate.now()
         val sixMonthsAgo = today.withDayOfMonth(1).minusMonths(5)
 
-        return transactionRepository.getByDateRange(sixMonthsAgo, today).map { transactions ->
+        return combine(
+            transactionRepository.getByDateRange(sixMonthsAgo, today),
+            userPreferencesRepository.get(),
+            exchangeRateRepository.getRatesFlow()
+        ) { transactions, prefs, rates ->
+            val target = prefs.deviseParDefaut
+            fun Long.cvt(from: Currency) = CurrencyConverter.convertCents(this, from, target, rates)
+
             // On ne considère que les dépenses
             val depenses = transactions.filter { it.type == TransactionType.EXPENSE }
 
             // Regroupement par (catégorie, mois, année)
             val grouped = depenses.groupBy {
                 Triple(it.category, it.date.monthValue, it.date.year)
-            }.mapValues { (_, txs) -> txs.sumOf { it.amountCents } }
+            }.mapValues { (_, txs) -> txs.sumOf { it.amountCents.cvt(it.currency) } }
 
             // Construire la liste des 6 mois (du plus ancien au plus récent)
             val sixMois = (5 downTo 0).map { offset ->
@@ -63,7 +79,8 @@ class GetCategoryTrendsUseCase @Inject constructor(
                     category           = category,
                     moisData           = moisData,
                     totalSixMoisCents  = total,
-                    variationPct       = variationPct
+                    variationPct       = variationPct,
+                    currency           = target
                 )
             }
                 .sortedByDescending { it.totalSixMoisCents }

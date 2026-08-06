@@ -3,8 +3,12 @@ package com.dibitara.app.presentation.budget
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import com.dibitara.app.domain.usecase.DeleteBudgetUseCase
 import com.dibitara.app.domain.usecase.DeleteCategoryEnvelopeUseCase
 import com.dibitara.app.domain.usecase.GetCategoryEnvelopesUseCase
@@ -40,6 +44,8 @@ class BudgetViewModelTest {
     private val getEnveloppes          : GetCategoryEnvelopesUseCase    = mockk()
     private val upsertEnveloppe        : UpsertCategoryEnvelopeUseCase  = mockk(relaxed = true)
     private val deleteEnveloppe        : DeleteCategoryEnvelopeUseCase  = mockk(relaxed = true)
+    private val userPreferencesRepository : UserPreferencesRepository   = mockk()
+    private val exchangeRateRepository    : ExchangeRateRepository      = mockk()
     private lateinit var viewModel     : BudgetViewModel
 
     private val now = LocalDate.now()
@@ -51,6 +57,8 @@ class BudgetViewModelTest {
         every { getMonthlyTransactions(any(), any()) } returns flowOf(emptyList())
         every { getCustomSubCategories() } returns flowOf(emptyList())
         every { getEnveloppes() } returns flowOf(emptyList())
+        every { userPreferencesRepository.get() } returns flowOf(UserPreferences())
+        every { exchangeRateRepository.getRatesFlow() } returns flowOf(ExchangeRates(usdParEur = 1.09, xofParEur = 655.957, horodatage = 0L))
         viewModel = buildViewModel()
     }
 
@@ -59,7 +67,8 @@ class BudgetViewModelTest {
 
     private fun buildViewModel() = BudgetViewModel(
         getMonthlyBudget, getMonthlyTransactions, setBudget, deleteBudget,
-        getCustomSubCategories, getEnveloppes, upsertEnveloppe, deleteEnveloppe
+        getCustomSubCategories, getEnveloppes, upsertEnveloppe, deleteEnveloppe,
+        userPreferencesRepository, exchangeRateRepository
     )
 
     @Test
@@ -153,6 +162,34 @@ class BudgetViewModelTest {
         val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success
 
         assertEquals(-30000L, state.soldeCents)
+        job.cancel()
+    }
+
+    @Test
+    fun `les montants agrégés sont convertis vers la devise par défaut`() = runTest {
+        // Bug corrigé (2026-08-05) : le budget restait en EUR quel que soit prefs.deviseParDefaut
+        every { userPreferencesRepository.get() } returns flowOf(UserPreferences(deviseParDefaut = Currency.XOF))
+        every { exchangeRateRepository.getRatesFlow() } returns flowOf(
+            ExchangeRates(usdParEur = 1.09, xofParEur = 655.957, horodatage = 0L)
+        )
+        val budget = Budget(
+            month = now.monthValue, year = now.year,
+            allocatedCents = 100000L, spentCents = 0L, currency = Currency.EUR
+        )
+        every { getMonthlyBudget(any(), any()) } returns flowOf(budget)
+        every { getMonthlyTransactions(any(), any()) } returns flowOf(listOf(
+            Transaction(amountCents = 10000L, currency = Currency.EUR,
+                category = Category.ALIMENTATION, type = TransactionType.EXPENSE,
+                date = LocalDate.now())
+        ))
+        viewModel = buildViewModel()
+
+        val job = launch { viewModel.uiState.collect {} }
+        val state = viewModel.uiState.first { it is BudgetUiState.Success } as BudgetUiState.Success
+
+        assertEquals(Currency.XOF, state.currency)
+        // 100000 centimes EUR (1000€) * 655.957 = 65 595 700 centimes XOF
+        assertEquals((100000L * 655.957).toLong(), state.budget?.allocatedCents)
         job.cancel()
     }
 }

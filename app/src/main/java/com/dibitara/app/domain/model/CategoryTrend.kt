@@ -11,7 +11,8 @@ data class CategoryTrend(
     val category: Category,
     val moisData: List<MonthlyAmount>,
     val totalSixMoisCents: Long,
-    val variationPct: Int?
+    val variationPct: Int?,
+    val currency: Currency
 )
 
 /** Montant total pour un mois et une année donnés. */

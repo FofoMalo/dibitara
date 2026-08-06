@@ -23,9 +23,10 @@ class GetCashflowProjectionUseCaseTest {
     private val debtRepo        : DebtRepository            = mockk()
     private val versementRepo   : VersementRepository       = mockk()
     private val prefsRepo       : UserPreferencesRepository = mockk()
+    private val exchangeRateRepo: ExchangeRateRepository    = mockk()
 
     private val useCase = GetCashflowProjectionUseCase(
-        budgetRepo, transactionRepo, savingsRepo, investmentRepo, debtRepo, versementRepo, prefsRepo
+        budgetRepo, transactionRepo, savingsRepo, investmentRepo, debtRepo, versementRepo, prefsRepo, exchangeRateRepo
     )
 
     private val today = LocalDate.of(2026, 5, 10)
@@ -39,6 +40,7 @@ class GetCashflowProjectionUseCaseTest {
         every { investmentRepo.getAllScpi() }                   returns flowOf(emptyList())
         every { debtRepo.getAll() }                            returns flowOf(emptyList())
         every { prefsRepo.get() }                              returns flowOf(UserPreferences(seuilFondsCents = 20_000L))
+        every { exchangeRateRepo.getRatesFlow() }              returns flowOf(ExchangeRates(usdParEur = 1.09, xofParEur = 655.957, horodatage = 0L))
         coEvery { versementRepo.existsPourMois(any(), any(), any(), any()) } returns false
     }
 
@@ -95,20 +97,58 @@ class GetCashflowProjectionUseCaseTest {
     }
 
     @Test
-    fun `devise par défaut EUR quand aucun budget créé`() = runTest {
+    fun `devise suit la préférence par défaut quand aucun budget créé`() = runTest {
         val result = useCase(today).first()
         assertEquals(Currency.EUR, result.currency)
     }
 
     @Test
-    fun `devise suit la devise du budget quand il est défini`() = runTest {
+    fun `devise suit prefs deviseParDefaut et ignore la devise du budget`() = runTest {
+        // Bug corrigé (2026-08-05) : la devise venait de budget.currency au lieu de prefs.deviseParDefaut -
+        // un budget en XOF ne doit plus imposer la devise si la préférence globale reste EUR.
         every { budgetRepo.getBudget(any(), any()) } returns flowOf(
             Budget(month = 5, year = 2026, allocatedCents = 0L, spentCents = 0L, currency = Currency.XOF)
         )
 
         val result = useCase(today).first()
 
+        assertEquals(Currency.EUR, result.currency)
+    }
+
+    @Test
+    fun `devise et montants suivent prefs deviseParDefaut quand la préférence change`() = runTest {
+        every { prefsRepo.get() } returns flowOf(
+            UserPreferences(seuilFondsCents = 20_000L, deviseParDefaut = Currency.XOF)
+        )
+        mockSoldeInitial(1_000L)  // 10€
+
+        val result = useCase(today).first()
+
         assertEquals(Currency.XOF, result.currency)
+        // 1 000 centimes EUR (10€) * 655.957 = 655 957 centimes XOF
+        assertEquals(655_957L, result.soldeActuelCents)
+    }
+
+    @Test
+    fun `un paiement récurrent dans une devise différente est converti avant d être sommé`() = runTest {
+        // Bug corrigé (2026-08-05) : aucune conversion n'était appliquée, les montants étaient
+        // additionnés en centimes bruts quelle que soit leur devise d'origine.
+        mockSoldeInitial(0L)
+        every { transactionRepo.getRecurring() } returns flowOf(
+            listOf(buildRecurrent(amountCents = 10_000L, recurrenceDay = 15).copy(currency = Currency.USD))
+        )
+
+        val result = useCase(today).first()
+
+        // 10 000 centimes USD converti en EUR (taux 1.09) = 9174 centimes environ
+        val point15Mai = result.pointsTimeline.first { it.date == LocalDate.of(2026, 5, 15) }
+        assertEquals(-CurrencyConverter.convertCents(10_000L, Currency.USD, Currency.EUR,
+            ExchangeRates(usdParEur = 1.09, xofParEur = 655.957, horodatage = 0L)), point15Mai.soldeCents)
+
+        // L'événement affiché garde lui son montant et sa devise d'origine (USD), non converti
+        val evenement = result.evenementsAVenir.first()
+        assertEquals(10_000L, evenement.montantCents)
+        assertEquals(Currency.USD, evenement.currency)
     }
 
     // ─── Paiements récurrents EXPENSE ────────────────────────────────────────

@@ -28,12 +28,14 @@ class GetCashflowProjectionUseCase @Inject constructor(
     private val investmentRepository: InvestmentRepository,
     private val debtRepository: DebtRepository,
     private val versementRepository: VersementRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val exchangeRateRepository: ExchangeRateRepository
 ) {
 
     private data class Sources(
         val soldeCourantCents: Long,
         val currency: Currency,
+        val rates: ExchangeRates,
         val recurring: List<Transaction>,
         val savings: List<SavingsAccount>,
         val scpi: List<ScpiInvestment>,
@@ -47,14 +49,21 @@ class GetCashflowProjectionUseCase @Inject constructor(
             transactionRepository.getRecurring(),
             transactionRepository.getByMonth(today.monthValue, today.year),
             savingsRepository.getAll(),
-            userPreferencesRepository.get()
-        ) { budget, recurring, monthTransactions, savings, prefs ->
+            combine(
+                userPreferencesRepository.get(),
+                exchangeRateRepository.getRatesFlow()
+            ) { prefs, rates -> prefs to rates }
+        ) { _, recurring, monthTransactions, savings, (prefs, rates) ->
+            val target = prefs.deviseParDefaut
+            fun Long.cvt(from: Currency) = CurrencyConverter.convertCents(this, from, target, rates)
+
             val txReelles    = monthTransactions.filter { !it.isRecurring }
-            val revenusCents  = txReelles.filter { it.type == TransactionType.INCOME  }.sumOf { it.amountCents }
-            val depensesCents = txReelles.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents }
+            val revenusCents  = txReelles.filter { it.type == TransactionType.INCOME  }.sumOf { it.amountCents.cvt(it.currency) }
+            val depensesCents = txReelles.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents.cvt(it.currency) }
             Sources(
                 soldeCourantCents = revenusCents - depensesCents,
-                currency          = budget?.currency ?: Currency.EUR,
+                currency          = target,
+                rates             = rates,
                 recurring         = recurring,
                 savings           = savings,
                 scpi              = emptyList(),
@@ -88,6 +97,7 @@ class GetCashflowProjectionUseCase @Inject constructor(
                 buildProjection(
                     soldeCourant     = sources.soldeCourantCents,
                     currency         = sources.currency,
+                    rates            = sources.rates,
                     recurring        = sources.recurring,
                     epargneNonVersee = epargneNonVersee,
                     scpiNonVersee    = scpiNonVersee,
@@ -101,6 +111,7 @@ class GetCashflowProjectionUseCase @Inject constructor(
     private fun buildProjection(
         soldeCourant: Long,
         currency: Currency,
+        rates: ExchangeRates,
         recurring: List<Transaction>,
         epargneNonVersee: List<SavingsAccount>,
         scpiNonVersee: List<ScpiInvestment>,
@@ -108,6 +119,7 @@ class GetCashflowProjectionUseCase @Inject constructor(
         seuilCents: Long,
         today: LocalDate
     ): CashflowProjection {
+        fun Long.cvt(from: Currency) = CurrencyConverter.convertCents(this, from, currency, rates)
         val horizon = today.plusDays(30)
         val fluxParDate = mutableMapOf<LocalDate, Long>()
         val evenements  = mutableListOf<EventProjecte>()
@@ -119,12 +131,13 @@ class GetCashflowProjectionUseCase @Inject constructor(
                 val signe = if (template.type == TransactionType.EXPENSE) -1L else +1L
                 val sensFlux = if (template.type == TransactionType.EXPENSE) SensFlux.SORTIE else SensFlux.ENTREE
                 occurrencesInRange(template, today, horizon).forEach { date ->
-                    fluxParDate[date] = (fluxParDate[date] ?: 0L) + signe * template.amountCents
+                    fluxParDate[date] = (fluxParDate[date] ?: 0L) + signe * template.amountCents.cvt(template.currency)
                     evenements.add(
                         EventProjecte(
                             date         = date,
                             label        = template.note.ifBlank { "Transaction récurrente" },
                             montantCents = template.amountCents,
+                            currency     = template.currency,
                             sens         = sensFlux
                         )
                     )
@@ -134,12 +147,13 @@ class GetCashflowProjectionUseCase @Inject constructor(
         // Contributions épargne non versées → fin du mois courant
         val finMoisCourant = minOf(dernierJourDuMois(today), horizon)
         epargneNonVersee.forEach { savings ->
-            fluxParDate[finMoisCourant] = (fluxParDate[finMoisCourant] ?: 0L) - savings.monthlyContributionCents
+            fluxParDate[finMoisCourant] = (fluxParDate[finMoisCourant] ?: 0L) - savings.monthlyContributionCents.cvt(savings.currency)
             evenements.add(
                 EventProjecte(
                     date         = finMoisCourant,
                     label        = "Versement ${savings.label}",
                     montantCents = savings.monthlyContributionCents,
+                    currency     = savings.currency,
                     sens         = SensFlux.SORTIE
                 )
             )
@@ -147,12 +161,13 @@ class GetCashflowProjectionUseCase @Inject constructor(
 
         // Contributions SCPI non versées → fin du mois courant
         scpiNonVersee.forEach { scpi ->
-            fluxParDate[finMoisCourant] = (fluxParDate[finMoisCourant] ?: 0L) - scpi.monthlyContributionCents
+            fluxParDate[finMoisCourant] = (fluxParDate[finMoisCourant] ?: 0L) - scpi.monthlyContributionCents.cvt(scpi.currency)
             evenements.add(
                 EventProjecte(
                     date         = finMoisCourant,
                     label        = "Versement SCPI ${scpi.label}",
                     montantCents = scpi.monthlyContributionCents,
+                    currency     = scpi.currency,
                     sens         = SensFlux.SORTIE
                 )
             )
@@ -173,12 +188,13 @@ class GetCashflowProjectionUseCase @Inject constructor(
                     finMois
                 }
                 if (datePaiement >= today) {
-                    fluxParDate[datePaiement] = (fluxParDate[datePaiement] ?: 0L) - debt.monthlyPaymentCents
+                    fluxParDate[datePaiement] = (fluxParDate[datePaiement] ?: 0L) - debt.monthlyPaymentCents.cvt(debt.currency)
                     evenements.add(
                         EventProjecte(
                             date         = datePaiement,
                             label        = "Mensualité ${debt.label}",
                             montantCents = debt.monthlyPaymentCents,
+                            currency     = debt.currency,
                             sens         = SensFlux.SORTIE
                         )
                     )
