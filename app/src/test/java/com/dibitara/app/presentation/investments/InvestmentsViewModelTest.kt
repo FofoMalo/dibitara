@@ -8,6 +8,7 @@ import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.usecase.CalculerTendancePatrimoineUseCase
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
 import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
@@ -19,6 +20,7 @@ import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetCustomAssetsUseCase
 import com.dibitara.app.domain.usecase.GetDebtsUseCase
 import com.dibitara.app.domain.usecase.GetEmployeeSavingsUseCase
+import com.dibitara.app.domain.usecase.GetPatrimoineHistoryUseCase
 import com.dibitara.app.domain.usecase.GetRealEstateUseCase
 import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
@@ -85,6 +87,8 @@ class InvestmentsViewModelTest {
     private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
     private val ratesRepo: ExchangeRateRepository = mockk()
     private val ucGetDebts: GetDebtsUseCase = mockk()
+    private val ucGetPatrimoineHistory: GetPatrimoineHistoryUseCase = mockk()
+    private val ucCalculerTendance: CalculerTendancePatrimoineUseCase = mockk()
 
     private lateinit var viewModel: InvestmentsViewModel
 
@@ -100,6 +104,8 @@ class InvestmentsViewModelTest {
         every { ucGetPreferences() } returns flowOf(UserPreferences())
         every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
         every { ucGetDebts() } returns flowOf(emptyList())
+        every { ucGetPatrimoineHistory() } returns flowOf(emptyList())
+        every { ucCalculerTendance(any()) } returns null
         viewModel = InvestmentsViewModel(
             ucGetRealEstate, ucGetScpi, ucGetAirbnbByYear, ucGetVehicleRentals,
             ucGetCustomAssets, ucGetEmployeeSavings,
@@ -109,7 +115,8 @@ class InvestmentsViewModelTest {
             ucUpdateCustomAsset, ucUpdateEmployeeSavings,
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental, ucDeleteVehicleEntry,
             ucDeleteCustomAsset, ucDeleteEmployeeSavings,
-            ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts
+            ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts,
+            ucGetPatrimoineHistory, ucCalculerTendance
         )
     }
 
@@ -231,7 +238,8 @@ class InvestmentsViewModelTest {
             ucUpdateCustomAsset, ucUpdateEmployeeSavings,
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental, ucDeleteVehicleEntry,
             ucDeleteCustomAsset, ucDeleteEmployeeSavings,
-            ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts
+            ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts,
+            ucGetPatrimoineHistory, ucCalculerTendance
         )
 
         val job = launch { viewModel.uiState.collect {} }

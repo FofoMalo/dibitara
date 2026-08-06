@@ -35,6 +35,7 @@ import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.RecurrenceFrequency
 import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.presentation.common.HeroCard
+import com.dibitara.app.presentation.common.TrendChip
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.presentation.navigation.Screen
 import java.time.format.DateTimeFormatter
@@ -403,33 +404,6 @@ private fun PatrimonyNetCard(overview: PatrimonyOverview, trendPct: Float?, onCl
                 AllocationBar(overview)
             }
         }
-    }
-}
-
-/** Puce compacte "+X,X%" / "-X,X%" - tendance du patrimoine net depuis le plus ancien snapshot disponible. */
-@Composable
-private fun TrendChip(trendPct: Float) {
-    val hausse = trendPct >= 0f
-    val color = if (hausse) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
-    Row(
-        modifier = Modifier
-            .background(color.copy(alpha = 0.12f), RoundedCornerShape(7.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        Icon(
-            imageVector = if (hausse) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(14.dp)
-        )
-        Text(
-            text = "${if (hausse) "+" else ""}${"%.1f".format(trendPct)}%",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
     }
 }
 

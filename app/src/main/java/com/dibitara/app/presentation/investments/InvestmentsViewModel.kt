@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.investments
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlin.math.roundToLong
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
@@ -14,6 +15,7 @@ import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.model.VehicleRentalEntry
+import com.dibitara.app.domain.usecase.CalculerTendancePatrimoineUseCase
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteVehicleRentalEntryUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
@@ -31,6 +33,7 @@ import com.dibitara.app.domain.model.CurrencyConverter
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.repository.ExchangeRateRepository
 import com.dibitara.app.domain.usecase.GetDebtsUseCase
+import com.dibitara.app.domain.usecase.GetPatrimoineHistoryUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
@@ -82,7 +85,9 @@ class InvestmentsViewModel @Inject constructor(
     private val ucExisteVersementMois: ExisteVersementMoisUseCase,
     private val ucGetPreferences: GetUserPreferencesUseCase,
     private val exchangeRateRepository: ExchangeRateRepository,
-    private val ucGetDebts: GetDebtsUseCase
+    private val ucGetDebts: GetDebtsUseCase,
+    private val ucGetPatrimoineHistory: GetPatrimoineHistoryUseCase,
+    private val ucCalculerTendance: CalculerTendancePatrimoineUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -144,6 +149,11 @@ class InvestmentsViewModel @Inject constructor(
             rates                 = rates
         ) as InvestmentsUiState
     }
+        .combine(ucGetPatrimoineHistory()) { state, history ->
+            if (state is InvestmentsUiState.Success)
+                state.copy(patrimoineTrendPct = ucCalculerTendance(history))
+            else state
+        }
         .catch { emit(InvestmentsUiState.Error(it.message ?: "Erreur inconnue")) }
         .stateIn(
             scope = viewModelScope,
@@ -155,7 +165,7 @@ class InvestmentsViewModel @Inject constructor(
     val event: SharedFlow<InvestmentsEvent> = _event.asSharedFlow()
 
     fun addRealEstate(label: String, valueStr: String, currency: Currency, debtId: Long? = null) {
-        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -174,8 +184,8 @@ class InvestmentsViewModel @Inject constructor(
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Nombre de parts invalide")) }
             return
         }
-        val shareValue = shareValueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val shareValue = shareValueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         viewModelScope.launch {
             ucSaveScpi(
                 ScpiInvestment(
@@ -193,7 +203,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun addAirbnbRental(label: String, amountStr: String, date: LocalDate, currency: Currency) {
-        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -207,7 +217,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun updateRealEstate(asset: RealEstateAsset, label: String, valueStr: String, currency: Currency, debtId: Long? = null) {
-        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -224,8 +234,8 @@ class InvestmentsViewModel @Inject constructor(
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Nombre de parts invalide")) }
             return
         }
-        val shareValue   = shareValueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val shareValue   = shareValueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         viewModelScope.launch {
             ucUpdateScpi(scpi.copy(label = label, sharesCount = shares, shareValueCents = shareValue, monthlyContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
                 .onSuccess { _event.emit(InvestmentsEvent.Saved) }
@@ -234,7 +244,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun updateAirbnbRental(rental: AirbnbRental, label: String, amountStr: String, currency: Currency) {
-        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -260,7 +270,7 @@ class InvestmentsViewModel @Inject constructor(
     // ─── Véhicule locatif ──────────────────────────────────────────────────────
 
     fun addVehicleRentalEntry(label: String, amountStr: String, type: VehicleEntryType, date: LocalDate, currency: Currency) {
-        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -274,7 +284,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun updateVehicleRentalEntry(entry: VehicleRentalEntry, label: String, amountStr: String, type: VehicleEntryType, date: LocalDate, currency: Currency) {
-        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -292,7 +302,7 @@ class InvestmentsViewModel @Inject constructor(
     // ─── Actifs libres ─────────────────────────────────────────────────────────
 
     fun addCustomAsset(label: String, valueStr: String, currency: Currency) {
-        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -304,7 +314,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun updateCustomAsset(asset: CustomAsset, label: String, valueStr: String, currency: Currency) {
-        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
         }
@@ -322,11 +332,11 @@ class InvestmentsViewModel @Inject constructor(
     // ─── Épargne salariale ─────────────────────────────────────────────────────
 
     fun addEmployeeSavings(type: EmployeeSavingsType, label: String, balanceStr: String, contributionStr: String, currency: Currency) {
-        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Solde invalide")) }
             return
         }
-        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         viewModelScope.launch {
             ucSaveEmployeeSavings(EmployeeSavings(type = type, label = label, currentBalanceCents = balance, employerContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
                 .onSuccess { _event.emit(InvestmentsEvent.Saved) }
@@ -335,11 +345,11 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun updateEmployeeSavings(savings: EmployeeSavings, type: EmployeeSavingsType, label: String, balanceStr: String, contributionStr: String, currency: Currency) {
-        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Solde invalide")) }
             return
         }
-        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         viewModelScope.launch {
             ucUpdateEmployeeSavings(savings.copy(type = type, label = label, currentBalanceCents = balance, employerContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
                 .onSuccess { _event.emit(InvestmentsEvent.Saved) }
@@ -403,7 +413,8 @@ sealed class InvestmentsUiState {
         val availableDebts        : List<Debt>               = emptyList(),
         val totalInvestmentsCents : Long                     = 0L,
         val summaryCurrency       : Currency                 = Currency.EUR,
-        val rates                 : ExchangeRates             = ExchangeRates(usdParEur = 1.0, xofParEur = 1.0, horodatage = 0L)
+        val rates                 : ExchangeRates             = ExchangeRates(usdParEur = 1.0, xofParEur = 1.0, horodatage = 0L),
+        val patrimoineTrendPct    : Float?                   = null
     ) : InvestmentsUiState()
     data class Error(val message: String) : InvestmentsUiState()
 }

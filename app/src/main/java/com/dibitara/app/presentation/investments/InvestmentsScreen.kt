@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.investments
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import kotlin.math.roundToLong
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,17 +36,10 @@ import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.model.VehicleRentalEntry
+import com.dibitara.app.presentation.common.HorizontalBarChart
+import com.dibitara.app.presentation.common.HorizontalBarEntry
+import com.dibitara.app.presentation.common.TrendChip
 import com.dibitara.app.presentation.common.toCurrencyDisplay
-import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.column.columnChart
-import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
-import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
-import com.patrykandpatrick.vico.core.axis.AxisPosition
-import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
-import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
-import com.patrykandpatrick.vico.core.entry.entryOf
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -249,12 +243,20 @@ private fun InvestmentsContent(
         item { TotalInvestmentsCard(
             totalCents       = state.totalInvestmentsCents,
             airbnbAnnualCents = state.airbnbAnnualTotal,
-            currency         = state.summaryCurrency
+            currency         = state.summaryCurrency,
+            trendPct         = state.patrimoineTrendPct
         ) }
 
         // Graphique barres - affiché si au moins un actif immo ou SCPI
         if (state.realEstate.isNotEmpty() || state.scpi.isNotEmpty()) {
-            item { AssetsBarChart(realEstate = state.realEstate, scpi = state.scpi) }
+            item {
+                AssetsBarChart(
+                    realEstate     = state.realEstate,
+                    scpi           = state.scpi,
+                    targetCurrency = state.summaryCurrency,
+                    rates          = state.rates
+                )
+            }
         }
 
         // --- Section Immobilier ---
@@ -351,7 +353,7 @@ private fun InvestmentsContent(
 }
 
 @Composable
-private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long, currency: Currency) {
+private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long, currency: Currency, trendPct: Float? = null) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
@@ -361,11 +363,14 @@ private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long, curr
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text(
-                    "Valeur totale",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Valeur totale",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    )
+                    if (trendPct != null) TrendChip(trendPct)
+                }
                 Text(
                     totalCents.toCurrencyDisplay(currency),
                     style = MaterialTheme.typography.titleLarge,
@@ -918,7 +923,7 @@ private fun AddScpiSheet(
 
             // Aperçu du total si les champs sont remplis
             val previewTotal = shares.replace(',', '.').toDoubleOrNull()?.let { s ->
-                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).toLong() }
+                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).roundToLong() }
             }
             if (previewTotal != null) {
                 Text(
@@ -1302,7 +1307,7 @@ private fun EditScpiSheet(
             }
 
             val previewTotal = shares.replace(',', '.').toDoubleOrNull()?.let { s ->
-                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).toLong() }
+                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).roundToLong() }
             }
             if (previewTotal != null) {
                 Text("Total estimé : ${previewTotal.toCurrencyDisplay(selectedCurrency)}",
@@ -1679,48 +1684,46 @@ private fun EditEmployeeSavingsSheet(
 @Composable
 private fun AssetsBarChart(
     realEstate: List<RealEstateAsset>,
-    scpi: List<ScpiInvestment>
+    scpi: List<ScpiInvestment>,
+    targetCurrency: Currency,
+    rates: ExchangeRates
 ) {
-    // On combine immobilier et SCPI en une liste (libellé, valeur en centimes)
-    val actifs = (realEstate.map { it.label to it.currentValueCents } +
-                  scpi.map { it.label to it.totalValueCents })
-        .filter { it.second > 0 }
+    val gold = MaterialTheme.colorScheme.primary
+    val sage = MaterialTheme.colorScheme.tertiary
 
-    if (actifs.isEmpty()) return
+    // Convertit chaque actif vers la devise d'affichage (summaryCurrency) : les actifs
+    // peuvent être dans des devises différentes, un graphique comparatif doit les
+    // ramener à une base commune pour que les longueurs de barres soient comparables.
+    val entries = (
+        realEstate.map { asset ->
+            HorizontalBarEntry(
+                label = asset.label,
+                value = CurrencyConverter.convertCents(asset.currentValueCents, asset.currency, targetCurrency, rates),
+                valueLabel = CurrencyConverter.convertCents(asset.currentValueCents, asset.currency, targetCurrency, rates)
+                    .toCurrencyDisplay(targetCurrency),
+                color = gold
+            )
+        } +
+        scpi.map { investment ->
+            HorizontalBarEntry(
+                label = investment.label,
+                value = CurrencyConverter.convertCents(investment.totalValueCents, investment.currency, targetCurrency, rates),
+                valueLabel = CurrencyConverter.convertCents(investment.totalValueCents, investment.currency, targetCurrency, rates)
+                    .toCurrencyDisplay(targetCurrency),
+                color = sage
+            )
+        }
+    ).filter { it.value > 0 }
 
-    // ChartEntryModelProducer gère les mises à jour asynchrones des données du graphique
-    val producer = remember { ChartEntryModelProducer() }
-    // Libellés tronqués à 8 caractères pour tenir sur l'axe
-    val labels = actifs.map { it.first.take(8) }
-
-    LaunchedEffect(actifs) {
-        // Conversion centimes → euros, x = index de l'actif dans la liste
-        producer.setEntries(
-            actifs.mapIndexed { i, (_, valueCents) ->
-                entryOf(i.toFloat(), valueCents.toFloat() / 100f)
-            }
-        )
-    }
+    if (entries.isEmpty()) return
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Valeur par actif (€)", style = MaterialTheme.typography.titleMedium)
-            ProvideChartStyle(m3ChartStyle()) {
-                Chart(
-                    chart = columnChart(),
-                    chartModelProducer = producer,
-                    startAxis = rememberStartAxis(),
-                    bottomAxis = rememberBottomAxis(
-                        valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-                            labels.getOrElse(value.toInt()) { "" }
-                        }
-                    ),
-                    modifier = Modifier.fillMaxWidth().height(180.dp)
-                )
-            }
+            Text("Valeur par actif", style = MaterialTheme.typography.titleMedium)
+            HorizontalBarChart(entries = entries)
         }
     }
 }

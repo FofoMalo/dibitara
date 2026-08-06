@@ -7,10 +7,10 @@ import com.dibitara.app.domain.model.DashboardCard
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.MonthlyExpense
 import com.dibitara.app.domain.model.MonthlyReport
-import com.dibitara.app.domain.model.PatrimoineSnapshot
 import com.dibitara.app.domain.model.PatrimonyOverview
 import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.UpcomingPayment
+import com.dibitara.app.domain.usecase.CalculerTendancePatrimoineUseCase
 import com.dibitara.app.domain.usecase.GetCashflowProjectionUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyReportUseCase
 import com.dibitara.app.domain.usecase.GetPatrimoineHistoryUseCase
@@ -40,6 +40,7 @@ class DashboardViewModel @Inject constructor(
     private val getCashflowProjection    : GetCashflowProjectionUseCase,
     private val getRecategorizations     : GetRecategorizationSuggestionsUseCase,
     private val getPatrimoineHistory     : GetPatrimoineHistoryUseCase,
+    private val calculerTendance         : CalculerTendancePatrimoineUseCase,
     private val updateTransaction        : UpdateTransactionUseCase,
     private val updateCardOrder          : UpdateDashboardCardOrderUseCase,
     private val ucUpsertRule             : UpsertCategorizationRuleUseCase
@@ -94,7 +95,7 @@ class DashboardViewModel @Inject constructor(
             rapportMensuel              = if (prefs.afficherRapportMensuel) q.third else null,
             cashflowProjection          = cashflow,
             recategorizationSuggestions = recats,
-            patrimoineTrendPct          = calculerTendancePatrimoine(history),
+            patrimoineTrendPct          = calculerTendance(history),
             cardOrder                   = prefs.dashboardCardOrder
         ) as DashboardUiState
     }
@@ -154,21 +155,6 @@ class DashboardViewModel @Inject constructor(
     private data class Quintuple<A, B, C, D, E>(
         val first: A, val second: B, val third: C, val fourth: D, val fifth: E
     )
-}
-
-/**
- * Variation du patrimoine net (%) entre le plus ancien et le plus récent snapshot
- * disponibles - badge de tendance global du dashboard (refonte UX/UI 2026-08).
- * Un snapshot n'est enregistré que quand l'utilisateur visite l'écran Patrimoine :
- * l'historique peut donc être court ou absent. Retourne null tant qu'il n'y a pas
- * au moins 2 points, pour ne jamais afficher un pourcentage trompeur.
- */
-private fun calculerTendancePatrimoine(history: List<PatrimoineSnapshot>): Float? {
-    if (history.size < 2) return null
-    val premier = history.first().patrimoineNetCents
-    val dernier = history.last().patrimoineNetCents
-    if (premier == 0L) return null
-    return ((dernier - premier).toFloat() / premier.toFloat()) * 100f
 }
 
 sealed class DashboardUiState {
