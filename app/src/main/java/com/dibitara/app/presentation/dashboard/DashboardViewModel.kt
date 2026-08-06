@@ -3,6 +3,7 @@ package com.dibitara.app.presentation.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.CashflowProjection
+import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.MonthlyExpense
@@ -20,6 +21,7 @@ import com.dibitara.app.domain.usecase.GetSpendingHistoryUseCase
 import com.dibitara.app.domain.usecase.GetUpcomingPaymentsUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateDashboardCardOrderUseCase
+import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import com.dibitara.app.domain.usecase.UpsertCategorizationRuleUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,13 +45,19 @@ class DashboardViewModel @Inject constructor(
     private val calculerTendance         : CalculerTendancePatrimoineUseCase,
     private val updateTransaction        : UpdateTransactionUseCase,
     private val updateCardOrder          : UpdateDashboardCardOrderUseCase,
-    private val ucUpsertRule             : UpsertCategorizationRuleUseCase
+    private val ucUpsertRule             : UpsertCategorizationRuleUseCase,
+    private val updateDevise             : UpdateDeviseParDefautUseCase
 ) : ViewModel() {
 
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode = _isEditMode.asStateFlow()
 
     fun toggleEditMode() { _isEditMode.value = !_isEditMode.value }
+
+    /** Changement rapide de devise par défaut depuis le chip du Dashboard (raccourci vers Paramètres). */
+    fun changerDevise(currency: Currency) {
+        viewModelScope.launch { updateDevise(currency) }
+    }
 
     /**
      * Déplace la carte identifiée par [fromKey] à la position de [toKey].

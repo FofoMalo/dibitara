@@ -38,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
@@ -99,6 +100,7 @@ fun DashboardScreen(
                     cardOrder                   = state.cardOrder,
                     isEditMode                  = isEditMode,
                     onToggleEditMode            = { viewModel.toggleEditMode() },
+                    onChangeDevise              = { viewModel.changerDevise(it) },
                     onMoveCard                  = { from, to -> viewModel.moveCard(from, to) },
                     onApplyRecategorization     = { viewModel.appliquerRecategorisation(it) },
                     onRefuseRecategorization    = { viewModel.refuserRecategorisation(it) },
@@ -128,6 +130,7 @@ private fun DashboardContent(
     cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList(),
     isEditMode                  : Boolean                           = false,
     onToggleEditMode            : () -> Unit                        = {},
+    onChangeDevise              : (Currency) -> Unit                = {},
     onMoveCard                  : (fromKey: String, toKey: String) -> Unit = { _, _ -> },
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
     onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
@@ -152,14 +155,17 @@ private fun DashboardContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Dibitara", style = MaterialTheme.typography.headlineMedium)
-                IconButton(onClick = onToggleEditMode) {
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = if (isEditMode) "Terminer la réorganisation"
-                                             else "Réorganiser les cartes",
-                        tint = if (isEditMode) MaterialTheme.colorScheme.primary
-                               else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    DeviseChip(current = overview.currency, onSelect = onChangeDevise)
+                    IconButton(onClick = onToggleEditMode) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = if (isEditMode) "Terminer la réorganisation"
+                                                 else "Réorganiser les cartes",
+                            tint = if (isEditMode) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
@@ -353,6 +359,29 @@ private fun SpendingHistoryCard(history: List<MonthlyExpense>, currency: Currenc
     }
 }
 
+/** Chip de devise dans l'en-tête de l'Accueil - raccourci vers le sélecteur déjà présent dans Paramètres. */
+@Composable
+private fun DeviseChip(current: Currency, onSelect: (Currency) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        AssistChip(
+            onClick = { expanded = true },
+            label = { Text("${current.symbol} ${current.isoCode}") }
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            listOf(Currency.EUR, Currency.USD, Currency.XOF).forEach { devise ->
+                DropdownMenuItem(
+                    text = { Text("${devise.symbol} ${devise.isoCode}") },
+                    onClick = { expanded = false; onSelect(devise) },
+                    leadingIcon = if (devise == current) {
+                        { Icon(Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                    } else null
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun PatrimonyNetCard(overview: PatrimonyOverview, trendPct: Float?, onClick: () -> Unit) {
     HeroCard(onClick = onClick) {
@@ -400,6 +429,13 @@ private fun PatrimonyNetCard(overview: PatrimonyOverview, trendPct: Float?, onCl
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            if (overview.hasConvertedValues) {
+                Text(
+                    "≈ conversion appliquée (${overview.currency.isoCode})",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
             if (overview.patrimoineBrutCents > 0L) {
                 Spacer(Modifier.height(16.dp))
                 AllocationBar(overview)

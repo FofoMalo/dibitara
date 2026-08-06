@@ -84,29 +84,45 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
         ) { prefs, rates -> prefs.deviseParDefaut to rates }
 
         return combine(innerFlow, groupD) { raw, (targetCurrency, rates) ->
-            fun Long.cvt(from: Currency) =
-                CurrencyConverter.convertCents(this, from, targetCurrency, rates)
+            // hasConversion n'est lu qu'après avoir calculé tous les montants ci-dessous
+            // (chaque appel à .cvt() peut le faire passer à true) - on construit donc
+            // d'abord chaque agrégat dans un val intermédiaire, puis PatrimonyOverview
+            // en tout dernier, plutôt que d'imbriquer les .cvt() dans son constructeur :
+            // ça évite de reposer sur l'ordre d'évaluation des arguments pour être correct.
+            var hasConversion = false
+            fun Long.cvt(from: Currency): Long {
+                if (!CurrencyConverter.isSameCurrency(from, targetCurrency)) hasConversion = true
+                return CurrencyConverter.convertCents(this, from, targetCurrency, rates)
+            }
 
             val depensesDuMois = raw.a.transactions
                 .filter { it.type == TransactionType.EXPENSE }
                 .sumOf { it.amountCents.cvt(it.currency) }
             val budgetAlloue = raw.a.budget?.let { it.allocatedCents.cvt(it.currency) } ?: 0L
 
+            val liquiditesCents = budgetAlloue - depensesDuMois
+            val epargneCents = raw.a.savings.sumOf { it.currentBalanceCents.cvt(it.currency) }
+            val investissementsCents =
+                raw.a.realEstate.sumOf  { it.currentValueCents.cvt(it.currency) }  +
+                raw.b.scpi.sumOf        { it.totalValueCents.cvt(it.currency) }    +
+                raw.c.assets.sumOf      { it.totalValueCents.cvt(it.currency) }    +
+                raw.c.empSavings.sumOf  { it.currentBalanceCents.cvt(it.currency) }
+            val airbnbAnnualRevenueCents = raw.b.airbnb.sumOf { it.amountCents.cvt(it.currency) }
+            val vehicleRentalNetRevenueCents = raw.b.vehicle.sumOf { entry ->
+                val cents = entry.amountCents.cvt(entry.currency)
+                if (entry.entryType == VehicleEntryType.REVENU) cents else -cents
+            }
+            val dettesTotalCents = raw.b.debts.sumOf { it.totalCents.cvt(it.currency) }
+
             PatrimonyOverview(
-                liquiditesCents          = budgetAlloue - depensesDuMois,
-                epargneCents             = raw.a.savings.sumOf    { it.currentBalanceCents.cvt(it.currency) },
-                investissementsCents     =
-                    raw.a.realEstate.sumOf  { it.currentValueCents.cvt(it.currency) }  +
-                    raw.b.scpi.sumOf        { it.totalValueCents.cvt(it.currency) }    +
-                    raw.c.assets.sumOf      { it.totalValueCents.cvt(it.currency) }    +
-                    raw.c.empSavings.sumOf  { it.currentBalanceCents.cvt(it.currency) },
-                airbnbAnnualRevenueCents = raw.b.airbnb.sumOf { it.amountCents.cvt(it.currency) },
-                vehicleRentalNetRevenueCents = raw.b.vehicle.sumOf { entry ->
-                    val cents = entry.amountCents.cvt(entry.currency)
-                    if (entry.entryType == VehicleEntryType.REVENU) cents else -cents
-                },
-                dettesTotalCents         = raw.b.debts.sumOf  { it.totalCents.cvt(it.currency) },
-                currency                 = targetCurrency
+                liquiditesCents              = liquiditesCents,
+                epargneCents                 = epargneCents,
+                investissementsCents         = investissementsCents,
+                airbnbAnnualRevenueCents     = airbnbAnnualRevenueCents,
+                vehicleRentalNetRevenueCents = vehicleRentalNetRevenueCents,
+                dettesTotalCents             = dettesTotalCents,
+                currency                     = targetCurrency,
+                hasConvertedValues           = hasConversion
             )
         }
     }

@@ -100,6 +100,30 @@ class GetPatrimonyOverviewUseCaseTest {
         // patrimoine brut = liquidités + épargne + investissements (Airbnb et véhicule locatif exclus)
         assertEquals(200000L + 500000L + 20200000L, overview.patrimoineBrutCents)
         assertEquals(Currency.EUR, overview.currency)
+        // Toutes les sources sont déjà en EUR (devise par défaut) - aucune conversion réelle n'a eu lieu
+        assertFalse(overview.hasConvertedValues)
+    }
+
+    @Test
+    fun `hasConvertedValues est vrai dès qu'une source est dans une autre devise`() = runTest {
+        val savingsEnUSD = listOf(
+            SavingsAccount(type = SavingsType.LIVRET_A, label = "US Savings", currentBalanceCents = 100000L,
+                monthlyContributionCents = 0L, currency = Currency.USD, updatedAt = LocalDate.now())
+        )
+        every { budgetRepo.getBudget(any(), any()) } returns flowOf(null)
+        every { transactionRepo.getByMonth(any(), any()) } returns flowOf(emptyList())
+        every { savingsRepo.getAll() } returns flowOf(savingsEnUSD)
+        every { investmentRepo.getAllRealEstate() } returns flowOf(emptyList())
+        every { investmentRepo.getAllScpi() } returns flowOf(emptyList())
+        every { investmentRepo.getAirbnbRentalsByYear(any()) } returns flowOf(emptyList())
+        every { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(emptyList())
+        every { debtRepo.getAll() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllCustomAssets() } returns flowOf(emptyList())
+        every { customInvestRepo.getAllEmployeeSavings() } returns flowOf(emptyList())
+
+        val overview = useCase(5, 2026).first()
+
+        assertTrue(overview.hasConvertedValues)
     }
 
     @Test

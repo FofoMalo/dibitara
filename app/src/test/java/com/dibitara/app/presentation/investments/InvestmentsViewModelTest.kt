@@ -1,6 +1,7 @@
 package com.dibitara.app.presentation.investments
 
 import com.dibitara.app.domain.model.AirbnbRental
+import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.RealEstateAsset
@@ -8,6 +9,7 @@ import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.CalculerTendancePatrimoineUseCase
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
@@ -18,6 +20,7 @@ import com.dibitara.app.domain.usecase.DeleteVehicleRentalEntryUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetCustomAssetsUseCase
+import com.dibitara.app.domain.usecase.GetAssetValuationHistoryUseCase
 import com.dibitara.app.domain.usecase.GetDebtsUseCase
 import com.dibitara.app.domain.usecase.GetEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.GetPatrimoineHistoryUseCase
@@ -26,6 +29,7 @@ import com.dibitara.app.domain.usecase.GetScpiUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.GetVehicleRentalEntriesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.SaveAssetValuationSnapshotUseCase
 import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
 import com.dibitara.app.domain.usecase.SaveEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
@@ -39,6 +43,7 @@ import com.dibitara.app.domain.usecase.UpdateRealEstateUseCase
 import com.dibitara.app.domain.usecase.UpdateScpiUseCase
 import com.dibitara.app.domain.usecase.UpdateVehicleRentalEntryUseCase
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +94,9 @@ class InvestmentsViewModelTest {
     private val ucGetDebts: GetDebtsUseCase = mockk()
     private val ucGetPatrimoineHistory: GetPatrimoineHistoryUseCase = mockk()
     private val ucCalculerTendance: CalculerTendancePatrimoineUseCase = mockk()
+    private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase = mockk(relaxed = true)
+    private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase = mockk(relaxed = true)
+    private val ucCalculerTendanceActif: CalculerTendanceActifUseCase = mockk(relaxed = true)
 
     private lateinit var viewModel: InvestmentsViewModel
 
@@ -116,7 +124,8 @@ class InvestmentsViewModelTest {
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental, ucDeleteVehicleEntry,
             ucDeleteCustomAsset, ucDeleteEmployeeSavings,
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts,
-            ucGetPatrimoineHistory, ucCalculerTendance
+            ucGetPatrimoineHistory, ucCalculerTendance,
+            ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
         )
     }
 
@@ -148,6 +157,18 @@ class InvestmentsViewModelTest {
     }
 
     @Test
+    fun `addRealEstate déclenche un snapshot de valorisation avec le nouvel id`() = runTest {
+        coEvery { ucSaveRealEstate(any()) } returns Result.success(42L)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        viewModel.addRealEstate("Appartement Paris", "250000.00", Currency.EUR)
+        testScheduler.advanceUntilIdle()
+
+        coVerify { ucSaveAssetSnapshot(AssetValuationType.REAL_ESTATE, 42L, 25000000L, Currency.EUR) }
+        job.cancel()
+    }
+
+    @Test
     fun `addScpi avec parts valides émet Saved`() = runTest {
         coEvery { ucSaveScpi(any()) } returns Result.success(1L)
         val events = mutableListOf<InvestmentsEvent>()
@@ -171,6 +192,21 @@ class InvestmentsViewModelTest {
         testScheduler.advanceUntilIdle()
 
         assertTrue(events.any { it is InvestmentsEvent.Saved })
+        job.cancel()
+    }
+
+    @Test
+    fun `updateScpi déclenche un snapshot de valorisation avec l'id existant`() = runTest {
+        val scpi = ScpiInvestment(id = 7L, label = "SCPI Primovie", sharesCount = 5.0,
+            shareValueCents = 20000L, monthlyContributionCents = 0L, currency = Currency.EUR, updatedAt = LocalDate.now())
+        coEvery { ucUpdateScpi(any()) } returns Result.success(Unit)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        viewModel.updateScpi(scpi, "SCPI Primovie", "10", "200.00", "0.00", Currency.EUR)
+        testScheduler.advanceUntilIdle()
+
+        // 10 parts × 200,00 € = 2000,00 € = 200000 centimes
+        coVerify { ucSaveAssetSnapshot(AssetValuationType.SCPI, 7L, 200000L, Currency.EUR) }
         job.cancel()
     }
 
@@ -239,7 +275,8 @@ class InvestmentsViewModelTest {
             ucDeleteRealEstate, ucDeleteScpi, ucDeleteAirbnbRental, ucDeleteVehicleEntry,
             ucDeleteCustomAsset, ucDeleteEmployeeSavings,
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts,
-            ucGetPatrimoineHistory, ucCalculerTendance
+            ucGetPatrimoineHistory, ucCalculerTendance,
+            ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
         )
 
         val job = launch { viewModel.uiState.collect {} }

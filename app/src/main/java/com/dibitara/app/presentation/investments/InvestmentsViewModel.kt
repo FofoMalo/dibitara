@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlin.math.roundToLong
 import com.dibitara.app.domain.model.AirbnbRental
+import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomAsset
@@ -15,6 +16,7 @@ import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.model.VehicleRentalEntry
+import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.CalculerTendancePatrimoineUseCase
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.DeleteVehicleRentalEntryUseCase
@@ -32,10 +34,12 @@ import com.dibitara.app.domain.usecase.GetVehicleRentalEntriesUseCase
 import com.dibitara.app.domain.model.CurrencyConverter
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.usecase.GetAssetValuationHistoryUseCase
 import com.dibitara.app.domain.usecase.GetDebtsUseCase
 import com.dibitara.app.domain.usecase.GetPatrimoineHistoryUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAirbnbRentalUseCase
+import com.dibitara.app.domain.usecase.SaveAssetValuationSnapshotUseCase
 import com.dibitara.app.domain.usecase.SaveCustomAssetUseCase
 import com.dibitara.app.domain.usecase.SaveEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
@@ -87,7 +91,10 @@ class InvestmentsViewModel @Inject constructor(
     private val exchangeRateRepository: ExchangeRateRepository,
     private val ucGetDebts: GetDebtsUseCase,
     private val ucGetPatrimoineHistory: GetPatrimoineHistoryUseCase,
-    private val ucCalculerTendance: CalculerTendancePatrimoineUseCase
+    private val ucCalculerTendance: CalculerTendancePatrimoineUseCase,
+    private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase,
+    private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase,
+    private val ucCalculerTendanceActif: CalculerTendanceActifUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -121,32 +128,45 @@ class InvestmentsViewModel @Inject constructor(
 
     val uiState: StateFlow<InvestmentsUiState> = combine(baseFlow, customFlow, conversionFlow) {
         base, (assets, empSavings), (target, rates) ->
-        // Conversion de chaque actif vers la devise par défaut avant sommation
-        fun Long.cvt(from: com.dibitara.app.domain.model.Currency) =
-            CurrencyConverter.convertCents(this, from, target, rates)
+        // Conversion de chaque actif vers la devise par défaut avant sommation.
+        // hasConversion n'est lu qu'après avoir calculé tous les totaux ci-dessous,
+        // dans des val intermédiaires - voir GetPatrimonyOverviewUseCase pour la
+        // même remarque sur pourquoi ne pas imbriquer les .cvt() dans le constructeur.
+        var hasConversion = false
+        fun Long.cvt(from: com.dibitara.app.domain.model.Currency): Long {
+            if (!CurrencyConverter.isSameCurrency(from, target)) hasConversion = true
+            return CurrencyConverter.convertCents(this, from, target, rates)
+        }
+
+        val airbnbAnnualTotal = base.airbnb.sumOf { it.amountCents.cvt(it.currency) }
+        val vehicleRentalRevenueCents = base.vehicleEntries
+            .filter { it.entryType == VehicleEntryType.REVENU }
+            .sumOf { it.amountCents.cvt(it.currency) }
+        val vehicleRentalChargeCents = base.vehicleEntries
+            .filter { it.entryType == VehicleEntryType.CHARGE }
+            .sumOf { it.amountCents.cvt(it.currency) }
+        val totalInvestmentsCents =
+            base.realEstate.sumOf { it.currentValueCents.cvt(it.currency) } +
+            base.scpi.sumOf       { it.totalValueCents.cvt(it.currency) }   +
+            assets.sumOf          { it.totalValueCents.cvt(it.currency) }   +
+            empSavings.sumOf      { it.currentBalanceCents.cvt(it.currency) }
+
         InvestmentsUiState.Success(
             realEstate            = base.realEstate,
             scpi                  = base.scpi,
             airbnbRentals         = base.airbnb,
-            airbnbAnnualTotal     = base.airbnb.sumOf { it.amountCents.cvt(it.currency) },
+            airbnbAnnualTotal     = airbnbAnnualTotal,
             anneeLocatifs         = currentYear,
             vehicleRentalEntries       = base.vehicleEntries,
-            vehicleRentalRevenueCents  = base.vehicleEntries
-                .filter { it.entryType == VehicleEntryType.REVENU }
-                .sumOf { it.amountCents.cvt(it.currency) },
-            vehicleRentalChargeCents   = base.vehicleEntries
-                .filter { it.entryType == VehicleEntryType.CHARGE }
-                .sumOf { it.amountCents.cvt(it.currency) },
+            vehicleRentalRevenueCents  = vehicleRentalRevenueCents,
+            vehicleRentalChargeCents   = vehicleRentalChargeCents,
             customAssets          = assets,
             employeeSavings       = empSavings,
             availableDebts        = base.debts,
-            totalInvestmentsCents =
-                base.realEstate.sumOf { it.currentValueCents.cvt(it.currency) } +
-                base.scpi.sumOf       { it.totalValueCents.cvt(it.currency) }   +
-                assets.sumOf          { it.totalValueCents.cvt(it.currency) }   +
-                empSavings.sumOf      { it.currentBalanceCents.cvt(it.currency) },
+            totalInvestmentsCents = totalInvestmentsCents,
             summaryCurrency       = target,
-            rates                 = rates
+            rates                 = rates,
+            hasConvertedValues    = hasConversion
         ) as InvestmentsUiState
     }
         .combine(ucGetPatrimoineHistory()) { state, history ->
@@ -164,6 +184,16 @@ class InvestmentsViewModel @Inject constructor(
     private val _event = MutableSharedFlow<InvestmentsEvent>()
     val event: SharedFlow<InvestmentsEvent> = _event.asSharedFlow()
 
+    /**
+     * Tendance d'un actif individuel (Immobilier/SCPI), lue à la demande plutôt que
+     * câblée dans le flux réactif de [uiState] : l'historique de valorisation ne
+     * change que sur une action d'édition explicite, pas en continu - un simple
+     * appel ponctuel depuis la carte (voir InvestmentsScreen.kt) reste correct et
+     * bien plus lisible qu'un flux combiné dynamiquement par actif.
+     */
+    suspend fun tendancePourActif(type: AssetValuationType, assetId: Long): Float? =
+        ucCalculerTendanceActif(ucGetAssetValuationHistory(type, assetId).first())
+
     fun addRealEstate(label: String, valueStr: String, currency: Currency, debtId: Long? = null) {
         val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
@@ -174,7 +204,10 @@ class InvestmentsViewModel @Inject constructor(
                 RealEstateAsset(label = label, currentValueCents = cents, currency = currency,
                     updatedAt = LocalDate.now(), debtId = debtId)
             )
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onSuccess { newId ->
+                    ucSaveAssetSnapshot(AssetValuationType.REAL_ESTATE, newId, cents, currency)
+                    _event.emit(InvestmentsEvent.Saved)
+                }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -186,18 +219,20 @@ class InvestmentsViewModel @Inject constructor(
         }
         val shareValue = shareValueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val scpiToSave = ScpiInvestment(
+            label = label,
+            sharesCount = shares,
+            shareValueCents = shareValue,
+            monthlyContributionCents = contribution,
+            currency = currency,
+            updatedAt = LocalDate.now()
+        )
         viewModelScope.launch {
-            ucSaveScpi(
-                ScpiInvestment(
-                    label = label,
-                    sharesCount = shares,
-                    shareValueCents = shareValue,
-                    monthlyContributionCents = contribution,
-                    currency = currency,
-                    updatedAt = LocalDate.now()
-                )
-            )
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+            ucSaveScpi(scpiToSave)
+                .onSuccess { newId ->
+                    ucSaveAssetSnapshot(AssetValuationType.SCPI, newId, scpiToSave.totalValueCents, currency)
+                    _event.emit(InvestmentsEvent.Saved)
+                }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -224,7 +259,10 @@ class InvestmentsViewModel @Inject constructor(
         viewModelScope.launch {
             ucUpdateRealEstate(asset.copy(label = label, currentValueCents = cents, currency = currency,
                 updatedAt = LocalDate.now(), debtId = debtId))
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onSuccess {
+                    ucSaveAssetSnapshot(AssetValuationType.REAL_ESTATE, asset.id, cents, currency)
+                    _event.emit(InvestmentsEvent.Saved)
+                }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -236,9 +274,14 @@ class InvestmentsViewModel @Inject constructor(
         }
         val shareValue   = shareValueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val scpiToUpdate = scpi.copy(label = label, sharesCount = shares, shareValueCents = shareValue,
+            monthlyContributionCents = contribution, currency = currency, updatedAt = LocalDate.now())
         viewModelScope.launch {
-            ucUpdateScpi(scpi.copy(label = label, sharesCount = shares, shareValueCents = shareValue, monthlyContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+            ucUpdateScpi(scpiToUpdate)
+                .onSuccess {
+                    ucSaveAssetSnapshot(AssetValuationType.SCPI, scpi.id, scpiToUpdate.totalValueCents, currency)
+                    _event.emit(InvestmentsEvent.Saved)
+                }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -414,7 +457,8 @@ sealed class InvestmentsUiState {
         val totalInvestmentsCents : Long                     = 0L,
         val summaryCurrency       : Currency                 = Currency.EUR,
         val rates                 : ExchangeRates             = ExchangeRates(usdParEur = 1.0, xofParEur = 1.0, horodatage = 0L),
-        val patrimoineTrendPct    : Float?                   = null
+        val patrimoineTrendPct    : Float?                   = null,
+        val hasConvertedValues    : Boolean                  = false
     ) : InvestmentsUiState()
     data class Error(val message: String) : InvestmentsUiState()
 }

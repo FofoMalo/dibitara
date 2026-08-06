@@ -83,4 +83,22 @@ class CurrencyConverterTest {
         val result = CurrencyConverter.convertCents(66_000L, Currency.XAF, Currency.USD, rates)
         assertEquals(110L, result)
     }
+
+    // ─── isSameCurrency ───────────────────────────────────────────────────────
+
+    @Test
+    fun `isSameCurrency - même devise stricte est vraie`() {
+        assertTrue(CurrencyConverter.isSameCurrency(Currency.EUR, Currency.EUR))
+    }
+
+    @Test
+    fun `isSameCurrency - XOF et XAF sont considérées identiques (parité)`() {
+        assertTrue(CurrencyConverter.isSameCurrency(Currency.XOF, Currency.XAF))
+        assertTrue(CurrencyConverter.isSameCurrency(Currency.XAF, Currency.XOF))
+    }
+
+    @Test
+    fun `isSameCurrency - devises réellement différentes sont fausses`() {
+        assertFalse(CurrencyConverter.isSameCurrency(Currency.EUR, Currency.USD))
+    }
 }

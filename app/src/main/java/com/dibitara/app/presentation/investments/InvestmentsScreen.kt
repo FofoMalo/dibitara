@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.AirbnbRental
+import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomAsset
 import com.dibitara.app.domain.model.EmployeeSavings
@@ -112,7 +113,8 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                         onDeleteVehicle = viewModel::deleteVehicleRentalEntry,
                         onDeleteCustomAsset = viewModel::deleteCustomAsset,
                         onDeleteEmpSavings = viewModel::deleteEmployeeSavings,
-                        onAppliquerVersementScpi = viewModel::appliquerVersementScpi
+                        onAppliquerVersementScpi = viewModel::appliquerVersementScpi,
+                        getTrend = viewModel::tendancePourActif
                     )
             }
         }
@@ -231,7 +233,8 @@ private fun InvestmentsContent(
     onDeleteVehicle: (VehicleRentalEntry) -> Unit,
     onDeleteCustomAsset: (CustomAsset) -> Unit,
     onDeleteEmpSavings: (EmployeeSavings) -> Unit,
-    onAppliquerVersementScpi: (ScpiInvestment) -> Unit
+    onAppliquerVersementScpi: (ScpiInvestment) -> Unit,
+    getTrend: suspend (AssetValuationType, Long) -> Float?
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -245,7 +248,8 @@ private fun InvestmentsContent(
             totalCents       = state.totalInvestmentsCents,
             airbnbAnnualCents = state.airbnbAnnualTotal,
             currency         = state.summaryCurrency,
-            trendPct         = state.patrimoineTrendPct
+            trendPct         = state.patrimoineTrendPct,
+            hasConvertedValues = state.hasConvertedValues
         ) }
 
         // Graphique barres - affiché si au moins un actif immo ou SCPI
@@ -276,7 +280,8 @@ private fun InvestmentsContent(
                     linkedDebt  = linkedDebt,
                     rates       = state.rates,
                     onEdit      = { onEditRealEstate(asset) },
-                    onDelete    = { onDeleteRealEstate(asset) }
+                    onDelete    = { onDeleteRealEstate(asset) },
+                    getTrend    = getTrend
                 )
             }
         }
@@ -295,7 +300,8 @@ private fun InvestmentsContent(
                     scpi = scpi,
                     onEdit = { onEditScpi(scpi) },
                     onDelete = { onDeleteScpi(scpi) },
-                    onVersement = { onAppliquerVersementScpi(scpi) }
+                    onVersement = { onAppliquerVersementScpi(scpi) },
+                    getTrend = getTrend
                 )
             }
         }
@@ -354,7 +360,13 @@ private fun InvestmentsContent(
 }
 
 @Composable
-private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long, currency: Currency, trendPct: Float? = null) {
+private fun TotalInvestmentsCard(
+    totalCents: Long,
+    airbnbAnnualCents: Long,
+    currency: Currency,
+    trendPct: Float? = null,
+    hasConvertedValues: Boolean = false
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
@@ -378,6 +390,13 @@ private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long, curr
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
+                if (hasConvertedValues) {
+                    Text(
+                        "≈ conversion appliquée (${currency.isoCode})",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f)
+                    )
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
@@ -479,10 +498,13 @@ private fun RealEstateCard(
     linkedDebt : com.dibitara.app.domain.model.Debt?,
     rates      : ExchangeRates,
     onEdit     : () -> Unit,
-    onDelete   : () -> Unit
+    onDelete   : () -> Unit,
+    getTrend   : suspend (AssetValuationType, Long) -> Float?
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(asset.id, asset.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(asset.id, asset.updatedAt) { trendPct = getTrend(AssetValuationType.REAL_ESTATE, asset.id) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -492,11 +514,14 @@ private fun RealEstateCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(asset.label, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "Valeur actuelle : ${asset.currentValueCents.toCurrencyDisplay(asset.currency)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Valeur actuelle : ${asset.currentValueCents.toCurrencyDisplay(asset.currency)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (trendPct != null) TrendChip(trendPct!!)
+                }
                 if (linkedDebt != null) {
                     Text(
                         "Crédit lié : ${linkedDebt.label} - −${linkedDebt.totalCents.toCurrencyDisplay(linkedDebt.currency)}",
@@ -555,10 +580,18 @@ private fun RealEstateCard(
 }
 
 @Composable
-private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> Unit, onVersement: () -> Unit) {
+private fun ScpiCard(
+    scpi: ScpiInvestment,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onVersement: () -> Unit,
+    getTrend: suspend (AssetValuationType, Long) -> Float?
+) {
     var showConfirm by remember { mutableStateOf(false) }
     var showVersementConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(scpi.id, scpi.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(scpi.id, scpi.updatedAt) { trendPct = getTrend(AssetValuationType.SCPI, scpi.id) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -576,12 +609,15 @@ private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> U
                         "${if (scpi.sharesCount % 1.0 == 0.0) scpi.sharesCount.toInt().toString() else scpi.sharesCount.toString()} parts × ${scpi.shareValueCents.toCurrencyDisplay(scpi.currency)}",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Text(
-                        "Total : ${scpi.totalValueCents.toCurrencyDisplay(scpi.currency)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Total : ${scpi.totalValueCents.toCurrencyDisplay(scpi.currency)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        if (trendPct != null) TrendChip(trendPct!!)
+                    }
                     if (scpi.monthlyContributionCents > 0) {
                         Text(
                             "+ ${scpi.monthlyContributionCents.toCurrencyDisplay(scpi.currency)}/mois",

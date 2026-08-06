@@ -16,6 +16,12 @@ import kotlin.math.roundToLong
  */
 object CurrencyConverter {
 
+    // Normalisation XAF → XOF pour simplifier les cas (parité stricte)
+    private fun normalise(c: Currency) = if (c == Currency.XAF) Currency.XOF else c
+
+    /** True si [a] et [b] désignent la même devise, en tenant compte de la parité XOF/XAF. */
+    fun isSameCurrency(a: Currency, b: Currency): Boolean = normalise(a) == normalise(b)
+
     fun convertCents(
         amountCents : Long,
         from        : Currency,
@@ -24,9 +30,8 @@ object CurrencyConverter {
     ): Long {
         if (from == to) return amountCents
 
-        // Normalisation XAF → XOF pour simplifier les cas (parité stricte)
-        val fromN = if (from == Currency.XAF) Currency.XOF else from
-        val toN   = if (to   == Currency.XAF) Currency.XOF else to
+        val fromN = normalise(from)
+        val toN   = normalise(to)
         if (fromN == toN) return amountCents
 
         // 1. Convertir vers EUR (devise pivot)

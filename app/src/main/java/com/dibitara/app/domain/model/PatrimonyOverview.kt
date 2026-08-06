@@ -7,7 +7,9 @@ data class PatrimonyOverview(
     val airbnbAnnualRevenueCents: Long,
     val vehicleRentalNetRevenueCents: Long,
     val dettesTotalCents: Long,
-    val currency: Currency
+    val currency: Currency,
+    /** True si au moins un montant agrégé ci-dessus a réellement été converti depuis une autre devise. */
+    val hasConvertedValues: Boolean = false
 ) {
     // Airbnb et le véhicule locatif sont des revenus (flux), pas des actifs (stock) - exclus du patrimoine brut
     val patrimoineBrutCents: Long
