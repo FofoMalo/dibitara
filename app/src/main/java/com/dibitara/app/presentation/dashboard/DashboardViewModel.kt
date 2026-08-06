@@ -7,11 +7,13 @@ import com.dibitara.app.domain.model.DashboardCard
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.MonthlyExpense
 import com.dibitara.app.domain.model.MonthlyReport
+import com.dibitara.app.domain.model.PatrimoineSnapshot
 import com.dibitara.app.domain.model.PatrimonyOverview
 import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.domain.usecase.GetCashflowProjectionUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyReportUseCase
+import com.dibitara.app.domain.usecase.GetPatrimoineHistoryUseCase
 import com.dibitara.app.domain.usecase.GetPatrimonyOverviewUseCase
 import com.dibitara.app.domain.usecase.GetRecategorizationSuggestionsUseCase
 import com.dibitara.app.domain.usecase.GetSpendingHistoryUseCase
@@ -37,6 +39,7 @@ class DashboardViewModel @Inject constructor(
     private val getPreferences         : GetUserPreferencesUseCase,
     private val getCashflowProjection    : GetCashflowProjectionUseCase,
     private val getRecategorizations     : GetRecategorizationSuggestionsUseCase,
+    private val getPatrimoineHistory     : GetPatrimoineHistoryUseCase,
     private val updateTransaction        : UpdateTransactionUseCase,
     private val updateCardOrder          : UpdateDashboardCardOrderUseCase,
     private val ucUpsertRule             : UpsertCategorizationRuleUseCase
@@ -79,7 +82,10 @@ class DashboardViewModel @Inject constructor(
     ) { q, cashflow -> q to cashflow }
     .combine(
         getRecategorizations()
-    ) { (q, cashflow), recats ->
+    ) { (q, cashflow), recats -> Triple(q, cashflow, recats) }
+    .combine(
+        getPatrimoineHistory()
+    ) { (q, cashflow, recats), history ->
         val prefs = q.fifth
         DashboardUiState.Success(
             overview                    = q.first,
@@ -88,6 +94,7 @@ class DashboardViewModel @Inject constructor(
             rapportMensuel              = if (prefs.afficherRapportMensuel) q.third else null,
             cashflowProjection          = cashflow,
             recategorizationSuggestions = recats,
+            patrimoineTrendPct          = calculerTendancePatrimoine(history),
             cardOrder                   = prefs.dashboardCardOrder
         ) as DashboardUiState
     }
@@ -149,6 +156,21 @@ class DashboardViewModel @Inject constructor(
     )
 }
 
+/**
+ * Variation du patrimoine net (%) entre le plus ancien et le plus récent snapshot
+ * disponibles - badge de tendance global du dashboard (refonte UX/UI 2026-08).
+ * Un snapshot n'est enregistré que quand l'utilisateur visite l'écran Patrimoine :
+ * l'historique peut donc être court ou absent. Retourne null tant qu'il n'y a pas
+ * au moins 2 points, pour ne jamais afficher un pourcentage trompeur.
+ */
+private fun calculerTendancePatrimoine(history: List<PatrimoineSnapshot>): Float? {
+    if (history.size < 2) return null
+    val premier = history.first().patrimoineNetCents
+    val dernier = history.last().patrimoineNetCents
+    if (premier == 0L) return null
+    return ((dernier - premier).toFloat() / premier.toFloat()) * 100f
+}
+
 sealed class DashboardUiState {
     data object Loading : DashboardUiState()
     data class Success(
@@ -158,6 +180,7 @@ sealed class DashboardUiState {
         val rapportMensuel              : MonthlyReport?                    = null,
         val cashflowProjection          : CashflowProjection?               = null,
         val recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
+        val patrimoineTrendPct          : Float?                            = null,
         val cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList()
     ) : DashboardUiState()
     data class Error(val message: String) : DashboardUiState()

@@ -1,18 +1,30 @@
 package com.dibitara.app.presentation.dashboard
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.dibitara.app.domain.model.CashflowPoint
 import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
@@ -22,9 +34,11 @@ import com.dibitara.app.domain.model.PatrimonyOverview
 import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.RecurrenceFrequency
 import com.dibitara.app.domain.model.UpcomingPayment
+import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.presentation.navigation.Screen
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
@@ -86,6 +100,7 @@ fun DashboardScreen(
                     rapportMensuel              = state.rapportMensuel,
                     cashflowProjection          = state.cashflowProjection,
                     recategorizationSuggestions = state.recategorizationSuggestions,
+                    patrimoineTrendPct          = state.patrimoineTrendPct,
                     cardOrder                   = state.cardOrder,
                     isEditMode                  = isEditMode,
                     onToggleEditMode            = { viewModel.toggleEditMode() },
@@ -114,6 +129,7 @@ private fun DashboardContent(
     rapportMensuel              : MonthlyReport?                    = null,
     cashflowProjection          : CashflowProjection?               = null,
     recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
+    patrimoineTrendPct          : Float?                            = null,
     cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList(),
     isEditMode                  : Boolean                           = false,
     onToggleEditMode            : () -> Unit                        = {},
@@ -153,7 +169,7 @@ private fun DashboardContent(
             }
         }
         item(key = "patrimoine") {
-            PatrimonyNetCard(overview = overview, onClick = onNavigateToPatrimoine)
+            PatrimonyNetCard(overview = overview, trendPct = patrimoineTrendPct, onClick = onNavigateToPatrimoine)
         }
 
         // ─── Cartes reordonnables ──────────────────────────────────────────────
@@ -343,12 +359,8 @@ private fun SpendingHistoryCard(history: List<MonthlyExpense>, currency: Currenc
 }
 
 @Composable
-private fun PatrimonyNetCard(overview: PatrimonyOverview, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
+private fun PatrimonyNetCard(overview: PatrimonyOverview, trendPct: Float?, onClick: () -> Unit) {
+    HeroCard(onClick = onClick) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -358,31 +370,122 @@ private fun PatrimonyNetCard(overview: PatrimonyOverview, onClick: () -> Unit) {
                 Text(
                     "Patrimoine brut",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "Voir le détail du patrimoine",
                     modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
                 overview.patrimoineBrutCents.toCurrencyDisplay(overview.currency),
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(8.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(8.dp))
-            Text("Patrimoine net", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Patrimoine net", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (trendPct != null) TrendChip(trendPct)
+            }
             Text(
                 overview.patrimoineNetCents.toCurrencyDisplay(overview.currency),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
+            if (overview.patrimoineBrutCents > 0L) {
+                Spacer(Modifier.height(16.dp))
+                AllocationBar(overview)
+            }
+        }
+    }
+}
+
+/** Puce compacte "+X,X%" / "-X,X%" - tendance du patrimoine net depuis le plus ancien snapshot disponible. */
+@Composable
+private fun TrendChip(trendPct: Float) {
+    val hausse = trendPct >= 0f
+    val color = if (hausse) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
+    Row(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(7.dp))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Icon(
+            imageVector = if (hausse) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(14.dp)
+        )
+        Text(
+            text = "${if (hausse) "+" else ""}${"%.1f".format(trendPct)}%",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+    }
+}
+
+/**
+ * Barre de répartition Liquidités/Épargne/Investissements sous le hero patrimoine -
+ * vue synthétique "en un coup d'œil", sans scroll. Mêmes couleurs que les MetricCard
+ * ci-dessous (primary/secondary/tertiary) pour rester cohérent visuellement.
+ */
+@Composable
+private fun AllocationBar(overview: PatrimonyOverview) {
+    val total = overview.patrimoineBrutCents.toFloat()
+    val segments = listOf(
+        Triple("Liquidités", overview.liquiditesCents, MaterialTheme.colorScheme.primary),
+        Triple("Épargne", overview.epargneCents, MaterialTheme.colorScheme.secondary),
+        Triple("Investissements", overview.investissementsCents, MaterialTheme.colorScheme.tertiary)
+    ).filter { it.second > 0L }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(9.dp)
+                .clip(RoundedCornerShape(5.dp)),
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            segments.forEach { (_, cents, color) ->
+                Box(
+                    modifier = Modifier
+                        .weight(cents.toFloat())
+                        .fillMaxHeight()
+                        .background(color)
+                )
+            }
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(13.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            segments.forEach { (label, cents, color) ->
+                val pct = (cents.toFloat() / total * 100).roundToInt()
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(color, RoundedCornerShape(2.dp))
+                    )
+                    Text(
+                        "$label $pct%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
@@ -649,12 +752,17 @@ private fun moisAbrege(month: Int): String = when (month) {
 @Composable
 private fun CashflowProjectionCard(projection: CashflowProjection, onVoirDetail: () -> Unit = {}) {
     val enDanger = projection.jourPassageSeuilNegatif != null
-    val containerColor = if (enDanger) MaterialTheme.colorScheme.errorContainer
-                         else MaterialTheme.colorScheme.secondaryContainer
+    // Dé-dramatisé (refonte 2026-08) : plus de fond rouge/orange plein - une carte
+    // normale avec une bordure discrète, le rouge n'apparaît que sur les éléments
+    // qui portent vraiment l'alerte (badge, valeur J+30, mini-courbe, date).
+    val borderColor = if (enDanger) MaterialTheme.colorScheme.error.copy(alpha = 0.32f)
+                       else MaterialTheme.colorScheme.outlineVariant
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors   = CardDefaults.cardColors(containerColor = containerColor)
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, borderColor, MaterialTheme.shapes.medium),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -666,13 +774,23 @@ private fun CashflowProjectionCard(projection: CashflowProjection, onVoirDetail:
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Projection 30 jours", style = MaterialTheme.typography.titleMedium)
-                Icon(
-                    imageVector = if (enDanger) Icons.Filled.Warning else Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = if (enDanger) MaterialTheme.colorScheme.error
-                           else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
+                if (enDanger) {
+                    Row(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.14f), RoundedCornerShape(7.dp))
+                            .padding(horizontal = 9.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(Icons.Filled.Warning, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                        Text("Sous le seuil", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                } else {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                }
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
@@ -680,14 +798,22 @@ private fun CashflowProjectionCard(projection: CashflowProjection, onVoirDetail:
                     label      = "Aujourd'hui",
                     valueCents = projection.soldeActuelCents,
                     currency   = projection.currency,
-                    color      = MaterialTheme.colorScheme.onSecondaryContainer
+                    color      = MaterialTheme.colorScheme.onSurface
                 )
                 BilanMini(
                     label      = "Dans 30 jours",
                     valueCents = projection.soldeProjecte30jCents,
                     currency   = projection.currency,
                     color      = if (enDanger) MaterialTheme.colorScheme.error
-                                 else MaterialTheme.colorScheme.primary
+                                 else MaterialTheme.colorScheme.tertiary
+                )
+            }
+
+            if (projection.pointsTimeline.size >= 2) {
+                ProjectionSparkline(
+                    points = projection.pointsTimeline,
+                    color  = if (enDanger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
                 )
             }
 
@@ -696,7 +822,7 @@ private fun CashflowProjectionCard(projection: CashflowProjection, onVoirDetail:
                 Text(
                     text  = "Solde sous le seuil à partir du ${projection.jourPassageSeuilNegatif!!.format(dateFmt)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -714,6 +840,32 @@ private fun CashflowProjectionCard(projection: CashflowProjection, onVoirDetail:
                 )
             }
         }
+    }
+}
+
+/** Mini-courbe de trésorerie (aire + ligne), version compacte de la courbe du détail projection. */
+@Composable
+private fun ProjectionSparkline(points: List<CashflowPoint>, color: Color, modifier: Modifier = Modifier) {
+    val min = points.minOf { it.soldeCents }
+    val max = points.maxOf { it.soldeCents }
+    val span = (max - min).takeIf { it != 0L } ?: 1L
+
+    Canvas(modifier = modifier) {
+        val stepX = if (points.size > 1) size.width / (points.size - 1) else 0f
+        val line = Path()
+        points.forEachIndexed { i, point ->
+            val x = i * stepX
+            val y = size.height - ((point.soldeCents - min).toFloat() / span) * size.height
+            if (i == 0) line.moveTo(x, y) else line.lineTo(x, y)
+        }
+        val fill = Path().apply {
+            addPath(line)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(fill, brush = Brush.verticalGradient(listOf(color.copy(alpha = 0.28f), Color.Transparent)))
+        drawPath(line, color = color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 
