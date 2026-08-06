@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Application bancaire Android à usage personnel, inspirée de **Finary**. L'objectif est de centraliser budget mensuel, suivi des dépenses, investissements et projections financières.
 
 **Stack cible :** Android natif (Kotlin), architecture MVVM + Clean Architecture.
-**Version courante :** v4.4.0 (versionCode 15) — Room v11.
+**Version courante :** v4.4.0 (versionCode 15) — Room v21.
 
 ## Fonctionnalités principales
 
@@ -60,7 +60,7 @@ Clean Architecture en 3 couches :
 
 Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCase → Repository → DataSource`.
 
-## Schéma Room — Version actuelle : v11
+## Schéma Room — Version actuelle : v21
 
 | Migration | Contenu |
 |-----------|---------|
@@ -74,6 +74,16 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 | v8 → v9 | `sharesCount` Int→Real (SCPI parts fractionnées) |
 | v9 → v10 | Tables `precious_metals`, `custom_assets`, `employee_savings` |
 | v10 → v11 | Colonnes `importSource TEXT`, `externalId TEXT` sur `transactions` (import CSV TradeRepublic) |
+| v11 → v12 | `debtId` sur `real_estate_assets` pour lier un crédit à un bien |
+| v12 → v13 | Table `patrimoine_snapshots` pour l'historique mensuel du patrimoine |
+| v13 → v14 | `plafondCents` sur `savings_accounts` pour le suivi du plafond légal |
+| v14 → v15 | `paymentDay` et `originalAmountCents` sur `debts` |
+| v15 → v16 | Taux d'intérêt annuel sur `debts` |
+| v16 → v17 | Table `categorization_rules` pour l'apprentissage des catégorisations manuelles |
+| v17 → v18 | Table `category_envelopes` pour les enveloppes budgétaires par catégorie |
+| v18 → v19 | Table `vehicle_rental_entries` pour l'activité de location de véhicule |
+| v19 → v20 | Suppression de `precious_metals` (métaux précieux, fonctionnalité retirée) |
+| v20 → v21 | Table `asset_valuation_snapshots` pour les badges de tendance par actif (Immobilier/SCPI) |
 
 ## Modèles métier clés (domain/model/)
 
@@ -88,6 +98,43 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 - **Devises :** toujours stocker les montants en centimes (Long) avec la devise associée ; la conversion se fait dans la couche `domain`.
 - **Migrations Room :** chaque modification de schéma incrémente `version` d'exactement 1 et requiert une migration + le fichier `N.json` exporté. Ne jamais utiliser `fallbackToDestructiveMigration` en production.
 - **Messages de commit :** sujet verbe complément, en français, sans Co-Authored-By.
+
+## Conventions UI / Design
+
+Vocabulaire visuel établi pendant la refonte UX/UI 2026-08 (palette noir/or,
+Material 3) — à réutiliser plutôt qu'à réinventer sur tout nouvel écran ou
+toute nouvelle carte de synthèse.
+
+- **Palette :** l'or (`primary`) est réservé aux accents (bordures, CTA,
+  icônes actives, valeurs clés) — jamais en `containerColor` plein d'une
+  `Card`. Le rouge (`error`) est réservé aux vraies alertes, jamais en fond
+  de carte. Le vert (`tertiary`) marque les montants positifs/tendances à la
+  hausse.
+- **`HeroCard`** (`presentation/common/HeroCard.kt`) — carte de synthèse mise
+  en avant (fond neutre `surface`, bordure dorée légère, filet dégradé en
+  haut). À utiliser pour toute carte "résumé" en tête d'écran (Patrimoine,
+  Budget, Épargne), plutôt qu'un `containerColor` plein.
+- **`CategoryVisuals`** — couleur et icône stables par `Category`, jamais
+  positionnelles (une palette indexée par position change de couleur d'un
+  mois à l'autre selon l'ordre de tri).
+- **`TrendChip`** (`presentation/common/TrendChip.kt`) — badge générique
+  `+X,X%`/`-X,X%`, réutilisé sur le patrimoine global, les placements et les
+  actifs individuels. Générique et sans dépendance de domaine : à réutiliser
+  pour tout nouveau badge de tendance plutôt qu'en recréer un.
+- **Piège Vico (bibliothèque de graphiques) :** Vico tronque les libellés
+  d'axe indépendamment de l'espace réellement disponible - il alloue la
+  largeur de chaque graduation selon le nombre total de points de données,
+  pas selon les libellés effectivement affichés. Un `AxisValueFormatter` qui
+  n'affiche qu'un label sur N ne suffit pas toujours à corriger ça. Pour tout
+  graphique avec beaucoup de points ou des libellés de longueur variable,
+  préférer un `Canvas` custom (voir `HorizontalBarChart.kt`,
+  `ProjectionSparkline.kt`) ou masquer l'axe Vico et dessiner ses propres
+  libellés (voir `TrendsScreen.kt`) plutôt que de chercher à configurer
+  l'axe existant.
+- **Menu "⋮" pour Modifier/Supprimer :** sur un élément de liste, préférer
+  `Box { IconButton(MoreVert) { DropdownMenu { DropdownMenuItem(Modifier) ; DropdownMenuItem(Supprimer) } } }`
+  à deux `IconButton` côte à côte — ces derniers ne laissent plus assez de
+  place dès qu'une icône ou un badge supplémentaire s'ajoute à la ligne.
 
 ## Posture de travail
 
