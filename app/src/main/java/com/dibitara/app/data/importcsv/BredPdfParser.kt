@@ -4,6 +4,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.TransactionType
 import java.time.LocalDate
+import kotlin.math.roundToLong
 
 /**
  * Parse le texte brut extrait d'un relevé PDF BRED et retourne les transactions et soldes.
@@ -108,8 +109,8 @@ object BredPdfParser {
 
             soldes.add(SoldeCompte(
                 label        = label,
-                plafondCents = plafond?.let { (it * 100).toLong() },
-                soldeCents   = (solde * 100).toLong()
+                plafondCents = plafond?.let { (it * 100).roundToLong() },
+                soldeCents   = (solde * 100).roundToLong()
             ))
         }
 
@@ -208,7 +209,7 @@ object BredPdfParser {
             LocalDate.of(annee, tx.mois, tx.jour)
         } catch (e: Exception) { return null }
 
-        val amountCents = (tx.montantVal * 100).toLong()
+        val amountCents = (tx.montantVal * 100).roundToLong()
         val typeNorm = BredCategoriseur.normaliser(tx.typeNet)
 
         // Revenu si le type contient "reçu" / "recu" (virement entrant)

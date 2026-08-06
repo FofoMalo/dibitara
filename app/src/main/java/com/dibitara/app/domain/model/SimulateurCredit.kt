@@ -80,9 +80,9 @@ object SimulateurCredit {
             moisActuels                   = moisActuels,
             moisApres                     = moisApres,
             moisEconomises                = moisEconomises,
-            interetsTotauxActuelsCents    = (interetsActuels   * 100).toLong(),
-            interetsTotauxApresCents      = (interetsApres     * 100).toLong(),
-            interetsEconomisesCents       = (interetsEconomises * 100).toLong(),
+            interetsTotauxActuelsCents    = (interetsActuels   * 100).roundToInt().toLong(),
+            interetsTotauxApresCents      = (interetsApres     * 100).roundToInt().toLong(),
+            interetsEconomisesCents       = (interetsEconomises * 100).roundToInt().toLong(),
             nouvelleEcheanceAnneeMois     = echeance
         )
     }

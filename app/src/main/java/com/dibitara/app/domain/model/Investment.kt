@@ -1,6 +1,7 @@
 package com.dibitara.app.domain.model
 
 import java.time.LocalDate
+import kotlin.math.roundToLong
 
 data class RealEstateAsset(
     val id: Long = 0,
@@ -22,7 +23,7 @@ data class ScpiInvestment(
     val updatedAt: LocalDate
 ) {
     // Valeur totale = nombre de parts (peut être fractionnaire, ex : 2,2) × valeur unitaire
-    val totalValueCents: Long get() = (sharesCount * shareValueCents).toLong()
+    val totalValueCents: Long get() = (sharesCount * shareValueCents).roundToLong()
 }
 
 data class AirbnbRental(

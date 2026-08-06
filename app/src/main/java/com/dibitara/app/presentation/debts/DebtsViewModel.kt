@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.debts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlin.math.roundToLong
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
@@ -70,12 +71,12 @@ class DebtsViewModel @Inject constructor(
         currency: Currency,
         type: DebtType
     ) {
-        val totalCents = totalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val totalCents = totalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(DebtsEvent.Error("Montant total invalide")) }
             return
         }
-        val monthlyCents  = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        val originalCents = originalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val monthlyCents  = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val originalCents = originalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         val taux          = tauxStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
         viewModelScope.launch {
             saveDebt(
@@ -127,9 +128,9 @@ class DebtsViewModel @Inject constructor(
         currency: Currency,
         type: DebtType
     ) {
-        val totalCents    = totalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: return
-        val monthlyCents  = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        val originalCents = originalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val totalCents    = totalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: return
+        val monthlyCents  = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val originalCents = originalStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         val taux          = tauxStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
         viewModelScope.launch {
             saveDebt(

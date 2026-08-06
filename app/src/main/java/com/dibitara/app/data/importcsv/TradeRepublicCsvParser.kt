@@ -7,6 +7,7 @@ import com.dibitara.app.domain.model.TransactionType
 import java.io.InputStream
 import java.time.LocalDate
 import kotlin.math.abs
+import kotlin.math.roundToLong
 
 /**
  * Parse un export CSV TradeRepublic et retourne une liste de [ImportedTransaction].
@@ -80,7 +81,7 @@ object TradeRepublicCsvParser {
         // Ignorer les lignes sans valeur réelle
         if (abs(montantEffectif) < 0.001) return null
 
-        val amountCents = abs((montantEffectif * 100).toLong())
+        val amountCents = abs((montantEffectif * 100).roundToLong())
         val date        = parseDate(champs[COL_DATE]) ?: return null
         val devise      = parseCurrency(champs[COL_CURRENCY])
 

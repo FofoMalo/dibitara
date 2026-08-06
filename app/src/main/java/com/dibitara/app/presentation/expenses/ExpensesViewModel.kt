@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.expenses
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlin.math.roundToLong
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
@@ -184,7 +185,7 @@ class ExpensesViewModel @Inject constructor(
         recurrenceFrequency: RecurrenceFrequency? = null,
         endDate: LocalDate? = null
     ) {
-        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
             return
         }
@@ -231,7 +232,7 @@ class ExpensesViewModel @Inject constructor(
         recurrenceFrequency: RecurrenceFrequency? = null,
         endDate: LocalDate? = null
     ) {
-        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
             return
         }

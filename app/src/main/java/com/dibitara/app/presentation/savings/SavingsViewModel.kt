@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.savings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlin.math.roundToLong
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
@@ -88,12 +89,12 @@ class SavingsViewModel @Inject constructor(
         childId: Long?,
         plafondStr: String = ""
     ) {
-        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
             return
         }
-        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() }
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
         viewModelScope.launch {
             saveSavingsAccount(
                 SavingsAccount(
@@ -122,12 +123,12 @@ class SavingsViewModel @Inject constructor(
         childId: Long?,
         plafondStr: String = ""
     ) {
-        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
             return
         }
-        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
-        val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() }
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
         viewModelScope.launch {
             updateSavingsAccount(
                 account.copy(

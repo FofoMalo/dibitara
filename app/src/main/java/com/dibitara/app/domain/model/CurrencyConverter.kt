@@ -1,5 +1,7 @@
 package com.dibitara.app.domain.model
 
+import kotlin.math.roundToLong
+
 /**
  * Utilitaire pur (sans DI) pour convertir des montants entre devises.
  *
@@ -30,16 +32,16 @@ object CurrencyConverter {
         // 1. Convertir vers EUR (devise pivot)
         val enEurCents: Long = when (fromN) {
             Currency.EUR -> amountCents
-            Currency.USD -> (amountCents / rates.usdParEur).toLong()
-            Currency.XOF -> (amountCents / rates.xofParEur).toLong()
+            Currency.USD -> (amountCents / rates.usdParEur).roundToLong()
+            Currency.XOF -> (amountCents / rates.xofParEur).roundToLong()
             else         -> amountCents
         }
 
         // 2. Convertir depuis EUR vers la devise cible
         return when (toN) {
             Currency.EUR -> enEurCents
-            Currency.USD -> (enEurCents * rates.usdParEur).toLong()
-            Currency.XOF -> (enEurCents * rates.xofParEur).toLong()
+            Currency.USD -> (enEurCents * rates.usdParEur).roundToLong()
+            Currency.XOF -> (enEurCents * rates.xofParEur).roundToLong()
             else         -> enEurCents
         }
     }
