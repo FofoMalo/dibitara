@@ -80,7 +80,7 @@ fun DonutAvecLegende(
                         drawCircle(color = couleurs[i % couleurs.size])
                     }
                     Text(
-                        text  = "$label$pct% · ${cents.toCurrencyDisplay(currency)}${trailingLabel(label)}",
+                        text  = "$label $pct% · ${cents.toCurrencyDisplay(currency)}${trailingLabel(label)}",
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.weight(1f)
                     )
