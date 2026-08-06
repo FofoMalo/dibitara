@@ -1,6 +1,5 @@
 package com.dibitara.app.presentation.dashboard
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,17 +13,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.dibitara.app.domain.model.CashflowPoint
 import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
@@ -35,6 +28,7 @@ import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.RecurrenceFrequency
 import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.presentation.common.HeroCard
+import com.dibitara.app.presentation.common.ProjectionSparkline
 import com.dibitara.app.presentation.common.TrendChip
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.presentation.navigation.Screen
@@ -814,32 +808,6 @@ private fun CashflowProjectionCard(projection: CashflowProjection, onVoirDetail:
                 )
             }
         }
-    }
-}
-
-/** Mini-courbe de trésorerie (aire + ligne), version compacte de la courbe du détail projection. */
-@Composable
-private fun ProjectionSparkline(points: List<CashflowPoint>, color: Color, modifier: Modifier = Modifier) {
-    val min = points.minOf { it.soldeCents }
-    val max = points.maxOf { it.soldeCents }
-    val span = (max - min).takeIf { it != 0L } ?: 1L
-
-    Canvas(modifier = modifier) {
-        val stepX = if (points.size > 1) size.width / (points.size - 1) else 0f
-        val line = Path()
-        points.forEachIndexed { i, point ->
-            val x = i * stepX
-            val y = size.height - ((point.soldeCents - min).toFloat() / span) * size.height
-            if (i == 0) line.moveTo(x, y) else line.lineTo(x, y)
-        }
-        val fill = Path().apply {
-            addPath(line)
-            lineTo(size.width, size.height)
-            lineTo(0f, size.height)
-            close()
-        }
-        drawPath(fill, brush = Brush.verticalGradient(listOf(color.copy(alpha = 0.28f), Color.Transparent)))
-        drawPath(line, color = color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 

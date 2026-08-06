@@ -15,17 +15,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.EventProjecte
 import com.dibitara.app.domain.model.SensFlux
+import com.dibitara.app.presentation.common.ProjectionSparkline
 import com.dibitara.app.presentation.common.toCurrencyDisplay
-import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.line.lineChart
-import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
-import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
-import com.patrykandpatrick.vico.core.axis.AxisPosition
-import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
-import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
-import com.patrykandpatrick.vico.core.entry.entryOf
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,18 +57,8 @@ fun ProjectionDetailScreen(
 @Composable
 private fun ProjectionDetailContent(projection: CashflowProjection) {
     val dateFmt = DateTimeFormatter.ofPattern("dd/MM")
-    val producer = remember { ChartEntryModelProducer() }
-    val labels = remember(projection.pointsTimeline) {
-        projection.pointsTimeline.map { it.date.format(dateFmt) }
-    }
-
-    LaunchedEffect(projection.pointsTimeline) {
-        producer.setEntries(
-            projection.pointsTimeline.mapIndexed { i, pt ->
-                entryOf(i.toFloat(), pt.soldeCents.toFloat() / 100f)
-            }
-        )
-    }
+    val enDanger = projection.jourPassageSeuilNegatif != null
+    val courbeColor = if (enDanger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
 
     // Group events by date for display
     val evenementsParDate = remember(projection.evenementsAVenir) {
@@ -97,26 +78,34 @@ private fun ProjectionDetailContent(projection: CashflowProjection) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text("Courbe de trésorerie", style = MaterialTheme.typography.titleMedium)
-                    ProvideChartStyle(m3ChartStyle()) {
-                        Chart(
-                            chart = lineChart(),
-                            chartModelProducer = producer,
-                            startAxis = rememberStartAxis(),
-                            bottomAxis = rememberBottomAxis(
-                                // 30 points quotidiens ne tiennent pas tous sur l'axe - Vico les
-                                // tronquait par caractère ("06/08" → "0…"). On n'affiche qu'un
-                                // label sur 5 (+ le dernier jour), en dd/MM complet, jamais tronqué.
-                                valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-                                    val index = value.toInt()
-                                    if (index % 5 == 0 || index == labels.lastIndex)
-                                        labels.getOrElse(index) { "" }
-                                    else ""
-                                }
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp)
+                    // Ni axe ni graduation quotidienne : avec 30 points, Vico tronquait chaque
+                    // libellé de date ("06/08" -> "0…") quel que soit le nombre affiché, car il
+                    // réserve la largeur de chaque tick selon le nombre total de points, pas selon
+                    // les libellés réellement visibles - même "un label sur 5" ne suffisait pas.
+                    // La courbe montre une forme (déclin, plateau, rechute), pas des valeurs à lire
+                    // point par point : les dates précises sont déjà dans "Engagements à venir"
+                    // ci-dessous, et les deux valeurs clés dans le résumé juste en-dessous.
+                    if (projection.pointsTimeline.size >= 2) {
+                        ProjectionSparkline(
+                            points = projection.pointsTimeline,
+                            color = courbeColor,
+                            modifier = Modifier.fillMaxWidth().height(160.dp)
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = projection.pointsTimeline.first().date.format(dateFmt),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = projection.pointsTimeline.last().date.format(dateFmt),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
