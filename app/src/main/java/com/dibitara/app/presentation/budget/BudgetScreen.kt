@@ -34,6 +34,8 @@ import com.dibitara.app.domain.model.CategoryEnvelope
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.EnveloppeStatus
 import com.dibitara.app.presentation.common.DonutAvecLegende
+import com.dibitara.app.presentation.common.HeroCard
+import com.dibitara.app.presentation.common.chartColor
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.Transaction
@@ -134,7 +136,7 @@ fun BudgetScreen(
     }
 
     if (showEnveloppeDialog) {
-        val currency = (uiState as? BudgetUiState.Success)?.budget?.currency ?: Currency.EUR
+        val currency = (uiState as? BudgetUiState.Success)?.currency ?: Currency.EUR
         SetEnveloppeDialog(
             enveloppeExistante = enveloppeEnEdition?.envelope,
             deviseDefaut       = currency,
@@ -213,7 +215,7 @@ private fun BudgetContent(
             }
         }
 
-        val currency = state.budget?.currency ?: Currency.EUR
+        val currency = state.currency
         val revenus  = state.transactions.filter { it.type == TransactionType.INCOME }
 
         // Carte fusionnée : bilan réel + objectif budget
@@ -348,10 +350,7 @@ private fun BilanBudgetCard(
 ) {
     val soldePositif = soldeCents >= 0
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
+    HeroCard {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // Ligne bilan : Revenus | Dépenses | Solde
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
@@ -367,7 +366,7 @@ private fun BilanBudgetCard(
                 )
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             if (budget != null) {
                 val progress  = if (budget.allocatedCents > 0)
@@ -382,7 +381,7 @@ private fun BilanBudgetCard(
                     Text(
                         "Budget ${budget.allocatedCents.toCurrencyDisplay(currency)}",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     IconButton(onClick = onDeleteBudget, modifier = Modifier.size(28.dp)) {
                         Icon(
@@ -403,14 +402,14 @@ private fun BilanBudgetCard(
                     Text(
                         "Dépensé : ${budget.spentCents.toCurrencyDisplay(currency)}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         if (isOver) "Dépassé de ${(-budget.remainingCents).toCurrencyDisplay(currency)}"
                         else "Restant : ${budget.remainingCents.toCurrencyDisplay(currency)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (isOver) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
@@ -422,7 +421,7 @@ private fun BilanBudgetCard(
                     Text(
                         "Aucun objectif budget ce mois",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     TextButton(
                         onClick = onDefinirBudget,
@@ -495,7 +494,7 @@ private fun BilanColonne(
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             "$prefix${valueCents.toCurrencyDisplay(currency)}",
@@ -678,10 +677,13 @@ private fun CategoryDonutChart(
                 )
             } else {
                 // ── Vue principale : répartition par catégorie ──
+                // Couleurs stables par catégorie (CategoryVisuals) plutôt que positionnelles :
+                // une catégorie garde la même couleur d'un mois à l'autre.
                 DonutAvecLegende(
                     groupes  = groupesPrincipaux.map { (cat, cents) -> cat.displayName to cents },
                     total    = total,
                     currency = currency,
+                    couleurs = groupesPrincipaux.map { (cat, _) -> cat.chartColor() },
                     onItemClick = { label ->
                         val cat = groupesPrincipaux.firstOrNull { it.first.displayName == label }?.first
                         if (cat == Category.AUTRE) {
