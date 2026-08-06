@@ -22,12 +22,16 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -38,6 +42,9 @@ import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionSuggestion
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.presentation.common.chartColor
+import com.dibitara.app.presentation.common.chartIcon
+import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.LocalDate
 import java.time.Month
 import java.time.format.DateTimeFormatter
@@ -203,6 +210,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                             ExpensesList(
                                 expenses            = state.expenses,
                                 customSubCategories = state.customSubCategories,
+                                // Le regroupement par jour n'a de sens que si la liste est déjà
+                                // triée par date - sinon les mêmes jours ne seraient pas contigus.
+                                groupByDay          = filter.sort == SortOrder.DATE_DESC,
                                 onEdit              = { editingExpense = it },
                                 onDelete            = viewModel::deleteExpense
                             )
@@ -443,6 +453,7 @@ private fun FilterSheet(
 private fun ExpensesList(
     expenses: List<Transaction>,
     customSubCategories: List<CustomSubCategory>,
+    groupByDay: Boolean,
     onEdit: (Transaction) -> Unit,
     onDelete: (Transaction) -> Unit
 ) {
@@ -454,13 +465,74 @@ private fun ExpensesList(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(expenses, key = { it.id }) { expense ->
-            ExpenseItem(
-                expense                 = expense,
-                customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
-                onEdit                  = { onEdit(expense) },
-                onDelete                = { onDelete(expense) }
+        if (groupByDay) {
+            // La liste est triée par date desc : groupBy préserve l'ordre de première
+            // rencontre des clés, donc les jours restent contigus et dans le bon ordre.
+            val groupes = expenses.groupBy { it.date }
+            groupes.forEach { (date, expensesDuJour) ->
+                item(key = "jour_$date") {
+                    DayHeader(date = date, expenses = expensesDuJour, modifier = Modifier.padding(top = 4.dp))
+                }
+                items(expensesDuJour, key = { it.id }) { expense ->
+                    ExpenseItem(
+                        expense                 = expense,
+                        customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
+                        onEdit                  = { onEdit(expense) },
+                        onDelete                = { onDelete(expense) }
+                    )
+                }
+            }
+        } else {
+            items(expenses, key = { it.id }) { expense ->
+                ExpenseItem(
+                    expense                 = expense,
+                    customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
+                    onEdit                  = { onEdit(expense) },
+                    onDelete                = { onDelete(expense) }
+                )
+            }
+        }
+    }
+}
+
+/** En-tête de groupe "Aujourd'hui" / "Hier" / date + total net du jour (si une seule devise). */
+@Composable
+private fun DayHeader(date: LocalDate, expenses: List<Transaction>, modifier: Modifier = Modifier) {
+    val devises = expenses.map { it.currency }.distinct()
+    val totalCents = if (devises.size == 1) {
+        expenses.sumOf { if (it.type == TransactionType.EXPENSE) -it.amountCents else it.amountCents }
+    } else null
+
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = dayLabel(date),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (totalCents != null) {
+            Text(
+                text = (if (totalCents > 0) "+" else "") + totalCents.toCurrencyDisplay(devises.first()),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (totalCents >= 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
             )
+        }
+    }
+}
+
+private fun dayLabel(date: LocalDate): String {
+    val today = LocalDate.now()
+    return when (date) {
+        today               -> "Aujourd'hui"
+        today.minusDays(1)  -> "Hier"
+        else -> {
+            val pattern = if (date.year == today.year) "d MMMM" else "d MMMM yyyy"
+            date.format(DateTimeFormatter.ofPattern(pattern, Locale.FRENCH))
         }
     }
 }
@@ -474,18 +546,33 @@ private fun ExpenseItem(
 ) {
     val formatter = DateTimeFormatter.ofPattern("dd/MM")
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    val estRevenu = expense.type == TransactionType.INCOME
+    val couleurCategorie = if (estRevenu) MaterialTheme.colorScheme.tertiary else expense.category.chartColor()
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .background(couleurCategorie.copy(alpha = 0.14f), RoundedCornerShape(11.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (estRevenu) Icons.Filled.Payments else expense.category.chartIcon(),
+                    contentDescription = null,
+                    tint = couleurCategorie,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // Pour un revenu, la note est plus significative que la catégorie (stockée AUTRE)
-                    val labelPrincipal = if (expense.type == TransactionType.INCOME)
+                    val labelPrincipal = if (estRevenu)
                         expense.note.ifBlank { "Revenu" }
                     else
                         expense.category.displayName
