@@ -20,9 +20,12 @@ import kotlin.math.roundToLong
  * - Montant    : notation française (virgule décimale, espace milliers)
  *                négatif = dépense, positif = revenu
  *
- * Deux variantes supportées :
- *   Format A - 4 colonnes : Date ; Libellé ; Montant ; Devise
- *   Format B - 5 colonnes : Date opération ; Date valeur ; Libellé ; Montant ; Devise
+ * Trois variantes supportées :
+ *   Format A - 4 colonnes  : Date ; Libellé ; Montant ; Devise
+ *   Format B - 5 colonnes  : Date opération ; Date valeur ; Libellé ; Montant ; Devise
+ *   Format C - 13 colonnes : export "historique des opérations" de bred.fr —
+ *              Date de l'opération ; Référence ; Type de l'opération ; Catégorie ;
+ *              Sous catégorie ; Montant ; Commentaire ; Détail 1..6
  *
  * La catégorisation et la génération d'externalId sont déléguées à [BredCategoriseur].
  */
@@ -50,11 +53,19 @@ object BredCsvParser {
         val indexEnTete = lignes.indexOfFirst { it.contains("Date", ignoreCase = true) }
         if (indexEnTete < 0 || indexEnTete >= lignes.size - 1) return emptyList()
 
+        val colonnes = parseRow(lignes[indexEnTete])
+        val donnees  = lignes.drop(indexEnTete + 1)
+
+        // Format C : la 3e colonne de l'en-tête contient "Type" (ex. "Type de l'opération")
+        // → colonnes fixes distinctes des formats A/B, voir parseLigneFormatC
+        if (colonnes.size >= 6 && colonnes[2].contains("Type", ignoreCase = true)) {
+            return donnees.mapNotNull { parseLigneFormatC(it) }
+        }
+
         // Format B : la 2e colonne de l'en-tête contient "valeur" → décale les colonnes de 1
-        val colonnes  = parseRow(lignes[indexEnTete])
         val offsetLib = if (colonnes.size >= 5 && colonnes[1].contains("valeur", ignoreCase = true)) 1 else 0
 
-        return lignes.drop(indexEnTete + 1).mapNotNull { parseLigne(it, offsetLib) }
+        return donnees.mapNotNull { parseLigne(it, offsetLib) }
     }
 
     // ─── Parsing d'une ligne ──────────────────────────────────────────────────
@@ -79,6 +90,48 @@ object BredCsvParser {
             date         = date,
             amountCents  = amountCents,
             currency     = devise,
+            category     = BredCategoriseur.determinerCategorie(libelle, type),
+            type         = type,
+            note         = libelle,
+            externalId   = BredCategoriseur.genererExternalId("bred", date, libelle, amountCents),
+            rawType      = prefixeOp(libelle),
+            importSource = "bred"
+        )
+    }
+
+    /**
+     * Parse une ligne du Format C (export "historique des opérations" bred.fr).
+     * Colonnes fixes : Date(0) ; Référence(1) ; Type de l'opération(2) ; Catégorie(3) ;
+     * Sous catégorie(4) ; Montant(5) ; Commentaire(6) ; Détail 1(7) ; Détail 2..6(8-12).
+     *
+     * Le libellé est reconstruit à partir du type d'opération + Détail 1 (ex. marchand
+     * et date pour une carte) pour rester compatible avec les heuristiques de
+     * [BredCategoriseur.determinerCategorie], écrites pour un libellé du style
+     * "CARTE FNAC LE 12/04/26…" ou "PRELEVEMENT SEPA CANAL+ FRANCE".
+     *
+     * Colonnes optionnelles : `parseRow` ne restitue pas le dernier champ vide d'une
+     * ligne qui se termine par ";" (voir ses tests), donc Détail 1 peut être absent
+     * sur les lignes sans détail (ex. INTERETS FORFAITAIRES) — on tolère c.size >= 6.
+     */
+    private fun parseLigneFormatC(ligne: String): ImportedTransaction? {
+        val c = parseRow(ligne)
+        if (c.size < 6) return null
+
+        val date    = parseDate(c[0]) ?: return null
+        val typeOp  = c[2].trim()
+        val montant = parseMontantFr(c[5]) ?: return null
+        if (abs(montant) < 0.001) return null
+
+        val detail1 = c.getOrNull(7)?.trim().orEmpty()
+        val libelle = if (detail1.isNotBlank()) "$typeOp $detail1" else typeOp
+
+        val amountCents = abs((montant * 100).roundToLong())
+        val type        = if (montant >= 0) TransactionType.INCOME else TransactionType.EXPENSE
+
+        return ImportedTransaction(
+            date         = date,
+            amountCents  = amountCents,
+            currency     = Currency.EUR,
             category     = BredCategoriseur.determinerCategorie(libelle, type),
             type         = type,
             note         = libelle,

@@ -29,6 +29,19 @@ class BredCsvParserTest {
             .joinToString("\n")
             .toByteArray(Charsets.UTF_8)
 
+    /**
+     * Format C : export "historique des opérations" bred.fr (13 colonnes).
+     * Date de l'opération;Référence;Type de l'opération;Catégorie;Sous catégorie;
+     * Montant;Commentaire;Détail 1;Détail 2;Détail 3;Détail 4;Détail 5;Détail 6
+     */
+    private fun csvFormatC(vararg lignes: String): ByteArray =
+        (listOf(
+            "Date de l'opération;Référence de l'opération;Type de l'opération;Catégorie;" +
+                "Sous catégorie;Montant;Commentaire;Détail 1;Détail 2;Détail 3;Détail 4;Détail 5;Détail 6"
+        ) + lignes.toList())
+            .joinToString("\n")
+            .toByteArray(Charsets.UTF_8)
+
     // ─── Cas limites ──────────────────────────────────────────────────────────
 
     @Test
@@ -111,6 +124,85 @@ class BredCsvParserTest {
         assertEquals(12050L, tx.amountCents)
         assertEquals(TransactionType.EXPENSE, tx.type)
         assertEquals("PRLV SEPA EDF ENERGIE", tx.note)
+    }
+
+    // ─── Format C - 13 colonnes (export "historique des opérations" bred.fr) ──
+
+    @Test
+    fun `dépense carte est parsée correctement (format C)`() {
+        val result = BredCsvParser.parse(
+            csvFormatC(
+                "04/08/2026;5818051;CARTE               ;Alimentation;Supermarché;-4,99;;" +
+                    "INTERMARCHE     LE 03/08/26                                                   ;" +
+                    "REF  CB.XXXXX9968                                                            ;" +
+                    "ORIGINE : FRANCE            MONTANT : 4,99 EUR                               ;"
+            ).inputStream()
+        )
+
+        assertEquals(1, result.size)
+        val tx = result[0]
+        assertEquals(LocalDate.of(2026, 8, 4), tx.date)
+        assertEquals(499L, tx.amountCents)
+        assertEquals(TransactionType.EXPENSE, tx.type)
+        assertEquals(Currency.EUR, tx.currency)
+        assertEquals(Category.ALIMENTATION, tx.category)
+        assertEquals("bred", tx.importSource)
+    }
+
+    @Test
+    fun `prélèvement SEPA CANAL+ est catégorisé ABONNEMENTS (format C)`() {
+        val result = BredCsvParser.parse(
+            csvFormatC(
+                "04/08/2026;2974750;PRELEVEMENT SEPA    ;Loisirs;Sport, Hobby, Culture;-69,99;;" +
+                    "CANAL+ FRANCE                                                                 ;" +
+                    "PRLV CANAL ABONNEMENT MENSUEL                                                ;"
+            ).inputStream()
+        )
+
+        assertEquals(1, result.size)
+        assertEquals(Category.ABONNEMENTS, result[0].category)
+        assertEquals(6999L, result[0].amountCents)
+        assertEquals(TransactionType.EXPENSE, result[0].type)
+    }
+
+    @Test
+    fun `virement instantané émis est catégorisé TRANSFERTS (format C)`() {
+        val result = BredCsvParser.parse(
+            csvFormatC(
+                "28/07/2026;f58ddaa;VIREMENT INSTANTANE EMIS;A catégoriser;A catégoriser;-135,00;;" +
+                    "PAMELA GEDEON                                                                 ;"
+            ).inputStream()
+        )
+
+        assertEquals(1, result.size)
+        assertEquals(Category.TRANSFERTS, result[0].category)
+        assertEquals(TransactionType.EXPENSE, result[0].type)
+    }
+
+    @Test
+    fun `virement instantané reçu est INCOME catégorisé AUTRE (format C)`() {
+        val result = BredCsvParser.parse(
+            csvFormatC(
+                "08/07/2026;0260708;VIREMENT INSTANTANE RECU;Revenus;Autres revenus;5,00;;" +
+                    "ADELINE LESCANNE GAUTIER                                                      ;"
+            ).inputStream()
+        )
+
+        assertEquals(1, result.size)
+        assertEquals(TransactionType.INCOME, result[0].type)
+        assertEquals(Category.AUTRE, result[0].category)
+    }
+
+    @Test
+    fun `ligne sans Détail 1 (colonnes optionnelles absentes) est tout de même parsée (format C)`() {
+        // Cas des lignes courtes type INTERETS FORFAITAIRES, sans aucun détail après le commentaire
+        val result = BredCsvParser.parse(
+            csvFormatC("13/04/2026;1064209;INTERETS FORFAITAIRES;Banque / Assurance;Autres;-3,00;;").inputStream()
+        )
+
+        assertEquals(1, result.size)
+        assertEquals(300L, result[0].amountCents)
+        assertEquals(Category.AUTRE, result[0].category)
     }
 
     // ─── Catégorisation automatique - libellés réels BRED (depuis relevé PDF) ──
