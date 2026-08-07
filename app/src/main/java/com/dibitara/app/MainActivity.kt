@@ -49,6 +49,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // `by viewModels()` est paresseux : sans cette lecture explicite, appViewModel n'est
+        // jamais instancié (donc son init{} jamais exécuté) tant que la permission notifications
+        // est déjà accordée - seul autre endroit où la propriété était lue (voir le callback ci-dessus).
+        appViewModel
         demanderPermissionNotificationsSiNecessaire()
         setContent {
             DibitaraTheme {
