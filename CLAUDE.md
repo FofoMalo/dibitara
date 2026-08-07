@@ -60,6 +60,17 @@ Clean Architecture en 3 couches :
 
 Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCase → Repository → DataSource`.
 
+- **Piège `by viewModels()` (Activity) :** ce délégué est paresseux — déclarer
+  `private val vm: AppViewModel by viewModels()` ne l'instancie pas tant que
+  la propriété n'est pas lue au moins une fois. Bug rencontré en 2026-08 sur
+  `MainActivity` : le seul point de lecture de `appViewModel` était le
+  callback de la demande de permission notifications, jamais déclenché si la
+  permission est déjà accordée — toute la logique de démarrage (récurrences,
+  notifications, migrations) placée dans `AppViewModel.init` ne s'exécutait
+  donc jamais sur un appareil réel. Fix : lire explicitement la propriété
+  dans `onCreate` (ex. `appViewModel` en instruction seule) pour forcer
+  l'instanciation.
+
 ## Schéma Room — Version actuelle : v21
 
 | Migration | Contenu |
@@ -97,6 +108,7 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 - **Les ViewModels** exposent des `StateFlow` ou `LiveData`, jamais de logique métier directe.
 - **Devises :** toujours stocker les montants en centimes (Long) avec la devise associée ; la conversion se fait dans la couche `domain`.
 - **Migrations Room :** chaque modification de schéma incrémente `version` d'exactement 1 et requiert une migration + le fichier `N.json` exporté. Ne jamais utiliser `fallbackToDestructiveMigration` en production.
+- **Promouvoir une sous-catégorie personnalisée en `Category` à part entière :** `Category` est stockée en base comme `String` (colonne `category` sur `transactions`, avec `safeValueOf` en fallback) — ajouter une valeur à l'enum ne nécessite **pas** de migration Room. Seule la donnée doit être réconciliée : un `UseCase` applicatif (pas une migration de schéma) réassigne les transactions liées à l'ancienne `CustomSubCategory` vers la nouvelle `Category` et supprime la sous-catégorie devenue orpheline. Cas réel : `MigrerTabacVersCategorieUseCase` (2026-08), nécessaire car `CategoryEnvelope` ne peut cibler qu'une `Category`, jamais une sous-catégorie personnalisée.
 - **Messages de commit :** sujet verbe complément, en français, sans Co-Authored-By.
 
 ## Conventions UI / Design
