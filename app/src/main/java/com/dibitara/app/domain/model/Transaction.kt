@@ -55,6 +55,8 @@ enum class Category(val displayName: String) {
     ASSURANCES         ("Assurances"),
     TRANSFERTS         ("Transferts"),
     TRANSFERTS_FAMILIAUX("Transferts famille"), // envois famille élargie, tontines, njangi
+    TABAC              ("Tabac"),             // promue depuis une sous-catégorie AUTRE : usage assez
+                                               // fréquent et régulier pour justifier une enveloppe dédiée
     AUTRE              ("Autre")            // toujours en dernier - fallback de safeValueOf
 }
 

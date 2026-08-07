@@ -80,10 +80,11 @@ class GetMonthlyReportUseCase @Inject constructor(
                         else -> firstTx.category.displayName
                     }
                     CategoryExpense(
-                        category     = firstTx.category,
-                        totalCents   = total,
-                        pourcentage  = if (depenses > 0) total.toFloat() / depenses * 100f else 0f,
-                        displayLabel = label
+                        category           = firstTx.category,
+                        totalCents         = total,
+                        pourcentage        = if (depenses > 0) total.toFloat() / depenses * 100f else 0f,
+                        displayLabel       = label,
+                        nombreTransactions = transactions.size
                     )
                 }
                 .sortedByDescending { it.totalCents }

@@ -35,6 +35,7 @@ val Category.bucket: BudgetBucket?
         Category.LOISIRS,
         Category.ABONNEMENTS,
         Category.HABILLEMENT,
+        Category.TABAC,
         Category.TRANSFERTS_FAMILIAUX -> BudgetBucket.ENVIES
 
         Category.EPARGNE,

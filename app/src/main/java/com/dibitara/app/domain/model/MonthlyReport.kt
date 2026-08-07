@@ -27,12 +27,15 @@ data class MonthlyReport(
  * [pourcentage] est entre 0.0 et 100.0.
  * [displayLabel] remplace [category.displayName] pour les sous-catégories d'AUTRE,
  * afin d'afficher "Cadeaux" ou "Netflix" au lieu de "Autre".
+ * [nombreTransactions] permet de distinguer une catégorie à forte fréquence (habitude,
+ * beaucoup de petites transactions) d'une catégorie à fort montant mais ponctuelle.
  */
 data class CategoryExpense(
     val category: Category,
     val totalCents: Long,
     val pourcentage: Float,
-    val displayLabel: String = category.displayName
+    val displayLabel: String = category.displayName,
+    val nombreTransactions: Int = 0
 )
 
 /**

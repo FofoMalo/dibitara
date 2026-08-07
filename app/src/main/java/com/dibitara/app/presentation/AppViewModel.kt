@@ -9,6 +9,7 @@ import com.dibitara.app.domain.usecase.CheckEnveloppeDepassementUseCase
 import com.dibitara.app.domain.usecase.CheckPendingContributionsUseCase
 import com.dibitara.app.domain.usecase.GenerateRecurringUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
+import com.dibitara.app.domain.usecase.MigrerTabacVersCategorieUseCase
 import com.dibitara.app.presentation.common.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
@@ -19,8 +20,9 @@ import javax.inject.Inject
 /**
  * ViewModel attaché à MainActivity.
  * Déclenche au démarrage :
- *  1. La génération des transactions récurrentes du mois.
- *  2. Les vérifications de notification (budget, dettes, liquidités).
+ *  1. La migration ponctuelle de la sous-catégorie "Tabac" vers Category.TABAC (idempotente).
+ *  2. La génération des transactions récurrentes du mois.
+ *  3. Les vérifications de notification (budget, dettes, liquidités).
  * Le seuil d'alerte est lu depuis les préférences utilisateur - pas de valeur codée en dur.
  */
 @HiltViewModel
@@ -31,12 +33,14 @@ class AppViewModel @Inject constructor(
     private val checkAvailableFunds        : CheckAvailableFundsUseCase,
     private val checkPendingContributions  : CheckPendingContributionsUseCase,
     private val checkEnveloppes            : CheckEnveloppeDepassementUseCase,
+    private val migrerTabac                : MigrerTabacVersCategorieUseCase,
     private val getPreferences             : GetUserPreferencesUseCase,
     private val notificationHelper         : NotificationHelper
 ) : ViewModel() {
 
     init {
         viewModelScope.launch {
+            migrerTabac()
             generateRecurring()
             verifierNotifications()
         }

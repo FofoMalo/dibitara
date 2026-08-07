@@ -236,6 +236,17 @@ private fun TopCategoriesCard(report: MonthlyReport) {
                             fontWeight = FontWeight.SemiBold
                         )
                     }
+                    // Fréquence : un montant élevé n'est pas toujours l'usage le plus fréquent
+                    // (ex. une habitude à petites dépenses répétées vs une dépense ponctuelle importante).
+                    if (catExp.nombreTransactions > 0) {
+                        val moyenneCents = catExp.totalCents / catExp.nombreTransactions
+                        Text(
+                            "×${catExp.nombreTransactions} · " +
+                            "${moyenneCents.toCurrencyDisplay(report.currency)} en moyenne",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     LinearProgressIndicator(
                         progress = { catExp.pourcentage / 100f },
                         modifier = Modifier.fillMaxWidth()

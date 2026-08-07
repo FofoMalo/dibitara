@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
+import com.dibitara.app.domain.model.EnveloppeStatus
 import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.MonthlyExpense
 import com.dibitara.app.domain.model.MonthlyReport
@@ -13,6 +14,7 @@ import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.domain.usecase.CalculerTendancePatrimoineUseCase
 import com.dibitara.app.domain.usecase.GetCashflowProjectionUseCase
+import com.dibitara.app.domain.usecase.GetEnveloppesEnAlerteUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyReportUseCase
 import com.dibitara.app.domain.usecase.GetPatrimoineHistoryUseCase
 import com.dibitara.app.domain.usecase.GetPatrimonyOverviewUseCase
@@ -41,6 +43,7 @@ class DashboardViewModel @Inject constructor(
     private val getPreferences         : GetUserPreferencesUseCase,
     private val getCashflowProjection    : GetCashflowProjectionUseCase,
     private val getRecategorizations     : GetRecategorizationSuggestionsUseCase,
+    private val getEnveloppesEnAlerte    : GetEnveloppesEnAlerteUseCase,
     private val getPatrimoineHistory     : GetPatrimoineHistoryUseCase,
     private val calculerTendance         : CalculerTendancePatrimoineUseCase,
     private val updateTransaction        : UpdateTransactionUseCase,
@@ -94,7 +97,10 @@ class DashboardViewModel @Inject constructor(
     ) { (q, cashflow), recats -> Triple(q, cashflow, recats) }
     .combine(
         getPatrimoineHistory()
-    ) { (q, cashflow, recats), history ->
+    ) { (q, cashflow, recats), history -> QuadrupleBis(q, cashflow, recats, history) }
+    .combine(
+        getEnveloppesEnAlerte()
+    ) { (q, cashflow, recats, history), enveloppesEnAlerte ->
         val prefs = q.fifth
         DashboardUiState.Success(
             overview                    = q.first,
@@ -103,6 +109,7 @@ class DashboardViewModel @Inject constructor(
             rapportMensuel              = if (prefs.afficherRapportMensuel) q.third else null,
             cashflowProjection          = cashflow,
             recategorizationSuggestions = recats,
+            enveloppesEnAlerte          = enveloppesEnAlerte,
             patrimoineTrendPct          = calculerTendance(history),
             cardOrder                   = prefs.dashboardCardOrder
         ) as DashboardUiState
@@ -163,6 +170,11 @@ class DashboardViewModel @Inject constructor(
     private data class Quintuple<A, B, C, D, E>(
         val first: A, val second: B, val third: C, val fourth: D, val fifth: E
     )
+
+    // Tuple interne pour l'étape combine suivante (Triple + historique patrimoine)
+    private data class QuadrupleBis<A, B, C, D>(
+        val first: A, val second: B, val third: C, val fourth: D
+    )
 }
 
 sealed class DashboardUiState {
@@ -174,6 +186,7 @@ sealed class DashboardUiState {
         val rapportMensuel              : MonthlyReport?                    = null,
         val cashflowProjection          : CashflowProjection?               = null,
         val recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
+        val enveloppesEnAlerte          : List<EnveloppeStatus>             = emptyList(),
         val patrimoineTrendPct          : Float?                            = null,
         val cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList()
     ) : DashboardUiState()

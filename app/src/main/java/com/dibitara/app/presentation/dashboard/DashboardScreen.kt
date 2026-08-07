@@ -21,6 +21,7 @@ import androidx.navigation.NavHostController
 import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
+import com.dibitara.app.domain.model.EnveloppeStatus
 import com.dibitara.app.domain.model.MonthlyExpense
 import com.dibitara.app.domain.model.MonthlyReport
 import com.dibitara.app.domain.model.PatrimonyOverview
@@ -30,6 +31,7 @@ import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.ProjectionSparkline
 import com.dibitara.app.presentation.common.TrendChip
+import com.dibitara.app.presentation.common.chartIcon
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.presentation.navigation.Screen
 import java.time.format.DateTimeFormatter
@@ -96,6 +98,7 @@ fun DashboardScreen(
                     rapportMensuel              = state.rapportMensuel,
                     cashflowProjection          = state.cashflowProjection,
                     recategorizationSuggestions = state.recategorizationSuggestions,
+                    enveloppesEnAlerte          = state.enveloppesEnAlerte,
                     patrimoineTrendPct          = state.patrimoineTrendPct,
                     cardOrder                   = state.cardOrder,
                     isEditMode                  = isEditMode,
@@ -126,6 +129,7 @@ private fun DashboardContent(
     rapportMensuel              : MonthlyReport?                    = null,
     cashflowProjection          : CashflowProjection?               = null,
     recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
+    enveloppesEnAlerte          : List<EnveloppeStatus>             = emptyList(),
     patrimoineTrendPct          : Float?                            = null,
     cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList(),
     isEditMode                  : Boolean                           = false,
@@ -188,6 +192,7 @@ private fun DashboardContent(
                         rapportMensuel          = rapportMensuel,
                         cashflowProjection      = cashflowProjection,
                         recategorizationSuggestions = recategorizationSuggestions,
+                        enveloppesEnAlerte      = enveloppesEnAlerte,
                         isEditMode              = isEditMode,
                         dragHandleModifier      = Modifier.draggableHandle(),
                         onNavigateToDebts       = onNavigateToDebts,
@@ -219,6 +224,7 @@ private fun DashboardCardSlot(
     rapportMensuel              : MonthlyReport?,
     cashflowProjection          : CashflowProjection?,
     recategorizationSuggestions : List<RecategorizationSuggestion>,
+    enveloppesEnAlerte          : List<EnveloppeStatus>,
     isEditMode                  : Boolean,
     dragHandleModifier          : Modifier,
     onNavigateToDebts           : () -> Unit,
@@ -237,7 +243,7 @@ private fun DashboardCardSlot(
             Box(modifier = Modifier.weight(1f)) {
                 DashboardCardContent(
                     card, overview, spendingHistory, upcomingPayments, rapportMensuel,
-                    cashflowProjection, recategorizationSuggestions,
+                    cashflowProjection, recategorizationSuggestions, enveloppesEnAlerte,
                     onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
                     onNavigateToSavings, onNavigateToInvestments, onNavigateToExpensesTransaction,
                     onApplyRecategorization, onRefuseRecategorization,
@@ -254,7 +260,7 @@ private fun DashboardCardSlot(
     } else {
         DashboardCardContent(
             card, overview, spendingHistory, upcomingPayments, rapportMensuel,
-            cashflowProjection, recategorizationSuggestions,
+            cashflowProjection, recategorizationSuggestions, enveloppesEnAlerte,
             onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
             onNavigateToSavings, onNavigateToInvestments, onNavigateToExpensesTransaction,
             onApplyRecategorization, onRefuseRecategorization,
@@ -272,6 +278,7 @@ private fun DashboardCardContent(
     rapportMensuel              : MonthlyReport?,
     cashflowProjection          : CashflowProjection?,
     recategorizationSuggestions : List<RecategorizationSuggestion>,
+    enveloppesEnAlerte          : List<EnveloppeStatus>,
     onNavigateToDebts           : () -> Unit,
     onNavigateToReport          : () -> Unit,
     onNavigateToBudget          : () -> Unit,
@@ -315,9 +322,62 @@ private fun DashboardCardContent(
                     onApply     = onApplyRecategorization,
                     onRefuse    = onRefuseRecategorization
                 )
+        DashboardCard.ENVELOPPES_ALERTE ->
+            if (enveloppesEnAlerte.isNotEmpty())
+                EnveloppeAlerteCard(statuts = enveloppesEnAlerte, onClick = onNavigateToBudget)
         DashboardCard.PROCHAINS_PAIEMENTS ->
             if (upcomingPayments.isNotEmpty())
                 UpcomingPaymentsCard(payments = upcomingPayments, onClick = onNavigateToExpensesTransaction)
+    }
+}
+
+/**
+ * Enveloppes budgétaires (Sprint 40) dont le taux de dépense dépasse le seuil d'alerte
+ * ce mois-ci. Même esprit que [RecategorizationCard] : carte conditionnelle, cap à 3
+ * lignes, clic → écran Budget pour voir le détail et ajuster.
+ */
+@Composable
+private fun EnveloppeAlerteCard(statuts: List<EnveloppeStatus>, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "${statuts.size} enveloppe${if (statuts.size > 1) "s" else ""} proche${if (statuts.size > 1) "s" else ""} du plafond",
+                style      = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            statuts.take(3).forEach { statut ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(
+                            imageVector        = statut.envelope.category.chartIcon(),
+                            contentDescription = null,
+                            modifier           = Modifier.size(18.dp),
+                            tint = if (statut.isDepasse) MaterialTheme.colorScheme.error
+                                   else MaterialTheme.colorScheme.tertiary
+                        )
+                        Text(statut.envelope.category.displayName, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Text(
+                        "${statut.depenseCents.toCurrencyDisplay(statut.envelope.currency)} / " +
+                        statut.envelope.plafondCents.toCurrencyDisplay(statut.envelope.currency),
+                        style      = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (statut.isDepasse) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 

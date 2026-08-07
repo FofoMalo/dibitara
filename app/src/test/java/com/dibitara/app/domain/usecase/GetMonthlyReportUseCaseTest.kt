@@ -152,4 +152,23 @@ class GetMonthlyReportUseCaseTest {
 
         assertEquals(75f, logement.pourcentage, 0.1f) // 75 000 / 100 000 * 100 = 75%
     }
+
+    @Test
+    fun `nombreTransactions compte les transactions par catégorie`() = runTest {
+        every { getMonthlyTransactions(mois, annee) } returns flowOf(listOf(
+            buildTransaction(TransactionType.EXPENSE, 1_000L, Category.LOISIRS),
+            buildTransaction(TransactionType.EXPENSE, 1_000L, Category.LOISIRS),
+            buildTransaction(TransactionType.EXPENSE, 1_000L, Category.LOISIRS),
+            buildTransaction(TransactionType.EXPENSE, 50_000L, Category.LOGEMENT)
+        ))
+        every { getMonthlyTransactions(4, annee) } returns flowOf(emptyList())
+        every { getMonthlyBudget(mois, annee) } returns flowOf(null)
+
+        val rapport = useCase(mois, annee).first()
+        val loisirs  = rapport.topCategories.first { it.category == Category.LOISIRS }
+        val logement = rapport.topCategories.first { it.category == Category.LOGEMENT }
+
+        assertEquals(3, loisirs.nombreTransactions)
+        assertEquals(1, logement.nombreTransactions)
+    }
 }

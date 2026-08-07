@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SmokingRooms
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -47,6 +48,7 @@ fun Category.chartColor(): Color = when (this) {
     Category.ASSURANCES            -> Color(0xFF3F51B5)
     Category.TRANSFERTS            -> Color(0xFFFF5722)
     Category.TRANSFERTS_FAMILIAUX  -> Color(0xFF8BC34A)
+    Category.TABAC                 -> Color(0xFF8D6E63) // brun, distinct du gris réservé à AUTRE
     Category.AUTRE                 -> Color(0xFF9E9E9E)
 }
 
@@ -66,5 +68,6 @@ fun Category.chartIcon(): ImageVector = when (this) {
     Category.ASSURANCES            -> Icons.Filled.Shield
     Category.TRANSFERTS            -> Icons.Filled.SwapHoriz
     Category.TRANSFERTS_FAMILIAUX  -> Icons.Filled.Groups
+    Category.TABAC                 -> Icons.Filled.SmokingRooms
     Category.AUTRE                 -> Icons.Filled.MoreHoriz
 }
