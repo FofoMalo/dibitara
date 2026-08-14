@@ -22,6 +22,7 @@ import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.usecase.ImportResult
+import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.format.DateTimeFormatter
 
 /**
@@ -236,11 +237,8 @@ internal fun LigneTransaction(
     onModifierCategorie: (Category) -> Unit = {}
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yy") }
-    val montantStr = buildString {
-        append(if (tx.type == TransactionType.INCOME) "+" else "-")
-        append("%.2f".format(tx.amountCents / 100.0).replace('.', ','))
-        append(" ${tx.currency.symbol}")
-    }
+    val montantStr = "${if (tx.type == TransactionType.INCOME) "+" else "-"} " +
+        tx.amountCents.toCurrencyDisplay(tx.currency)
     val couleurMontant = if (tx.type == TransactionType.INCOME)
         MaterialTheme.colorScheme.primary
     else
