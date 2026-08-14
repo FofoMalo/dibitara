@@ -25,11 +25,12 @@ import javax.inject.Inject
  * si l'une des sources est modifiée.
  */
 class GetMonthlyReportUseCase @Inject constructor(
-    private val getMonthlyTransactions   : GetMonthlyTransactionsUseCase,
-    private val getMonthlyBudget         : GetMonthlyBudgetUseCase,
-    private val getCustomSubCategories   : GetCustomSubCategoriesUseCase,
-    private val userPreferencesRepository: UserPreferencesRepository,
-    private val exchangeRateRepository   : ExchangeRateRepository
+    private val getMonthlyTransactions      : GetMonthlyTransactionsUseCase,
+    private val getMonthlyBudget            : GetMonthlyBudgetUseCase,
+    private val getCustomSubCategories      : GetCustomSubCategoriesUseCase,
+    private val userPreferencesRepository   : UserPreferencesRepository,
+    private val exchangeRateRepository      : ExchangeRateRepository,
+    private val identifierVirementsInternes : IdentifierVirementsInternesUseCase
 ) {
     operator fun invoke(month: Int, year: Int): Flow<MonthlyReport> {
         val datePrecedente = LocalDate.of(year, month, 1).minusMonths(1)
@@ -46,7 +47,14 @@ class GetMonthlyReportUseCase @Inject constructor(
             getMonthlyBudget(month, year),
             getCustomSubCategories(),
             conversionFlow
-        ) { current, previous, budget, customSubCats, (targetCurrency, rates) ->
+        ) { currentBrut, previousBrut, budget, customSubCats, (targetCurrency, rates) ->
+
+            // Exclut les virements internes BRED↔TradeRepublic appariés : un déplacement entre
+            // comptes suivis n'est ni un revenu ni une dépense réelle (voir IdentifierVirementsInternesUseCase).
+            val idsExclusCurrent  = identifierVirementsInternes(currentBrut)
+            val idsExclusPrevious = identifierVirementsInternes(previousBrut)
+            val current  = currentBrut.filterNot { it.id in idsExclusCurrent }
+            val previous = previousBrut.filterNot { it.id in idsExclusPrevious }
 
             fun Long.cvt(from: Currency) =
                 CurrencyConverter.convertCents(this, from, targetCurrency, rates)

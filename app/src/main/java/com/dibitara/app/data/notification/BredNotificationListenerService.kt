@@ -4,6 +4,7 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.dibitara.app.BuildConfig
 import com.dibitara.app.data.importcsv.BredNotificationParser
 import com.dibitara.app.domain.usecase.CapturerTransactionLiveUseCase
 import com.dibitara.app.presentation.common.NotificationHelper
@@ -12,10 +13,18 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.io.File
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 private const val PACKAGE_BRED = "fr.bred.fr"
 private const val TAG = "BredNotifListener"
+
+// Fichier de diagnostic temporaire (chantier "capture live BRED ne capture rien", 2026-08-13) :
+// logcat ne survit pas à une déconnexion adb, donc on trace aussi dans le stockage privé de
+// l'app pour pouvoir relire l'historique quand le téléphone est reconnecté, même des jours après.
+// À retirer une fois la cause du problème de capture confirmée et corrigée.
+private const val NOM_FICHIER_DEBUG = "bred_notif_debug.log"
 
 /**
  * Capture en direct les paiements carte BRED via les notifications push de l'app officielle.
@@ -42,14 +51,38 @@ class BredNotificationListenerService : NotificationListenerService() {
             return
         }
 
-        val texte = sbn.notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: return
-        val transaction = BredNotificationParser.parse(texte) ?: return
+        val texte = sbn.notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+        if (texte == null) {
+            Log.d(TAG, "Notification BRED reçue sans EXTRA_TEXT")
+            ecrireLogDebug("Notification BRED reçue sans EXTRA_TEXT")
+            return
+        }
 
+        val transaction = BredNotificationParser.parse(texte)
+        if (transaction == null) {
+            // Texte affiché uniquement en debug : contient le montant et le marchand.
+            Log.d(TAG, "Notification BRED reçue mais non reconnue par le parseur : \"$texte\"")
+            ecrireLogDebug("NON RECONNUE : \"$texte\"")
+            return
+        }
+
+        ecrireLogDebug("RECONNUE : ${transaction.amountCents} centimes, ${transaction.note}")
         scope.launch {
             val insere = capturerTransactionLive(transaction)
             if (insere) {
                 notificationHelper.envoyerConfirmationCaptureLive(transaction.amountCents, transaction.note)
             }
+        }
+    }
+
+    /**
+     * Trace chaque notification BRED reçue dans un fichier privé à l'app, lisible même sans
+     * connexion adb au moment de l'événement (voir commentaire sur [NOM_FICHIER_DEBUG]).
+     */
+    private fun ecrireLogDebug(message: String) {
+        if (!BuildConfig.DEBUG) return
+        runCatching {
+            File(filesDir, NOM_FICHIER_DEBUG).appendText("${LocalDateTime.now()} $message\n")
         }
     }
 }

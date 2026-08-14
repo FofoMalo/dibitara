@@ -48,6 +48,7 @@ fun SettingsScreen(
     onNavigateToImportBred: () -> Unit = {},
     onNavigateToImportBredPdf: () -> Unit = {},
     onNavigateToDuplicateCleanup: () -> Unit = {},
+    onNavigateToBankAccounts: () -> Unit = {},
     onSupprimerDonnees: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -446,6 +447,13 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Nettoyer les doublons")
+                }
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(
+                    onClick = onNavigateToBankAccounts,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Gérer mes comptes bancaires")
                 }
             }
 

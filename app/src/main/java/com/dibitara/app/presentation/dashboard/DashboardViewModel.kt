@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dibitara.app.domain.model.BankAccountsSummary
 import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
@@ -13,6 +14,7 @@ import com.dibitara.app.domain.model.PatrimonyOverview
 import com.dibitara.app.domain.model.RecategorizationSuggestion
 import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.domain.usecase.CalculerTendancePatrimoineUseCase
+import com.dibitara.app.domain.usecase.GetBankAccountsSummaryUseCase
 import com.dibitara.app.domain.usecase.GetCashflowProjectionUseCase
 import com.dibitara.app.domain.usecase.GetEnveloppesEnAlerteUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyReportUseCase
@@ -24,6 +26,7 @@ import com.dibitara.app.domain.usecase.GetUpcomingPaymentsUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateDashboardCardOrderUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
+import com.dibitara.app.domain.usecase.UpdateMasquerMontantsUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
 import com.dibitara.app.domain.usecase.UpsertCategorizationRuleUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,12 +47,14 @@ class DashboardViewModel @Inject constructor(
     private val getCashflowProjection    : GetCashflowProjectionUseCase,
     private val getRecategorizations     : GetRecategorizationSuggestionsUseCase,
     private val getEnveloppesEnAlerte    : GetEnveloppesEnAlerteUseCase,
+    private val getBankAccountsSummary   : GetBankAccountsSummaryUseCase,
     private val getPatrimoineHistory     : GetPatrimoineHistoryUseCase,
     private val calculerTendance         : CalculerTendancePatrimoineUseCase,
     private val updateTransaction        : UpdateTransactionUseCase,
     private val updateCardOrder          : UpdateDashboardCardOrderUseCase,
     private val ucUpsertRule             : UpsertCategorizationRuleUseCase,
-    private val updateDevise             : UpdateDeviseParDefautUseCase
+    private val updateDevise             : UpdateDeviseParDefautUseCase,
+    private val updateMasquerMontants    : UpdateMasquerMontantsUseCase
 ) : ViewModel() {
 
     private val _isEditMode = MutableStateFlow(false)
@@ -60,6 +65,16 @@ class DashboardViewModel @Inject constructor(
     /** Changement rapide de devise par défaut depuis le chip du Dashboard (raccourci vers Paramètres). */
     fun changerDevise(currency: Currency) {
         viewModelScope.launch { updateDevise(currency) }
+    }
+
+    /**
+     * Bascule le masquage global des montants (icône œil du Dashboard).
+     * La préférence persistée est observée ailleurs par [com.dibitara.app.presentation.AppViewModel]
+     * pour alimenter [com.dibitara.app.presentation.common.LocalMontantsMasques] - aucun couplage direct requis.
+     */
+    fun toggleMasquerMontants() {
+        val prefsActuelles = (uiState.value as? DashboardUiState.Success)?.masquerMontants ?: false
+        viewModelScope.launch { updateMasquerMontants(!prefsActuelles) }
     }
 
     /**
@@ -101,6 +116,12 @@ class DashboardViewModel @Inject constructor(
     .combine(
         getEnveloppesEnAlerte()
     ) { (q, cashflow, recats, history), enveloppesEnAlerte ->
+        QuadrupleBis(q, cashflow, recats, history) to enveloppesEnAlerte
+    }
+    .combine(
+        getBankAccountsSummary()
+    ) { (qcrh, enveloppesEnAlerte), comptesSummary ->
+        val (q, cashflow, recats, history) = qcrh
         val prefs = q.fifth
         DashboardUiState.Success(
             overview                    = q.first,
@@ -110,8 +131,10 @@ class DashboardViewModel @Inject constructor(
             cashflowProjection          = cashflow,
             recategorizationSuggestions = recats,
             enveloppesEnAlerte          = enveloppesEnAlerte,
+            comptesSummary              = comptesSummary,
             patrimoineTrendPct          = calculerTendance(history),
-            cardOrder                   = prefs.dashboardCardOrder
+            cardOrder                   = prefs.dashboardCardOrder,
+            masquerMontants             = prefs.masquerMontants
         ) as DashboardUiState
     }
         .catch { emit(DashboardUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -187,8 +210,10 @@ sealed class DashboardUiState {
         val cashflowProjection          : CashflowProjection?               = null,
         val recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
         val enveloppesEnAlerte          : List<EnveloppeStatus>             = emptyList(),
+        val comptesSummary              : BankAccountsSummary                = BankAccountsSummary(emptyList(), 0L, Currency.EUR),
         val patrimoineTrendPct          : Float?                            = null,
-        val cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList()
+        val cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList(),
+        val masquerMontants             : Boolean                           = false
     ) : DashboardUiState()
     data class Error(val message: String) : DashboardUiState()
 }

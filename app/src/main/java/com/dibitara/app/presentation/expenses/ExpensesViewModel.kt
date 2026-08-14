@@ -3,6 +3,7 @@ package com.dibitara.app.presentation.expenses
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlin.math.roundToLong
+import com.dibitara.app.domain.model.BankAccount
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
@@ -15,7 +16,9 @@ import com.dibitara.app.domain.usecase.AddTransactionUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomSubCategoryUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
+import com.dibitara.app.domain.usecase.GetBankAccountsUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
+import com.dibitara.app.domain.usecase.IdentifierVirementsInternesUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
 import com.dibitara.app.domain.usecase.GetTransactionByIdUseCase
 import com.dibitara.app.domain.usecase.GetTransactionSuggestionsUseCase
@@ -48,12 +51,17 @@ class ExpensesViewModel @Inject constructor(
     private val ucGetSuggestions         : GetTransactionSuggestionsUseCase,
     private val ucUpsertRule             : UpsertCategorizationRuleUseCase,
     private val ucGetTransactionById     : GetTransactionByIdUseCase,
+    private val ucGetBankAccounts        : GetBankAccountsUseCase,
+    private val identifierVirementsInternes : IdentifierVirementsInternesUseCase,
     savedStateHandle                     : SavedStateHandle
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
         .map { it.deviseParDefaut }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
+
+    val bankAccounts: StateFlow<List<BankAccount>> = ucGetBankAccounts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // Suggestions de saisie rapide - issues des 30 derniers jours, fréquence ≥ 2
     val suggestions: StateFlow<List<TransactionSuggestion>> = ucGetSuggestions()
@@ -79,7 +87,8 @@ class ExpensesViewModel @Inject constructor(
                 ?.let { runCatching { Category.valueOf(it) }.getOrNull() },
             transactionType = savedStateHandle.get<String>("type")
                 ?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
-                ?: TransactionType.EXPENSE
+                ?: TransactionType.EXPENSE,
+            bankAccountId = savedStateHandle.get<String>("bankAccountId")?.toLongOrNull()
         )
     )
     val filter: StateFlow<ExpensesFilter> = _filter.asStateFlow()
@@ -127,9 +136,13 @@ class ExpensesViewModel @Inject constructor(
             FilterPeriod.ALL           -> ucGetAll()
         }
         combine(transactionsFlow, ucGetCustomSubCategories()) { transactions, customSubCats ->
+            // Calculé sur la liste brute, avant filter.apply() : le filtre par défaut ne montre
+            // que les EXPENSE, ce qui exclurait la moitié de chaque paire (le côté TradeRepublic
+            // est un INCOME) et empêcherait l'appariement.
             ExpensesUiState.Success(
-                expenses            = filter.apply(transactions),
-                customSubCategories = customSubCats
+                expenses             = filter.apply(transactions),
+                customSubCategories  = customSubCats,
+                virementsInternesIds = identifierVirementsInternes(transactions)
             ) as ExpensesUiState
         }
     }
@@ -320,12 +333,14 @@ data class ExpensesFilter(
     val category        : Category?           = null,
     val period          : FilterPeriod        = FilterPeriod.CURRENT_MONTH,
     val transactionType : TransactionType?    = TransactionType.EXPENSE,
-    val sort            : SortOrder           = SortOrder.DATE_DESC
+    val sort            : SortOrder           = SortOrder.DATE_DESC,
+    val bankAccountId   : Long?                = null
 ) {
     fun apply(transactions: List<Transaction>): List<Transaction> =
         transactions
             .filter { transactionType == null || it.type == transactionType }
             .filter { category == null || it.category == category }
+            .filter { bankAccountId == null || it.bankAccountId == bankAccountId }
             .filter { query.isBlank() || it.note.contains(query, ignoreCase = true) }
             .let { list ->
                 when (sort) {
@@ -352,8 +367,9 @@ enum class SortOrder(val label: String) {
 sealed class ExpensesUiState {
     data object Loading : ExpensesUiState()
     data class Success(
-        val expenses            : List<Transaction>,
-        val customSubCategories : List<CustomSubCategory> = emptyList()
+        val expenses             : List<Transaction>,
+        val customSubCategories  : List<CustomSubCategory> = emptyList(),
+        val virementsInternesIds : Set<Long>                = emptySet()
     ) : ExpensesUiState()
     data class Error(val message: String) : ExpensesUiState()
 }

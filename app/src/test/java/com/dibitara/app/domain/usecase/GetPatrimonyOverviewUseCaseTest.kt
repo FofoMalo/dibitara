@@ -97,8 +97,8 @@ class GetPatrimonyOverviewUseCaseTest {
         // véhicule locatif net = revenu − charge = 30 000 − 8 000 = 22 000
         assertEquals(22000L, overview.vehicleRentalNetRevenueCents)
         assertEquals(5000000L, overview.dettesTotalCents)
-        // patrimoine brut = liquidités + épargne + investissements (Airbnb et véhicule locatif exclus)
-        assertEquals(200000L + 500000L + 20200000L, overview.patrimoineBrutCents)
+        // patrimoine brut = épargne + investissements (liquidités, Airbnb et véhicule locatif exclus - ce sont des flux)
+        assertEquals(500000L + 20200000L, overview.patrimoineBrutCents)
         assertEquals(Currency.EUR, overview.currency)
         // Toutes les sources sont déjà en EUR (devise par défaut) - aucune conversion réelle n'a eu lieu
         assertFalse(overview.hasConvertedValues)

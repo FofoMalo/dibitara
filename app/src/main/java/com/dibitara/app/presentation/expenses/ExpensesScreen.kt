@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dibitara.app.domain.model.BankAccount
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
@@ -45,6 +47,7 @@ import com.dibitara.app.domain.model.TransactionSuggestion
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.presentation.common.chartColor
 import com.dibitara.app.presentation.common.chartIcon
+import com.dibitara.app.presentation.common.maskIban
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.LocalDate
 import java.time.Month
@@ -60,6 +63,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     val selectedYear  by viewModel.selectedYear.collectAsState()
     val defaultCurrency by viewModel.defaultCurrency.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
+    val bankAccounts by viewModel.bankAccounts.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
@@ -211,6 +215,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                             ExpensesList(
                                 expenses            = state.expenses,
                                 customSubCategories = state.customSubCategories,
+                                virementsInternesIds = state.virementsInternesIds,
                                 // Le regroupement par jour n'a de sens que si la liste est déjà
                                 // triée par date - sinon les mêmes jours ne seraient pas contigus.
                                 groupByDay          = filter.sort == SortOrder.DATE_DESC,
@@ -228,6 +233,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     if (showFilterSheet) {
         FilterSheet(
             filter = filter,
+            bankAccounts = bankAccounts,
             onFilterChange = { viewModel.updateFilter(it) },
             onDismiss = { showFilterSheet = false }
         )
@@ -356,6 +362,7 @@ private fun MonthNavigationBar(
 @Composable
 private fun FilterSheet(
     filter: ExpensesFilter,
+    bankAccounts: List<BankAccount> = emptyList(),
     onFilterChange: (ExpensesFilter) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -424,6 +431,28 @@ private fun FilterSheet(
                 }
             }
 
+            // Compte bancaire (uniquement si des comptes sont configurés)
+            if (bankAccounts.isNotEmpty()) {
+                Text("Compte", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(
+                            selected = filter.bankAccountId == null,
+                            onClick = { onFilterChange(filter.copy(bankAccountId = null)) },
+                            label = { Text("Tous") }
+                        )
+                    }
+                    items(bankAccounts) { compte ->
+                        FilterChip(
+                            selected = filter.bankAccountId == compte.id,
+                            onClick = { onFilterChange(filter.copy(bankAccountId = compte.id)) },
+                            label = { Text(compte.label) }
+                        )
+                    }
+                }
+            }
+
             // Tri
             Text("Trier par", style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -454,6 +483,7 @@ private fun FilterSheet(
 private fun ExpensesList(
     expenses: List<Transaction>,
     customSubCategories: List<CustomSubCategory>,
+    virementsInternesIds: Set<Long> = emptySet(),
     groupByDay: Boolean,
     onEdit: (Transaction) -> Unit,
     onDelete: (Transaction) -> Unit
@@ -478,6 +508,7 @@ private fun ExpensesList(
                     ExpenseItem(
                         expense                 = expense,
                         customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
+                        virementInterne         = expense.id in virementsInternesIds,
                         onEdit                  = { onEdit(expense) },
                         onDelete                = { onDelete(expense) }
                     )
@@ -488,6 +519,7 @@ private fun ExpensesList(
                 ExpenseItem(
                     expense                 = expense,
                     customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
+                    virementInterne         = expense.id in virementsInternesIds,
                     onEdit                  = { onEdit(expense) },
                     onDelete                = { onDelete(expense) }
                 )
@@ -542,6 +574,7 @@ private fun dayLabel(date: LocalDate): String {
 private fun ExpenseItem(
     expense: Transaction,
     customSubCategoryName: String?,
+    virementInterne: Boolean = false,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -575,7 +608,7 @@ private fun ExpenseItem(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // Pour un revenu, la note est plus significative que la catégorie (stockée AUTRE)
                     val labelPrincipal = if (estRevenu)
-                        expense.note.ifBlank { "Revenu" }
+                        expense.note.ifBlank { "Revenu" }.maskIban()
                     else
                         expense.category.displayName
                     Text(labelPrincipal, style = MaterialTheme.typography.bodyLarge)
@@ -585,6 +618,23 @@ private fun ExpenseItem(
                             contentDescription = "Récurrente",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                // Virement interne détecté (voir IdentifierVirementsInternesUseCase) : exclu des
+                // totaux revenus/dépenses mais toujours visible ici, avec l'indication du pourquoi.
+                if (virementInterne) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(
+                            imageVector = Icons.Filled.SwapHoriz,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            "Virement interne",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -602,12 +652,12 @@ private fun ExpenseItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // Pour les revenus, la note est déjà utilisée comme label principal
                 if (expense.type == TransactionType.EXPENSE && expense.note.isNotBlank()) {
-                    Text(expense.note, style = MaterialTheme.typography.bodySmall,
+                    Text(expense.note.maskIban(), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Text(
-                "${if (expense.type == TransactionType.EXPENSE) "-" else "+"} ${"%.2f".format(expense.amountCents / 100.0)} ${expense.currency.symbol}",
+                "${if (expense.type == TransactionType.EXPENSE) "-" else "+"} ${expense.amountCents.toCurrencyDisplay(expense.currency)}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (expense.type == TransactionType.EXPENSE)
                     MaterialTheme.colorScheme.error
@@ -1197,5 +1247,6 @@ private fun ExpensesFilter.activeFilterCount(): Int {
     if (transactionType != TransactionType.EXPENSE) count++
     if (category != null) count++
     if (sort != SortOrder.DATE_DESC) count++
+    if (bankAccountId != null) count++
     return count
 }

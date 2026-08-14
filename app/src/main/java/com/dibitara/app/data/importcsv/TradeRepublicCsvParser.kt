@@ -111,9 +111,14 @@ object TradeRepublicCsvParser {
         if (trCategory == "TRADING") return Category.INVESTISSEMENT
 
         return when (trType) {
-            "CUSTOMER_INBOUND",
+            "CUSTOMER_INBOUND"          -> Category.AUTRE
+
+            // Virements bancaires entrants (par opposition à CUSTOMER_INBOUND, qui vient d'un
+            // tiers) : dans l'usage réel de Florent, il s'agit toujours de virements internes
+            // depuis son propre compte BRED. Catégorisés TRANSFERTS pour matcher le libellé du
+            // côté BRED (sortant) et permettre l'appariement par IdentifierVirementsInternesUseCase.
             "TRANSFER_INBOUND",
-            "TRANSFER_INSTANT_INBOUND"  -> Category.AUTRE
+            "TRANSFER_INSTANT_INBOUND"  -> Category.TRANSFERTS
 
             "TRANSFER_INSTANT_OUTBOUND" -> Category.TRANSFERTS
 

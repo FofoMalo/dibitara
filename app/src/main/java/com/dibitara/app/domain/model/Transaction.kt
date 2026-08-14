@@ -27,7 +27,8 @@ data class Transaction(
     val firstPaymentDate: LocalDate? = null,        // Date de la première occurrence (détermine le jour pour WEEKLY/YEARLY)
     val endDate: LocalDate? = null,                 // Date de fin de récurrence (null = indéfini)
     val importSource: String? = null,               // Ajouté en v11 : source de l'import ("trade_republic"), null si saisie manuelle
-    val externalId: String? = null                  // Ajouté en v11 : UUID externe pour la déduplication à l'import
+    val externalId: String? = null,                 // Ajouté en v11 : UUID externe pour la déduplication à l'import
+    val bankAccountId: Long? = null                 // Ajouté en v22 : référence au BankAccount rattaché (null si non déterminé)
 )
 
 enum class TransactionType { EXPENSE, INCOME, INVESTMENT }

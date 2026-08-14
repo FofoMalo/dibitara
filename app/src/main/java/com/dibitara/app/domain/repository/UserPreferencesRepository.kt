@@ -21,6 +21,7 @@ interface UserPreferencesRepository {
     suspend fun updateTauxEpargneCible(pct: Int)
     /** Enregistre la date + heure (epoch milli) du dernier import CSV/PDF réussi. */
     suspend fun updateDerniereImport(epochMilli: Long)
+    suspend fun updateMasquerMontants(masquer: Boolean)
     /** Efface toutes les préférences stockées dans DataStore. */
     suspend fun clearAll()
 }

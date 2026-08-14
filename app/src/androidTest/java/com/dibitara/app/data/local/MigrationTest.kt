@@ -71,6 +71,66 @@ class MigrationTest {
         }
     }
 
+    /**
+     * Vérifie que [DibitaraDatabase.MIGRATION_21_22] :
+     *  - crée la table [bank_accounts] et y insère les 2 comptes connus (BRED, TradeRepublic)
+     *  - ajoute la colonne [bankAccountId] (nullable) sur [transactions]
+     *  - rattache automatiquement les transactions existantes à leur compte via [importSource]
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migration_21_vers_22_cree_bank_accounts_et_backfill_transactions() {
+        helper.createDatabase(TEST_DB, 21).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO transactions
+                    (amountCents, currency, category, type, dateEpochDay, note, isRecurring, importSource)
+                VALUES
+                    (5000, 'EUR', 'ALIMENTATION', 'EXPENSE', 19000, 'Courses BRED', 0, 'bred'),
+                    (3000, 'EUR', 'AUTRE', 'INCOME', 19001, 'Virement TR', 0, 'trade_republic'),
+                    (1000, 'EUR', 'ALIMENTATION', 'EXPENSE', 19002, 'Saisie manuelle', 0, NULL)
+                """.trimIndent()
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            22,
+            true,
+            DibitaraDatabase.MIGRATION_21_22
+        ).use { db ->
+            // bank_accounts contient les 2 comptes connus
+            db.query("SELECT provider FROM bank_accounts ORDER BY provider").use { cursor ->
+                assertEquals(2, cursor.count)
+                cursor.moveToFirst()
+                assertEquals("BRED", cursor.getString(cursor.getColumnIndex("provider")))
+                cursor.moveToNext()
+                assertEquals("TRADE_REPUBLIC", cursor.getString(cursor.getColumnIndex("provider")))
+            }
+
+            // La transaction BRED est rattachée au compte BRED
+            db.query("SELECT bankAccountId FROM transactions WHERE note = 'Courses BRED'").use { cursor ->
+                cursor.moveToFirst()
+                val bankAccountIdIdx = cursor.getColumnIndex("bankAccountId")
+                assertTrue("bankAccountId ne doit pas être NULL pour une transaction BRED", !cursor.isNull(bankAccountIdIdx))
+            }
+
+            // La transaction TradeRepublic est rattachée au compte TradeRepublic
+            db.query("SELECT bankAccountId FROM transactions WHERE note = 'Virement TR'").use { cursor ->
+                cursor.moveToFirst()
+                val bankAccountIdIdx = cursor.getColumnIndex("bankAccountId")
+                assertTrue("bankAccountId ne doit pas être NULL pour une transaction TradeRepublic", !cursor.isNull(bankAccountIdIdx))
+            }
+
+            // La transaction saisie manuellement (importSource NULL) reste non rattachée
+            db.query("SELECT bankAccountId FROM transactions WHERE note = 'Saisie manuelle'").use { cursor ->
+                cursor.moveToFirst()
+                val bankAccountIdIdx = cursor.getColumnIndex("bankAccountId")
+                assertTrue("bankAccountId doit rester NULL pour une saisie manuelle", cursor.isNull(bankAccountIdIdx))
+            }
+        }
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
     }

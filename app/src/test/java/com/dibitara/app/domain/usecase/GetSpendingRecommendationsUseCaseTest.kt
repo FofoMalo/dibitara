@@ -27,12 +27,13 @@ class GetSpendingRecommendationsUseCaseTest {
     private val exchangeRateRepo    : ExchangeRateRepository      = mockk()
 
     private val useCase = GetSpendingRecommendationsUseCase(
-        getMonthlyTransactions = GetMonthlyTransactionsUseCase(transactionRepo),
-        getDebts               = GetDebtsUseCase(debtRepo),
-        getSavings             = GetSavingsUseCase(savingsRepo),
-        getCategoryEnvelopes   = GetCategoryEnvelopesUseCase(categoryEnvelopeRepo),
-        userPreferencesRepo    = prefsRepo,
-        exchangeRateRepo       = exchangeRateRepo
+        getMonthlyTransactions      = GetMonthlyTransactionsUseCase(transactionRepo),
+        getDebts                    = GetDebtsUseCase(debtRepo),
+        getSavings                  = GetSavingsUseCase(savingsRepo),
+        getCategoryEnvelopes        = GetCategoryEnvelopesUseCase(categoryEnvelopeRepo),
+        userPreferencesRepo         = prefsRepo,
+        exchangeRateRepo            = exchangeRateRepo,
+        identifierVirementsInternes = IdentifierVirementsInternesUseCase()
     )
 
     // refMonth=5, refYear=2026 → 3 mois analysés : avril, mars, février 2026
@@ -75,6 +76,28 @@ class GetSpendingRecommendationsUseCaseTest {
         val result = useCase(5, 2026).first()
 
         assertEquals(200_000L, result.revenuMoyenCents)
+    }
+
+    @Test
+    fun `un virement interne BRED vers TradeRepublic n'inflate pas le revenu moyen`() = runTest {
+        val sortantBred = Transaction(
+            amountCents = 50_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+            type = TransactionType.EXPENSE, date = LocalDate.of(2026, 4, 1),
+            importSource = "bred_csv", id = 1
+        )
+        val entrantTradeRepublic = Transaction(
+            amountCents = 50_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+            type = TransactionType.INCOME, date = LocalDate.of(2026, 4, 2),
+            importSource = "trade_republic", id = 2
+        )
+        every { transactionRepo.getByMonth(4, 2026) } returns flowOf(
+            listOf(income(200_000L), sortantBred, entrantTradeRepublic)
+        )
+
+        val result = useCase(5, 2026).first()
+
+        // Le virement interne appairé ne doit compter ni en revenu ni en dépense
+        assertEquals(200_000L / 3, result.revenuMoyenCents)
     }
 
     @Test

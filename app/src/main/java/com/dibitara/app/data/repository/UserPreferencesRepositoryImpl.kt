@@ -37,6 +37,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val KEY_AFFICHER_RECOMMANDATIONS     = booleanPreferencesKey("afficher_recommandations")
         val KEY_TAUX_EPARGNE_CIBLE           = intPreferencesKey("taux_epargne_cible_pct")
         val KEY_DERNIER_IMPORT               = longPreferencesKey("dernier_import_epoch_milli")
+        val KEY_MASQUER_MONTANTS             = booleanPreferencesKey("masquer_montants")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -56,7 +57,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             notificationsMensuelles     = prefs[KEY_NOTIFICATIONS_MENSUELLES] ?: false,
             afficherRecommandations     = prefs[KEY_AFFICHER_RECOMMANDATIONS] ?: false,
             tauxEpargneCiblePct         = prefs[KEY_TAUX_EPARGNE_CIBLE] ?: UserPreferences().tauxEpargneCiblePct,
-            derniereImportEpochMilli    = prefs[KEY_DERNIER_IMPORT]
+            derniereImportEpochMilli    = prefs[KEY_DERNIER_IMPORT],
+            masquerMontants             = prefs[KEY_MASQUER_MONTANTS] ?: false
         )
     }
 
@@ -106,6 +108,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateDerniereImport(epochMilli: Long) {
         dataStore.edit { it[KEY_DERNIER_IMPORT] = epochMilli }
+    }
+
+    override suspend fun updateMasquerMontants(masquer: Boolean) {
+        dataStore.edit { it[KEY_MASQUER_MONTANTS] = masquer }
     }
 
     override suspend fun clearAll() {

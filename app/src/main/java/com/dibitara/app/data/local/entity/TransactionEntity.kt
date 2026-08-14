@@ -1,6 +1,7 @@
 package com.dibitara.app.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
@@ -15,7 +16,7 @@ import java.time.LocalDate
  * Séparer Entity (data) et model (domain) permet de changer le schéma
  * sans impacter la logique métier - et inversement.
  */
-@Entity(tableName = "transactions")
+@Entity(tableName = "transactions", indices = [Index("bankAccountId")])
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -35,7 +36,8 @@ data class TransactionEntity(
     val firstPaymentDateEpochDay: Long? = null, // Ajouté en v8 : date première occurrence (epoch day)
     val endDateEpochDay: Long? = null,          // Ajouté en v8 : date de fin (null = indéfini)
     val importSource: String? = null,           // Ajouté en v11 : source de l'import ("trade_republic")
-    val externalId: String? = null              // Ajouté en v11 : UUID externe pour la déduplication
+    val externalId: String? = null,             // Ajouté en v11 : UUID externe pour la déduplication
+    val bankAccountId: Long? = null             // Ajouté en v22 : référence à bank_accounts
 ) {
     fun toDomain() = Transaction(
         id = id,
@@ -55,7 +57,8 @@ data class TransactionEntity(
         firstPaymentDate = firstPaymentDateEpochDay?.let { LocalDate.ofEpochDay(it) },
         endDate = endDateEpochDay?.let { LocalDate.ofEpochDay(it) },
         importSource = importSource,
-        externalId = externalId
+        externalId = externalId,
+        bankAccountId = bankAccountId
     )
 
     companion object {
@@ -77,7 +80,8 @@ data class TransactionEntity(
             firstPaymentDateEpochDay = t.firstPaymentDate?.toEpochDay(),
             endDateEpochDay = t.endDate?.toEpochDay(),
             importSource = t.importSource,
-            externalId = t.externalId
+            externalId = t.externalId,
+            bankAccountId = t.bankAccountId
         )
     }
 }

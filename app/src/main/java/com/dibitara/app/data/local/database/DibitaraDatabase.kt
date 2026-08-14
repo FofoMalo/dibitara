@@ -7,12 +7,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dibitara.app.data.local.dao.*
 import com.dibitara.app.data.local.entity.*
 import com.dibitara.app.data.local.entity.AssetValuationSnapshotEntity
+import com.dibitara.app.data.local.entity.BankAccountEntity
 import com.dibitara.app.data.local.entity.CategorizationRuleEntity
 import com.dibitara.app.data.local.entity.CategoryEnvelopeEntity
 import com.dibitara.app.data.local.entity.CustomSubCategoryEntity
 import com.dibitara.app.data.local.entity.EmployeeSavingsEntity
 import com.dibitara.app.data.local.entity.MonthlyVersementEntity
 import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
+import java.time.LocalDate
 
 /**
  * Base de données Room locale.
@@ -39,9 +41,10 @@ import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
         CategorizationRuleEntity::class,
         CategoryEnvelopeEntity::class,
         VehicleRentalEntryEntity::class,
-        AssetValuationSnapshotEntity::class
+        AssetValuationSnapshotEntity::class,
+        BankAccountEntity::class
     ],
-    version = 21,
+    version = 22,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -62,8 +65,54 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun categoryEnvelopeDao(): CategoryEnvelopeDao
     abstract fun vehicleRentalEntryDao(): VehicleRentalEntryDao
     abstract fun assetValuationSnapshotDao(): AssetValuationSnapshotDao
+    abstract fun bankAccountDao(): BankAccountDao
 
     companion object {
+        // Migration v21 → v22 : nouvelle table bank_accounts (BRED, TradeRepublic...) + colonne
+        // bankAccountId sur transactions. Seed des 2 comptes connus et backfill des transactions
+        // déjà importées via leur importSource existant - aucune action requise de l'utilisateur.
+        val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS bank_accounts (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        provider TEXT NOT NULL,
+                        label TEXT NOT NULL,
+                        currentBalanceCents INTEGER NOT NULL,
+                        currency TEXT NOT NULL,
+                        updatedAtEpochDay INTEGER NOT NULL
+                    )
+                """.trimIndent())
+
+                // Date fixe (pas LocalDate.now()) pour que la migration reste déterministe en test
+                val dateSeed = LocalDate.of(2026, 8, 13).toEpochDay()
+                db.execSQL("""
+                    INSERT INTO bank_accounts (provider, label, currentBalanceCents, currency, updatedAtEpochDay)
+                    VALUES ('BRED', 'BRED', 0, 'EUR', $dateSeed)
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO bank_accounts (provider, label, currentBalanceCents, currency, updatedAtEpochDay)
+                    VALUES ('TRADE_REPUBLIC', 'TradeRepublic', 0, 'EUR', $dateSeed)
+                """.trimIndent())
+
+                db.execSQL("ALTER TABLE transactions ADD COLUMN bankAccountId INTEGER")
+
+                // Rattache les transactions déjà importées à leur compte via l'importSource existant
+                db.execSQL("""
+                    UPDATE transactions SET bankAccountId = (SELECT id FROM bank_accounts WHERE provider = 'BRED')
+                    WHERE importSource LIKE 'bred%'
+                """.trimIndent())
+                db.execSQL("""
+                    UPDATE transactions SET bankAccountId = (SELECT id FROM bank_accounts WHERE provider = 'TRADE_REPUBLIC')
+                    WHERE importSource = 'trade_republic'
+                """.trimIndent())
+
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_transactions_bankAccountId ON transactions(bankAccountId)"
+                )
+            }
+        }
+
         // Migration v20 → v21 : nouvelle table asset_valuation_snapshots pour les badges de tendance par actif (Immobilier/SCPI)
         val MIGRATION_20_21 = object : Migration(20, 21) {
             override fun migrate(db: SupportSQLiteDatabase) {

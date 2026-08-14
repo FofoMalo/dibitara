@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.DuplicateGroup
+import com.dibitara.app.presentation.common.maskIban
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -206,7 +207,7 @@ private fun DuplicateGroupCard(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            transaction.note.ifBlank { "— sans libellé —" },
+                            transaction.note.ifBlank { "— sans libellé —" }.maskIban(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(

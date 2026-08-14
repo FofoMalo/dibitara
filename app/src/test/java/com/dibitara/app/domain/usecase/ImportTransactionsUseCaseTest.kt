@@ -1,10 +1,13 @@
 package com.dibitara.app.domain.usecase
 
+import com.dibitara.app.domain.model.BankAccount
+import com.dibitara.app.domain.model.BankProvider
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.repository.BankAccountRepository
 import com.dibitara.app.domain.repository.ImportRepository
 import com.dibitara.app.domain.repository.UserPreferencesRepository
 import io.mockk.coEvery
@@ -24,11 +27,13 @@ class ImportTransactionsUseCaseTest {
 
     private val repository: ImportRepository = mockk()
     private val userPreferencesRepository: UserPreferencesRepository = mockk(relaxUnitFun = true)
+    private val bankAccountRepository: BankAccountRepository = mockk()
     private lateinit var useCase: ImportTransactionsUseCase
 
     @BeforeEach
     fun setUp() {
-        useCase = ImportTransactionsUseCase(repository, userPreferencesRepository)
+        coEvery { bankAccountRepository.findByProvider(any()) } returns null
+        useCase = ImportTransactionsUseCase(repository, userPreferencesRepository, bankAccountRepository)
     }
 
     private fun buildImported(externalId: String, category: Category = Category.ALIMENTATION) =
@@ -236,6 +241,27 @@ class ImportTransactionsUseCaseTest {
         assertEquals(1, result.getOrThrow().importees)
         assertEquals(0, result.getOrThrow().ignorees)
         coVerify(exactly = 0) { repository.mettreAJour(any()) }
+    }
+
+    @Test
+    fun `confirmer rattache bankAccountId résolu via le provider correspondant à importSource`() = runTest {
+        coEvery { repository.externalIdsExistants() } returns emptySet()
+        coEvery { repository.trouverCaptureLiveProche(any(), any()) } returns null
+        coEvery { repository.importerTransactions(any()) } returns 1
+        val compteBred = BankAccount(
+            id = 7L, provider = BankProvider.BRED,
+            label = "BRED", currentBalanceCents = 0L, currency = Currency.EUR,
+            updatedAt = LocalDate.of(2026, 1, 1)
+        )
+        coEvery { bankAccountRepository.findByProvider(BankProvider.BRED) } returns compteBred
+
+        val ligneCsv = buildImported("bred_csv_003").copy(importSource = "bred")
+
+        useCase.confirmer(listOf(ligneCsv))
+
+        coVerify {
+            repository.importerTransactions(match { list -> list.size == 1 && list[0].bankAccountId == 7L })
+        }
     }
 
     @Test

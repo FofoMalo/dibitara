@@ -19,14 +19,15 @@ class ExpensesFilterTest {
     private val today = LocalDate.of(2026, 5, 9)
 
     private fun buildExpense(
-        note        : String           = "",
-        category    : Category         = Category.ALIMENTATION,
-        date        : LocalDate        = today,
-        amountCents : Long             = 1000L,
-        type        : TransactionType  = TransactionType.EXPENSE
+        note          : String           = "",
+        category      : Category         = Category.ALIMENTATION,
+        date          : LocalDate        = today,
+        amountCents   : Long             = 1000L,
+        type          : TransactionType  = TransactionType.EXPENSE,
+        bankAccountId : Long?             = null
     ) = Transaction(
         id = 0, amountCents = amountCents, currency = Currency.EUR,
-        category = category, type = type, date = date, note = note
+        category = category, type = type, date = date, note = note, bankAccountId = bankAccountId
     )
 
     @Test
@@ -84,6 +85,25 @@ class ExpensesFilterTest {
         val result = ExpensesFilter(transactionType = TransactionType.EXPENSE).apply(list)
         assertEquals(1, result.size)
         assertEquals(TransactionType.EXPENSE, result.first().type)
+    }
+
+    @Test
+    fun `filtre par compte bancaire - retourne uniquement les transactions du compte`() {
+        val list = listOf(
+            buildExpense(bankAccountId = 1L),
+            buildExpense(bankAccountId = 2L),
+            buildExpense(bankAccountId = null)
+        )
+        val result = ExpensesFilter(bankAccountId = 1L).apply(list)
+        assertEquals(1, result.size)
+        assertEquals(1L, result.first().bankAccountId)
+    }
+
+    @Test
+    fun `filtre compte bancaire null retourne toutes les transactions`() {
+        val list = listOf(buildExpense(bankAccountId = 1L), buildExpense(bankAccountId = null))
+        val result = ExpensesFilter(bankAccountId = null).apply(list)
+        assertEquals(2, result.size)
     }
 
     @Test

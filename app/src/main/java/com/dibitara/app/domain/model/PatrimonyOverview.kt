@@ -11,9 +11,10 @@ data class PatrimonyOverview(
     /** True si au moins un montant agrégé ci-dessus a réellement été converti depuis une autre devise. */
     val hasConvertedValues: Boolean = false
 ) {
-    // Airbnb et le véhicule locatif sont des revenus (flux), pas des actifs (stock) - exclus du patrimoine brut
+    // Airbnb, le véhicule locatif et les liquidités (reste de budget du mois) sont des flux,
+    // pas des actifs (stock) - exclus du patrimoine brut, même principe pour les trois.
     val patrimoineBrutCents: Long
-        get() = liquiditesCents + epargneCents + investissementsCents
+        get() = epargneCents + investissementsCents
 
     val patrimoineNetCents: Long
         get() = patrimoineBrutCents - dettesTotalCents

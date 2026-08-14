@@ -12,7 +12,11 @@ import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.MigrerTabacVersCategorieUseCase
 import com.dibitara.app.presentation.common.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
@@ -37,6 +41,14 @@ class AppViewModel @Inject constructor(
     private val getPreferences             : GetUserPreferencesUseCase,
     private val notificationHelper         : NotificationHelper
 ) : ViewModel() {
+
+    /**
+     * Lu par MainActivity pour fournir [com.dibitara.app.presentation.common.LocalMontantsMasques]
+     * à la racine de la composition - s'applique donc à tous les écrans sans les modifier.
+     */
+    val masquerMontants: StateFlow<Boolean> = getPreferences()
+        .map { it.masquerMontants }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     init {
         viewModelScope.launch {

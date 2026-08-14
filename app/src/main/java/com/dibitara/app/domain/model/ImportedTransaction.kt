@@ -24,15 +24,21 @@ data class ImportedTransaction(
     val importSource: String = "trade_republic",
     val alreadyImported: Boolean = false
 ) {
-    /** Convertit vers [Transaction] prêt à être sauvegardé en base. */
-    fun toTransaction() = Transaction(
-        amountCents  = amountCents,
-        currency     = currency,
-        category     = category,
-        type         = type,
-        date         = date,
-        note         = note,
-        importSource = importSource,
-        externalId   = externalId
+    /**
+     * Convertit vers [Transaction] prêt à être sauvegardé en base.
+     * [bankAccountId] est résolu par l'appelant (voir [com.dibitara.app.domain.model.BankProvider.fromImportSource])
+     * plutôt que porté par [ImportedTransaction] elle-même : la résolution nécessite un accès
+     * base de données (BankAccountRepository), ce qui n'a pas sa place dans un parseur pur.
+     */
+    fun toTransaction(bankAccountId: Long? = null) = Transaction(
+        amountCents   = amountCents,
+        currency      = currency,
+        category      = category,
+        type          = type,
+        date          = date,
+        note          = note,
+        importSource  = importSource,
+        externalId    = externalId,
+        bankAccountId = bankAccountId
     )
 }

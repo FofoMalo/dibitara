@@ -128,21 +128,22 @@ class TradeRepublicCsvParserTest {
     }
 
     @Test
-    fun `TRANSFER_INBOUND est INCOME catégorie AUTRE`() {
+    fun `TRANSFER_INBOUND est INCOME catégorie TRANSFERTS`() {
         val ligne = """"2025-02-03T14:11:54Z","2025-02-03","DEFAULT","CASH","TRANSFER_INBOUND","","","","","","5.000000","","","EUR","","","","Incoming transfer from Florent MALO","uuid-007","","","",""""
         val result = TradeRepublicCsvParser.parse(csvStream(ligne))
 
         assertEquals(TransactionType.INCOME, result[0].type)
-        assertEquals(Category.AUTRE, result[0].category)
+        assertEquals(Category.TRANSFERTS, result[0].category)
         assertEquals(500L, result[0].amountCents)
     }
 
     @Test
-    fun `TRANSFER_INSTANT_INBOUND est INCOME`() {
+    fun `TRANSFER_INSTANT_INBOUND est INCOME catégorie TRANSFERTS`() {
         val ligne = """"2025-03-04T04:13:10Z","2025-03-04","DEFAULT","CASH","TRANSFER_INSTANT_INBOUND","","","","","","100.000000","","","EUR","","","","Incoming transfer from EI-MALO","uuid-008","","","",""""
         val result = TradeRepublicCsvParser.parse(csvStream(ligne))
 
         assertEquals(TransactionType.INCOME, result[0].type)
+        assertEquals(Category.TRANSFERTS, result[0].category)
         assertEquals(10000L, result[0].amountCents)
     }
 

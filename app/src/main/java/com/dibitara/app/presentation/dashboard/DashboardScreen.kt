@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.dibitara.app.domain.model.BankAccount
+import com.dibitara.app.domain.model.BankAccountsSummary
 import com.dibitara.app.domain.model.CashflowProjection
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
@@ -31,6 +33,7 @@ import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.ProjectionSparkline
 import com.dibitara.app.presentation.common.TrendChip
+import com.dibitara.app.presentation.common.chartColor
 import com.dibitara.app.presentation.common.chartIcon
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.presentation.navigation.Screen
@@ -44,6 +47,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -99,6 +104,7 @@ fun DashboardScreen(
                     cashflowProjection          = state.cashflowProjection,
                     recategorizationSuggestions = state.recategorizationSuggestions,
                     enveloppesEnAlerte          = state.enveloppesEnAlerte,
+                    comptesSummary              = state.comptesSummary,
                     patrimoineTrendPct          = state.patrimoineTrendPct,
                     cardOrder                   = state.cardOrder,
                     isEditMode                  = isEditMode,
@@ -107,7 +113,10 @@ fun DashboardScreen(
                     onMoveCard                  = { from, to -> viewModel.moveCard(from, to) },
                     onApplyRecategorization     = { viewModel.appliquerRecategorisation(it) },
                     onRefuseRecategorization    = { viewModel.refuserRecategorisation(it) },
-                    onVoirDetailProjection      = { navController?.navigate(Screen.ProjectionDetail.route) }
+                    onVoirDetailProjection      = { navController?.navigate(Screen.ProjectionDetail.route) },
+                    onNavigateToBankAccounts    = { navController?.navigate(Screen.BankAccounts.route) },
+                    masquerMontants             = state.masquerMontants,
+                    onToggleMasquerMontants     = { viewModel.toggleMasquerMontants() }
                 )
             }
         }
@@ -130,6 +139,7 @@ private fun DashboardContent(
     cashflowProjection          : CashflowProjection?               = null,
     recategorizationSuggestions : List<RecategorizationSuggestion>  = emptyList(),
     enveloppesEnAlerte          : List<EnveloppeStatus>             = emptyList(),
+    comptesSummary              : BankAccountsSummary                = BankAccountsSummary(emptyList(), 0L, Currency.EUR),
     patrimoineTrendPct          : Float?                            = null,
     cardOrder                   : List<DashboardCard>               = DashboardCard.entries.toList(),
     isEditMode                  : Boolean                           = false,
@@ -138,7 +148,10 @@ private fun DashboardContent(
     onMoveCard                  : (fromKey: String, toKey: String) -> Unit = { _, _ -> },
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
     onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
-    onVoirDetailProjection      : () -> Unit                        = {}
+    onVoirDetailProjection      : () -> Unit                        = {},
+    onNavigateToBankAccounts    : () -> Unit                        = {},
+    masquerMontants             : Boolean                           = false,
+    onToggleMasquerMontants     : () -> Unit                        = {}
 ) {
     val lazyListState = rememberLazyListState()
     val reorderState  = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -161,6 +174,13 @@ private fun DashboardContent(
                 Text("Dibitara", style = MaterialTheme.typography.headlineMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     DeviseChip(current = overview.currency, onSelect = onChangeDevise)
+                    IconButton(onClick = onToggleMasquerMontants) {
+                        Icon(
+                            imageVector = if (masquerMontants) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (masquerMontants) "Afficher les montants" else "Masquer les montants",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(onClick = onToggleEditMode) {
                         Icon(
                             imageVector = Icons.Filled.Edit,
@@ -193,6 +213,7 @@ private fun DashboardContent(
                         cashflowProjection      = cashflowProjection,
                         recategorizationSuggestions = recategorizationSuggestions,
                         enveloppesEnAlerte      = enveloppesEnAlerte,
+                        comptesSummary          = comptesSummary,
                         isEditMode              = isEditMode,
                         dragHandleModifier      = Modifier.draggableHandle(),
                         onNavigateToDebts       = onNavigateToDebts,
@@ -203,7 +224,8 @@ private fun DashboardContent(
                         onNavigateToExpensesTransaction = onNavigateToExpensesTransaction,
                         onApplyRecategorization = onApplyRecategorization,
                         onRefuseRecategorization = onRefuseRecategorization,
-                        onVoirDetailProjection  = onVoirDetailProjection
+                        onVoirDetailProjection  = onVoirDetailProjection,
+                        onNavigateToBankAccounts = onNavigateToBankAccounts
                     )
                 }
             }
@@ -225,6 +247,7 @@ private fun DashboardCardSlot(
     cashflowProjection          : CashflowProjection?,
     recategorizationSuggestions : List<RecategorizationSuggestion>,
     enveloppesEnAlerte          : List<EnveloppeStatus>,
+    comptesSummary              : BankAccountsSummary,
     isEditMode                  : Boolean,
     dragHandleModifier          : Modifier,
     onNavigateToDebts           : () -> Unit,
@@ -235,7 +258,8 @@ private fun DashboardCardSlot(
     onNavigateToExpensesTransaction : (Long) -> Unit,
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
     onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
-    onVoirDetailProjection      : () -> Unit = {}
+    onVoirDetailProjection      : () -> Unit = {},
+    onNavigateToBankAccounts    : () -> Unit = {}
 ) {
     // En mode édition, chaque carte affiche une poignée de déplacement à droite
     if (isEditMode) {
@@ -243,11 +267,11 @@ private fun DashboardCardSlot(
             Box(modifier = Modifier.weight(1f)) {
                 DashboardCardContent(
                     card, overview, spendingHistory, upcomingPayments, rapportMensuel,
-                    cashflowProjection, recategorizationSuggestions, enveloppesEnAlerte,
+                    cashflowProjection, recategorizationSuggestions, enveloppesEnAlerte, comptesSummary,
                     onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
                     onNavigateToSavings, onNavigateToInvestments, onNavigateToExpensesTransaction,
                     onApplyRecategorization, onRefuseRecategorization,
-                    onVoirDetailProjection
+                    onVoirDetailProjection, onNavigateToBankAccounts
                 )
             }
             Icon(
@@ -260,11 +284,11 @@ private fun DashboardCardSlot(
     } else {
         DashboardCardContent(
             card, overview, spendingHistory, upcomingPayments, rapportMensuel,
-            cashflowProjection, recategorizationSuggestions, enveloppesEnAlerte,
+            cashflowProjection, recategorizationSuggestions, enveloppesEnAlerte, comptesSummary,
             onNavigateToDebts, onNavigateToReport, onNavigateToBudget,
             onNavigateToSavings, onNavigateToInvestments, onNavigateToExpensesTransaction,
             onApplyRecategorization, onRefuseRecategorization,
-            onVoirDetailProjection
+            onVoirDetailProjection, onNavigateToBankAccounts
         )
     }
 }
@@ -279,6 +303,7 @@ private fun DashboardCardContent(
     cashflowProjection          : CashflowProjection?,
     recategorizationSuggestions : List<RecategorizationSuggestion>,
     enveloppesEnAlerte          : List<EnveloppeStatus>,
+    comptesSummary              : BankAccountsSummary,
     onNavigateToDebts           : () -> Unit,
     onNavigateToReport          : () -> Unit,
     onNavigateToBudget          : () -> Unit,
@@ -287,12 +312,13 @@ private fun DashboardCardContent(
     onNavigateToExpensesTransaction : (Long) -> Unit,
     onApplyRecategorization     : (RecategorizationSuggestion) -> Unit,
     onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
-    onVoirDetailProjection      : () -> Unit = {}
+    onVoirDetailProjection      : () -> Unit = {},
+    onNavigateToBankAccounts    : () -> Unit = {}
 ) {
     when (card) {
         DashboardCard.METRIQUES_BUDGET_EPARGNE ->
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                MetricCard(Modifier.weight(1f), "Liquidités",  overview.liquiditesCents, overview.currency,
+                MetricCard(Modifier.weight(1f), "Budget restant",  overview.liquiditesCents, overview.currency,
                     MaterialTheme.colorScheme.primary, onNavigateToBudget)
                 MetricCard(Modifier.weight(1f), "Épargne", overview.epargneCents, overview.currency,
                     MaterialTheme.colorScheme.secondary, onNavigateToSavings)
@@ -328,6 +354,9 @@ private fun DashboardCardContent(
         DashboardCard.PROCHAINS_PAIEMENTS ->
             if (upcomingPayments.isNotEmpty())
                 UpcomingPaymentsCard(payments = upcomingPayments, onClick = onNavigateToExpensesTransaction)
+        DashboardCard.COMPTES ->
+            if (comptesSummary.comptes.isNotEmpty())
+                ComptesCard(summary = comptesSummary, onClick = onNavigateToBankAccounts)
     }
 }
 
@@ -374,6 +403,61 @@ private fun EnveloppeAlerteCard(statuts: List<EnveloppeStatus>, onClick: () -> U
                         fontWeight = FontWeight.SemiBold,
                         color = if (statut.isDepasse) MaterialTheme.colorScheme.error
                                 else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Solde par compte bancaire suivi (BRED, TradeRepublic...) - solde saisi/mis à jour
+ * manuellement par l'utilisateur (voir [BankAccount], pas dérivé des transactions).
+ */
+@Composable
+private fun ComptesCard(summary: BankAccountsSummary, onClick: () -> Unit) {
+    HeroCard(onClick = onClick) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Mes comptes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            summary.comptes.forEach { compte ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(
+                            imageVector        = compte.provider.chartIcon(),
+                            contentDescription = null,
+                            modifier           = Modifier.size(18.dp),
+                            tint               = compte.provider.chartColor()
+                        )
+                        Text(compte.label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Text(
+                        compte.currentBalanceCents.toCurrencyDisplay(compte.currency),
+                        style      = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            // Total affiché uniquement si plusieurs comptes - sinon il duplique la seule ligne au-dessus
+            if (summary.comptes.size > 1) {
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Total", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        summary.totalCents.toCurrencyDisplay(summary.currency),
+                        style      = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color      = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -505,15 +589,15 @@ private fun PatrimonyNetCard(overview: PatrimonyOverview, trendPct: Float?, onCl
 }
 
 /**
- * Barre de répartition Liquidités/Épargne/Investissements sous le hero patrimoine -
- * vue synthétique "en un coup d'œil", sans scroll. Mêmes couleurs que les MetricCard
- * ci-dessous (primary/secondary/tertiary) pour rester cohérent visuellement.
+ * Barre de répartition Épargne/Investissements sous le hero patrimoine - vue synthétique
+ * "en un coup d'œil", sans scroll. Le budget restant (liquidités) n'y figure pas : c'est un
+ * flux mensuel, pas un actif, au même titre qu'Airbnb/véhicule locatif (voir PatrimonyOverview).
+ * Mêmes couleurs que les MetricCard ci-dessous (primary/secondary/tertiary) pour rester cohérent visuellement.
  */
 @Composable
 private fun AllocationBar(overview: PatrimonyOverview) {
     val total = overview.patrimoineBrutCents.toFloat()
     val segments = listOf(
-        Triple("Liquidités", overview.liquiditesCents, MaterialTheme.colorScheme.primary),
         Triple("Épargne", overview.epargneCents, MaterialTheme.colorScheme.secondary),
         Triple("Investissements", overview.investissementsCents, MaterialTheme.colorScheme.tertiary)
     ).filter { it.second > 0L }

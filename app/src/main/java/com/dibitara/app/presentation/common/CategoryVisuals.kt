@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Shield
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.dibitara.app.domain.model.BankProvider
 import com.dibitara.app.domain.model.Category
 
 /**
@@ -70,4 +72,19 @@ fun Category.chartIcon(): ImageVector = when (this) {
     Category.TRANSFERTS_FAMILIAUX  -> Icons.Filled.Groups
     Category.TABAC                 -> Icons.Filled.SmokingRooms
     Category.AUTRE                 -> Icons.Filled.MoreHoriz
+}
+
+/** Couleur et icône stables par [BankProvider], même logique que [Category.chartColor]/[chartIcon]. */
+fun BankProvider.chartColor(): Color = when (this) {
+    BankProvider.BRED           -> Color(0xFF1B5E20) // vert BRED
+    BankProvider.TRADE_REPUBLIC -> Color(0xFF37474F) // gris ardoise
+    BankProvider.ESPECES        -> Color(0xFF4CAF50)
+    BankProvider.AUTRE          -> Color(0xFF9E9E9E)
+}
+
+fun BankProvider.chartIcon(): ImageVector = when (this) {
+    BankProvider.BRED           -> Icons.Filled.AccountBalance
+    BankProvider.TRADE_REPUBLIC -> Icons.AutoMirrored.Filled.TrendingUp
+    BankProvider.ESPECES        -> Icons.Filled.Payments
+    BankProvider.AUTRE          -> Icons.Filled.MoreHoriz
 }

@@ -1,6 +1,9 @@
 package com.dibitara.app.domain.usecase
 
+import com.dibitara.app.domain.model.BankProvider
 import com.dibitara.app.domain.model.ImportedTransaction
+import com.dibitara.app.domain.model.fromImportSource
+import com.dibitara.app.domain.repository.BankAccountRepository
 import com.dibitara.app.domain.repository.ImportRepository
 import com.dibitara.app.domain.repository.UserPreferencesRepository
 import javax.inject.Inject
@@ -18,7 +21,8 @@ import javax.inject.Inject
  */
 class ImportTransactionsUseCase @Inject constructor(
     private val repository: ImportRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val bankAccountRepository: BankAccountRepository
 ) {
     /**
      * Étape 1 - Preview.
@@ -68,7 +72,12 @@ class ImportTransactionsUseCase @Inject constructor(
                 )
             }
 
-            repository.importerTransactions(aInserer.map { it.first.toTransaction() })
+            repository.importerTransactions(aInserer.map { (imported, _) ->
+                val bankAccountId = BankProvider.fromImportSource(imported.importSource)
+                    ?.let { bankAccountRepository.findByProvider(it) }
+                    ?.id
+                imported.toTransaction(bankAccountId = bankAccountId)
+            })
             userPreferencesRepository.updateDerniereImport(System.currentTimeMillis())
             ImportResult(importees = aInserer.size, ignorees = transactions.size - aInserer.size)
         }

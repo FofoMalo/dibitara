@@ -29,12 +29,13 @@ import javax.inject.Inject
  * Retourne un Flow actif : la recommandation se recalcule si les données sources changent.
  */
 class GetSpendingRecommendationsUseCase @Inject constructor(
-    private val getMonthlyTransactions : GetMonthlyTransactionsUseCase,
-    private val getDebts               : GetDebtsUseCase,
-    private val getSavings             : GetSavingsUseCase,
-    private val getCategoryEnvelopes   : GetCategoryEnvelopesUseCase,
-    private val userPreferencesRepo    : UserPreferencesRepository,
-    private val exchangeRateRepo       : ExchangeRateRepository
+    private val getMonthlyTransactions      : GetMonthlyTransactionsUseCase,
+    private val getDebts                    : GetDebtsUseCase,
+    private val getSavings                  : GetSavingsUseCase,
+    private val getCategoryEnvelopes        : GetCategoryEnvelopesUseCase,
+    private val userPreferencesRepo         : UserPreferencesRepository,
+    private val exchangeRateRepo            : ExchangeRateRepository,
+    private val identifierVirementsInternes : IdentifierVirementsInternesUseCase
 ) {
     operator fun invoke(refMonth: Int, refYear: Int): Flow<SpendingRecommendation> {
         // Les 3 mois précédant le mois de référence (du plus récent au plus ancien)
@@ -64,10 +65,18 @@ class GetSpendingRecommendationsUseCase @Inject constructor(
             getSavings(),
             getCategoryEnvelopes(),
             conversionFlow
-        ) { txParMois, dettes, comptes, enveloppes, (prefs, rates) ->
+        ) { txParMoisBrut, dettes, comptes, enveloppes, (prefs, rates) ->
 
             val devise = prefs.deviseParDefaut
             fun Long.cvt(from: Currency) = CurrencyConverter.convertCents(this, from, devise, rates)
+
+            // Exclut les virements internes BRED↔TradeRepublic appariés de chaque mois avant tout
+            // calcul (voir IdentifierVirementsInternesUseCase) : un déplacement entre comptes
+            // suivis n'est ni un revenu ni une dépense réelle.
+            val txParMois = txParMoisBrut.map { transactions ->
+                val idsExclus = identifierVirementsInternes(transactions)
+                transactions.filterNot { it.id in idsExclus }
+            }
 
             // ─── Étape 1 : Revenu moyen sur 3 mois ──────────────────────────────
             val revenuParMois = txParMois.map { transactions ->

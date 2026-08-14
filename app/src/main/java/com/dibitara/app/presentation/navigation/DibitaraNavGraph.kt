@@ -28,6 +28,7 @@ import com.dibitara.app.presentation.report.MonthlyReportScreen
 import com.dibitara.app.presentation.importcsv.ImportBredScreen
 import com.dibitara.app.presentation.importcsv.ImportBredPdfScreen
 import com.dibitara.app.presentation.importcsv.ImportScreen
+import com.dibitara.app.presentation.settings.BankAccountsScreen
 import com.dibitara.app.presentation.settings.DuplicateCleanupScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
 import com.dibitara.app.presentation.settings.SettingsViewModel
@@ -40,13 +41,14 @@ sealed class Screen(val route: String) {
     data object Dashboard  : Screen("dashboard")
     data object Budget     : Screen("budget")
     // category et type sont des args optionnels pour pré-filtrer depuis BudgetScreen
-    data object Expenses   : Screen("expenses?category={category}&type={type}&month={month}&year={year}&transactionId={transactionId}") {
+    data object Expenses   : Screen("expenses?category={category}&type={type}&month={month}&year={year}&transactionId={transactionId}&bankAccountId={bankAccountId}") {
         fun withFilter(
             category: String? = null,
             type: String? = null,
             month: Int? = null,
             year: Int? = null,
-            transactionId: Long? = null
+            transactionId: Long? = null,
+            bankAccountId: Long? = null
         ): String {
             val args = buildString {
                 if (category != null) append("category=$category")
@@ -54,6 +56,7 @@ sealed class Screen(val route: String) {
                 if (month != null) { if (isNotEmpty()) append("&"); append("month=$month") }
                 if (year != null)  { if (isNotEmpty()) append("&"); append("year=$year") }
                 if (transactionId != null) { if (isNotEmpty()) append("&"); append("transactionId=$transactionId") }
+                if (bankAccountId != null) { if (isNotEmpty()) append("&"); append("bankAccountId=$bankAccountId") }
             }
             return if (args.isNotEmpty()) "expenses?$args" else "expenses"
         }
@@ -68,6 +71,7 @@ sealed class Screen(val route: String) {
     data object ImportBred        : Screen("import_bred")
     data object ImportBredPdf     : Screen("import_bred_pdf")
     data object DuplicateCleanup  : Screen("duplicate_cleanup")
+    data object BankAccounts      : Screen("bank_accounts")
     data object ProjectionDetail  : Screen("projection_detail")
     data object Trends             : Screen("trends")
     data object Recommandations    : Screen("recommandations")
@@ -178,7 +182,8 @@ fun DibitaraNavGraph(
                     navArgument("type")     { type = NavType.StringType; nullable = true; defaultValue = null },
                     navArgument("month")    { type = NavType.StringType; nullable = true; defaultValue = null },
                     navArgument("year")     { type = NavType.StringType; nullable = true; defaultValue = null },
-                    navArgument("transactionId") { type = NavType.StringType; nullable = true; defaultValue = null }
+                    navArgument("transactionId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("bankAccountId") { type = NavType.StringType; nullable = true; defaultValue = null }
                 ),
                 deepLinks = listOf(navDeepLink { uriPattern = "dibitara://expenses?category={category}" })
             ) { ExpensesScreen() }
@@ -202,6 +207,7 @@ fun DibitaraNavGraph(
                     onNavigateToImportBred       = { navController.navigate(Screen.ImportBred.route) },
                     onNavigateToImportBredPdf    = { navController.navigate(Screen.ImportBredPdf.route) },
                     onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) },
+                    onNavigateToBankAccounts     = { navController.navigate(Screen.BankAccounts.route) },
                     onSupprimerDonnees           = {
                         // Le PIN n'existe plus - on repart sur l'écran de configuration
                         navController.navigate(Screen.SetupAuth.route) {
@@ -224,6 +230,14 @@ fun DibitaraNavGraph(
                     onNavigateBack = { navController.navigateUp() }
                 )
             }
+            composable(Screen.BankAccounts.route) {
+                BankAccountsScreen(
+                    onNavigateBack = { navController.navigateUp() },
+                    onNavigateToTransactions = { bankAccountId ->
+                        navController.navigate(Screen.Expenses.withFilter(bankAccountId = bankAccountId))
+                    }
+                )
+            }
             composable(
                 route = Screen.Report.route,
                 deepLinks = listOf(navDeepLink { uriPattern = "dibitara://report" })
@@ -233,7 +247,6 @@ fun DibitaraNavGraph(
             composable(Screen.PatrimoineDetail.route) {
                 PatrimoineDetailScreen(
                     onNavigateBack         = { navController.navigateUp() },
-                    onNavigateToBudget     = { navController.navigate(Screen.Budget.route) },
                     onNavigateToSavings    = { navController.navigate(Screen.Savings.route) },
                     onNavigateToInvestments = { navController.navigate(Screen.Investments.route) },
                     onNavigateToDebts      = { navController.navigate(Screen.Debts.route) }

@@ -10,11 +10,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.dibitara.app.presentation.AppViewModel
 import com.dibitara.app.presentation.navigation.DibitaraNavGraph
+import com.dibitara.app.presentation.common.LocalMontantsMasques
 import com.dibitara.app.presentation.common.theme.DibitaraTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -57,7 +61,10 @@ class MainActivity : AppCompatActivity() {
         setContent {
             DibitaraTheme {
                 navController = rememberNavController()
-                DibitaraNavGraph(navController = navController)
+                val masquerMontants by appViewModel.masquerMontants.collectAsState()
+                CompositionLocalProvider(LocalMontantsMasques provides masquerMontants) {
+                    DibitaraNavGraph(navController = navController)
+                }
             }
         }
     }

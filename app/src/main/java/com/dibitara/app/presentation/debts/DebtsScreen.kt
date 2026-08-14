@@ -30,6 +30,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
 import com.dibitara.app.domain.model.SimulateurCredit
+import com.dibitara.app.presentation.common.formatCurrency
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.util.Locale
 
@@ -57,7 +58,7 @@ fun DebtsScreen(
                 is DebtsEvent.Deleted -> snackbarHostState.showSnackbar("Dette supprimée")
                 is DebtsEvent.Error   -> snackbarHostState.showSnackbar(event.message)
                 is DebtsEvent.VersementConfirme -> {
-                    val montant = event.montantCents.toCurrencyDisplay(event.currency)
+                    val montant = event.montantCents.formatCurrency(event.currency)
                     snackbarHostState.showSnackbar("Versement confirmé - capital réduit de $montant")
                 }
             }

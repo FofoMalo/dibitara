@@ -26,7 +26,8 @@ class GetCashflowProjectionUseCaseTest {
     private val exchangeRateRepo: ExchangeRateRepository    = mockk()
 
     private val useCase = GetCashflowProjectionUseCase(
-        budgetRepo, transactionRepo, savingsRepo, investmentRepo, debtRepo, versementRepo, prefsRepo, exchangeRateRepo
+        budgetRepo, transactionRepo, savingsRepo, investmentRepo, debtRepo, versementRepo, prefsRepo, exchangeRateRepo,
+        IdentifierVirementsInternesUseCase()
     )
 
     private val today = LocalDate.of(2026, 5, 10)
@@ -64,6 +65,26 @@ class GetCashflowProjectionUseCaseTest {
         val result = useCase(today).first()
 
         assertEquals(220_000L, result.soldeActuelCents)  // 3 000 - 800 = 2 200€
+    }
+
+    @Test
+    fun `solde de départ exclut un virement interne BRED vers TradeRepublic apparié`() = runTest {
+        every { transactionRepo.getByMonth(any(), any()) } returns flowOf(listOf(
+            buildTx(TransactionType.INCOME, 300_000L),
+            Transaction(
+                id = 1, amountCents = 80_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+                type = TransactionType.EXPENSE, date = today, importSource = "bred_csv"
+            ),
+            Transaction(
+                id = 2, amountCents = 80_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+                type = TransactionType.INCOME, date = today.plusDays(1), importSource = "trade_republic"
+            )
+        ))
+
+        val result = useCase(today).first()
+
+        // Le virement interne appairé (80 000) ne doit pas venir en déduction du solde
+        assertEquals(300_000L, result.soldeActuelCents)
     }
 
     @Test

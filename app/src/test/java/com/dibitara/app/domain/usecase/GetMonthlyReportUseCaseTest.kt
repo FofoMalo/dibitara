@@ -29,7 +29,7 @@ class GetMonthlyReportUseCaseTest {
         every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
         useCase = GetMonthlyReportUseCase(
             getMonthlyTransactions, getMonthlyBudget, getCustomSubCategories,
-            prefsRepo, ratesRepo
+            prefsRepo, ratesRepo, IdentifierVirementsInternesUseCase()
         )
     }
 
@@ -57,6 +57,30 @@ class GetMonthlyReportUseCaseTest {
         assertEquals(200_000L, rapport.revenusCents)
         assertEquals(80_000L,  rapport.depensesCents)
         assertEquals(120_000L, rapport.soldeCents)
+    }
+
+    @Test
+    fun `un virement interne BRED vers TradeRepublic n'est compté ni en revenu ni en dépense`() = runTest {
+        every { getMonthlyTransactions(mois, annee) } returns flowOf(listOf(
+            buildTransaction(TransactionType.INCOME,  200_000L),
+            Transaction(
+                amountCents = 50_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+                type = TransactionType.EXPENSE, date = LocalDate.of(annee, mois, 10),
+                importSource = "bred_csv", id = 1
+            ),
+            Transaction(
+                amountCents = 50_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+                type = TransactionType.INCOME, date = LocalDate.of(annee, mois, 11),
+                importSource = "trade_republic", id = 2
+            )
+        ))
+        every { getMonthlyTransactions(4, annee) } returns flowOf(emptyList())
+        every { getMonthlyBudget(mois, annee) } returns flowOf(null)
+
+        val rapport = useCase(mois, annee).first()
+
+        assertEquals(200_000L, rapport.revenusCents)
+        assertEquals(0L, rapport.depensesCents)
     }
 
     @Test

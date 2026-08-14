@@ -31,7 +31,6 @@ import java.util.Locale
 @Composable
 fun PatrimoineDetailScreen(
     onNavigateBack        : () -> Unit,
-    onNavigateToBudget    : () -> Unit,
     onNavigateToSavings   : () -> Unit,
     onNavigateToInvestments: () -> Unit,
     onNavigateToDebts     : () -> Unit,
@@ -71,7 +70,6 @@ fun PatrimoineDetailScreen(
                     PatrimoineDetailContent(
                         overview              = state.overview,
                         history               = state.history,
-                        onNavigateToBudget    = onNavigateToBudget,
                         onNavigateToSavings   = onNavigateToSavings,
                         onNavigateToInvestments = onNavigateToInvestments,
                         onNavigateToDebts     = onNavigateToDebts
@@ -85,7 +83,6 @@ fun PatrimoineDetailScreen(
 private fun PatrimoineDetailContent(
     overview              : PatrimonyOverview,
     history               : List<PatrimoineSnapshot>,
-    onNavigateToBudget    : () -> Unit,
     onNavigateToSavings   : () -> Unit,
     onNavigateToInvestments: () -> Unit,
     onNavigateToDebts     : () -> Unit
@@ -130,16 +127,10 @@ private fun PatrimoineDetailContent(
         PatrimoineEvolutionCard(history = history, currency = overview.currency)
 
         // ── Décomposition des actifs ─────────────────────────────────────────
+        // Le budget restant (liquidités) n'y figure pas : c'est un flux mensuel, pas un actif
+        // (voir PatrimonyOverview.patrimoineBrutCents) - visible séparément sur le Dashboard.
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                LigneActif(
-                    label      = "Liquidités (budget du mois)",
-                    valueCents = overview.liquiditesCents,
-                    currency   = overview.currency,
-                    color      = MaterialTheme.colorScheme.primary,
-                    onClick    = onNavigateToBudget
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 LigneActif(
                     label      = "Épargne",
                     valueCents = overview.epargneCents,
@@ -356,8 +347,9 @@ private fun PatrimoineEvolutionCard(
 // ─── Donut de répartition des actifs ─────────────────────────────────────────
 
 /**
- * Camembert (donut) montrant la décomposition du patrimoine brut en 3 segments :
- * liquidités (primary), épargne (secondary), investissements (tertiary).
+ * Camembert (donut) montrant la décomposition du patrimoine brut en 2 segments :
+ * épargne (secondary), investissements (tertiary). Le budget restant (liquidités) n'y figure
+ * pas : c'est un flux mensuel, pas un actif (voir PatrimonyOverview.patrimoineBrutCents).
  * Les segments à 0 sont ignorés. La carte n'est pas affichée si le brut est nul.
  */
 @Composable
@@ -366,7 +358,6 @@ private fun PatrimoineDonutCard(overview: PatrimonyOverview) {
     if (brut <= 0L) return
 
     val groupes = buildList {
-        if (overview.liquiditesCents    > 0L) add("Liquidités"      to overview.liquiditesCents)
         if (overview.epargneCents       > 0L) add("Épargne"         to overview.epargneCents)
         if (overview.investissementsCents > 0L) add("Investissements" to overview.investissementsCents)
     }
@@ -374,7 +365,6 @@ private fun PatrimoineDonutCard(overview: PatrimonyOverview) {
 
     // Couleurs M3 sémantiques : cohérence avec la décomposition textuelle ci-dessous
     val couleurs = listOf(
-        MaterialTheme.colorScheme.primary,
         MaterialTheme.colorScheme.secondary,
         MaterialTheme.colorScheme.tertiary
     )

@@ -29,7 +29,8 @@ class GetCashflowProjectionUseCase @Inject constructor(
     private val debtRepository: DebtRepository,
     private val versementRepository: VersementRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val exchangeRateRepository: ExchangeRateRepository
+    private val exchangeRateRepository: ExchangeRateRepository,
+    private val identifierVirementsInternes: IdentifierVirementsInternesUseCase
 ) {
 
     private data class Sources(
@@ -57,7 +58,11 @@ class GetCashflowProjectionUseCase @Inject constructor(
             val target = prefs.deviseParDefaut
             fun Long.cvt(from: Currency) = CurrencyConverter.convertCents(this, from, target, rates)
 
-            val txReelles    = monthTransactions.filter { !it.isRecurring }
+            // Exclut les virements internes BRED↔TradeRepublic appariés du solde de départ
+            // (voir IdentifierVirementsInternesUseCase) : un déplacement entre comptes suivis
+            // n'est ni un revenu ni une dépense réelle.
+            val idsExclus = identifierVirementsInternes(monthTransactions)
+            val txReelles    = monthTransactions.filter { !it.isRecurring && it.id !in idsExclus }
             val revenusCents  = txReelles.filter { it.type == TransactionType.INCOME  }.sumOf { it.amountCents.cvt(it.currency) }
             val depensesCents = txReelles.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents.cvt(it.currency) }
             Sources(
