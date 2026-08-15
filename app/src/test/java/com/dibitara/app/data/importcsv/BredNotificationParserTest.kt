@@ -32,6 +32,26 @@ class BredNotificationParserTest {
     }
 
     @Test
+    fun `retrait carte est parsé correctement`() {
+        // Texte réel capturé par Florent le 15/08/2026 via bred_notif_debug.log (apostrophe
+        // typographique et double espace entre "carte" et "d'un", propres à ce message).
+        val texte = "Carte n°4633 43XX XXXX 5463\n" +
+            "La BRED vous confirme votre retrait carte  d’un montant de 40,00€ le 15/08/2026. " +
+            "Pour plus d'informations contactez Bred Direct au 0806 060 211 (service gratuit + prix appel)."
+
+        val tx = BredNotificationParser.parse(texte)
+
+        assertNotNull(tx)
+        assertEquals(LocalDate.of(2026, 8, 15), tx!!.date)
+        assertEquals(4000L, tx.amountCents)
+        assertEquals(Currency.EUR, tx.currency)
+        assertEquals(TransactionType.EXPENSE, tx.type)
+        assertEquals("Retrait", tx.note)
+        assertEquals("bred_notification", tx.importSource)
+        assertEquals(Category.AUTRE, tx.category)
+    }
+
+    @Test
     fun `deux notifications identiques génèrent le même externalId`() {
         val texte = "La BRED vous confirme votre paiement carte d'un montant de 35,30€ " +
             "(BAR LES ARCADES) le 03/08/2026."

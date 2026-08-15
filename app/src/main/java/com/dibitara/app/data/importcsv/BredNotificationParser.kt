@@ -9,12 +9,14 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.roundToLong
 
 /**
- * Parse le texte d'une notification push BRED pour en extraire un paiement carte.
+ * Parse le texte d'une notification push BRED pour en extraire un paiement carte ou un retrait.
  *
- * Seul format connu et confirmé (capture d'écran réelle) :
- * "La BRED vous confirme votre paiement carte d'un montant de 35,30€ (BAR LES ARCADES) le 03/08/2026."
+ * Formats connus et confirmés (captures d'écran / logs réels) :
+ * - "La BRED vous confirme votre paiement carte d'un montant de 35,30€ (BAR LES ARCADES) le 03/08/2026."
+ * - "La BRED vous confirme votre retrait carte  d'un montant de 40,00€ le 15/08/2026."
+ *   (apostrophe et double espace variables selon les messages BRED, d'où le regex tolérant ci-dessous)
  *
- * BRED ne pousse pas de notification pour les virements/prélèvements/retraits DAB :
+ * BRED ne pousse pas de notification pour les virements/prélèvements :
  * cette capture reste partielle, complémentaire à l'import CSV mensuel (BredCsvParser).
  */
 internal object BredNotificationParser {
@@ -28,15 +30,25 @@ internal object BredNotificationParser {
         RegexOption.IGNORE_CASE
     )
 
+    // ['’] : BRED utilise tantôt l'apostrophe droite, tantôt l'apostrophe typographique
+    // selon les messages. \s+ plutôt qu'un espace unique : le message réel contient un
+    // double espace entre "carte" et "d'un" ("retrait carte  d'un montant...").
+    private val REGEX_RETRAIT = Regex(
+        """retrait carte\s+d['’]un montant de ([\d,]+)\s*€\s*le\s*(\d{2}/\d{2}/\d{4})""",
+        RegexOption.IGNORE_CASE
+    )
+
     fun parse(texteNotification: String): ImportedTransaction? {
+        parsePaiementCarte(texteNotification)?.let { return it }
+        return parseRetrait(texteNotification)
+    }
+
+    private fun parsePaiementCarte(texteNotification: String): ImportedTransaction? {
         val match = REGEX_PAIEMENT_CARTE.find(texteNotification) ?: return null
         val (montantStr, marchandBrut, dateStr) = match.destructured
 
-        // roundToLong() plutôt que toLong() : évite qu'une imprécision binaire double
-        // (ex. 35.30 * 100 = 3529.9999999999995) tronque le montant d'un centime.
-        val amountCents = montantStr.replace(",", ".").toDoubleOrNull()
-            ?.let { (it * 100).roundToLong() } ?: return null
-        val date = runCatching { LocalDate.parse(dateStr, DATE_FORMAT) }.getOrNull() ?: return null
+        val amountCents = parseMontantCents(montantStr) ?: return null
+        val date = parseDate(dateStr) ?: return null
         val marchand = marchandBrut.trim()
         val marchandNormalise = BredCategoriseur.normaliser(marchand)
 
@@ -52,4 +64,32 @@ internal object BredNotificationParser {
             importSource = "bred_notification"
         )
     }
+
+    private fun parseRetrait(texteNotification: String): ImportedTransaction? {
+        val match = REGEX_RETRAIT.find(texteNotification) ?: return null
+        val (montantStr, dateStr) = match.destructured
+
+        val amountCents = parseMontantCents(montantStr) ?: return null
+        val date = parseDate(dateStr) ?: return null
+
+        return ImportedTransaction(
+            date         = date,
+            amountCents  = amountCents,
+            currency     = Currency.EUR,
+            category     = Category.AUTRE, // même catégorisation que les retraits importés en CSV
+            type         = TransactionType.EXPENSE,
+            note         = "Retrait",
+            externalId   = BredCategoriseur.genererExternalIdMontantDate("bred_notification", date, amountCents),
+            rawType      = "RETRAIT_NOTIF",
+            importSource = "bred_notification"
+        )
+    }
+
+    // roundToLong() plutôt que toLong() : évite qu'une imprécision binaire double
+    // (ex. 35.30 * 100 = 3529.9999999999995) tronque le montant d'un centime.
+    private fun parseMontantCents(montantStr: String): Long? =
+        montantStr.replace(",", ".").toDoubleOrNull()?.let { (it * 100).roundToLong() }
+
+    private fun parseDate(dateStr: String): LocalDate? =
+        runCatching { LocalDate.parse(dateStr, DATE_FORMAT) }.getOrNull()
 }

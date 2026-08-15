@@ -27,8 +27,8 @@ private const val TAG = "BredNotifListener"
 private const val NOM_FICHIER_DEBUG = "bred_notif_debug.log"
 
 /**
- * Capture en direct les paiements carte BRED via les notifications push de l'app officielle.
- * BRED ne pousse pas de notification pour les virements/prélèvements/retraits DAB : cette
+ * Capture en direct les paiements carte et les retraits BRED via les notifications push de
+ * l'app officielle. BRED ne pousse pas de notification pour les virements/prélèvements : cette
  * capture reste partielle, complémentaire à l'import CSV mensuel (voir [BredNotificationParser]).
  *
  * L'utilisateur doit activer manuellement l'accès aux notifications dans les réglages Android
