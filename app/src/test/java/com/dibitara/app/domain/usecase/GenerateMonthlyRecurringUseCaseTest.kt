@@ -44,15 +44,30 @@ class GenerateRecurringUseCaseTest {
     // ─── MENSUEL ──────────────────────────────────────────────────────────────
 
     @Test
-    fun `MONTHLY - génère une occurrence quand le modèle est du mois dernier et aucune occurrence ce mois`() = runTest {
-        val template = makeTemplate()
+    fun `MONTHLY - génère une occurrence quand le modèle est du mois dernier et l échéance est déjà passée`() = runTest {
+        val today = LocalDate.of(2026, 8, 15)
+        val template = makeTemplate(date = today.minusMonths(1), recurrenceDay = 5)
         every { repository.getRecurring() } returns flowOf(listOf(template))
         coEvery { repository.hasRecurringOccurrenceInRange(1L, any(), any()) } returns false
         coEvery { repository.insert(any()) } returns 10L
 
-        useCase()
+        useCase(today)
 
         coVerify(exactly = 1) { repository.insert(match { it.sourceRecurringId == 1L && !it.isRecurring }) }
+    }
+
+    @Test
+    fun `MONTHLY - ne génère pas l occurrence du mois en cours si son jour n est pas encore atteint`() = runTest {
+        // Régression : la boucle comparait des mois (cursor vs until.withDayOfMonth(1)) au lieu de
+        // dates réelles, ce qui matérialisait l'échéance du mois en cours avant son jour de prélèvement.
+        val today = LocalDate.of(2026, 8, 15)
+        val template = makeTemplate(date = today.minusMonths(1), recurrenceDay = 25)
+        every { repository.getRecurring() } returns flowOf(listOf(template))
+        coEvery { repository.hasRecurringOccurrenceInRange(1L, any(), any()) } returns false
+
+        useCase(today)
+
+        coVerify(exactly = 0) { repository.insert(any()) }
     }
 
     @Test
