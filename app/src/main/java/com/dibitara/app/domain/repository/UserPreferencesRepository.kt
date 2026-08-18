@@ -2,6 +2,7 @@ package com.dibitara.app.domain.repository
 
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 
@@ -22,6 +23,7 @@ interface UserPreferencesRepository {
     /** Enregistre la date + heure (epoch milli) du dernier import CSV/PDF réussi. */
     suspend fun updateDerniereImport(epochMilli: Long)
     suspend fun updateMasquerMontants(masquer: Boolean)
+    suspend fun updateThemeMode(mode: ThemeMode)
     /** Efface toutes les préférences stockées dans DataStore. */
     suspend fun clearAll()
 }

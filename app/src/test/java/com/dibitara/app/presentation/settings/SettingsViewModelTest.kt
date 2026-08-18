@@ -1,6 +1,7 @@
 package com.dibitara.app.presentation.settings
 
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.model.ExchangeRates
 import android.content.Context
@@ -17,6 +18,7 @@ import com.dibitara.app.domain.usecase.SupprimerToutesDonneesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRecommandationsUseCase
 import com.dibitara.app.domain.usecase.UpdateNotificationsMensuellesUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
+import com.dibitara.app.domain.usecase.UpdateThemeModeUseCase
 import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
 import com.dibitara.app.security.CredentialManager
 import com.dibitara.app.security.TotpManager
@@ -49,6 +51,7 @@ class SettingsViewModelTest {
     private val ucTwoFactor: UpdateTwoFactorEnabledUseCase = mockk(relaxed = true)
     private val ucNotifications: UpdateNotificationsMensuellesUseCase = mockk(relaxed = true)
     private val ucRecommandations: UpdateAfficherRecommandationsUseCase = mockk(relaxed = true)
+    private val ucThemeMode: UpdateThemeModeUseCase = mockk(relaxed = true)
     private val ucSupprimerDonnees: SupprimerToutesDonneesUseCase = mockk(relaxed = true)
     private val ucExporter: ExporterDonneesUseCase = mockk(relaxed = true)
     private val ucRestaurer: RestaurerDonneesUseCase = mockk(relaxed = true)
@@ -67,7 +70,7 @@ class SettingsViewModelTest {
         every { credentialManager.isTotpSetup()     } returns false
         // ucRates retourne un succès avec des taux fictifs pour ne pas bloquer init()
         coEvery { ucRates() } returns Result.success(ExchangeRates(1.09, 655.96, 0L))
-        viewModel = SettingsViewModel(context, ucGet, ucRates, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucProchainsPaiements, ucTwoFactor, ucNotifications, ucRecommandations, ucSupprimerDonnees, ucExporter, ucRestaurer, credentialManager, totpManager)
+        viewModel = SettingsViewModel(context, ucGet, ucRates, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucProchainsPaiements, ucTwoFactor, ucNotifications, ucRecommandations, ucThemeMode, ucSupprimerDonnees, ucExporter, ucRestaurer, credentialManager, totpManager)
     }
 
     @AfterEach
@@ -103,5 +106,13 @@ class SettingsViewModelTest {
         testScheduler.advanceUntilIdle()
 
         coVerify { ucDevise(Currency.USD) }
+    }
+
+    @Test
+    fun `mettreAJourThemeMode délègue au UseCase`() = runTest {
+        viewModel.mettreAJourThemeMode(ThemeMode.SOMBRE)
+        testScheduler.advanceUntilIdle()
+
+        coVerify { ucThemeMode(ThemeMode.SOMBRE) }
     }
 }

@@ -10,12 +10,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.presentation.AppViewModel
 import com.dibitara.app.presentation.navigation.DibitaraNavGraph
 import com.dibitara.app.presentation.common.LocalMontantsMasques
@@ -59,7 +61,13 @@ class MainActivity : AppCompatActivity() {
         appViewModel
         demanderPermissionNotificationsSiNecessaire()
         setContent {
-            DibitaraTheme {
+            val themeMode by appViewModel.themeMode.collectAsState()
+            val darkTheme = when (themeMode) {
+                ThemeMode.CLAIR   -> false
+                ThemeMode.SOMBRE  -> true
+                ThemeMode.SYSTEME -> isSystemInDarkTheme()
+            }
+            DibitaraTheme(darkTheme = darkTheme) {
                 navController = rememberNavController()
                 val masquerMontants by appViewModel.masquerMontants.collectAsState()
                 CompositionLocalProvider(LocalMontantsMasques provides masquerMontants) {

@@ -1,6 +1,7 @@
 package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.repository.UserPreferencesRepository
 import io.mockk.coVerify
@@ -64,5 +65,14 @@ class UserPreferencesUseCasesTest {
         UpdateAfficherProchainsPaiementsUseCase(repository)(false)
 
         coVerify { repository.updateAfficherProchainsPaiements(false) }
+    }
+
+    // ─── UpdateThemeModeUseCase ────────────────────────────────────────────────
+
+    @Test
+    fun `UpdateThemeMode délègue la mise à jour au repository`() = runTest {
+        UpdateThemeModeUseCase(repository)(ThemeMode.SOMBRE)
+
+        coVerify { repository.updateThemeMode(ThemeMode.SOMBRE) }
     }
 }

@@ -10,6 +10,7 @@ package com.dibitara.app.domain.model
  * [tauxEpargneCiblePct]      : objectif d'épargne en % du revenu mensuel (défaut : 20 % - règle 50/30/20).
  * [derniereImportEpochMilli] : date + heure du dernier import CSV/PDF réussi (BRED ou TradeRepublic), null si aucun import.
  * [masquerMontants]          : si true, tous les montants affichés à l'écran sont remplacés par "••••" (confidentialité).
+ * [themeMode]                : apparence choisie (système/clair/sombre) - voir [ThemeMode].
  */
 data class UserPreferences(
     val seuilFondsCents: Long = 20_000L,
@@ -24,5 +25,6 @@ data class UserPreferences(
     val afficherRecommandations: Boolean = false,
     val tauxEpargneCiblePct: Int = 20,
     val derniereImportEpochMilli: Long? = null,
-    val masquerMontants: Boolean = false
+    val masquerMontants: Boolean = false,
+    val themeMode: ThemeMode = ThemeMode.SYSTEME
 )

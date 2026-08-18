@@ -14,6 +14,7 @@ import com.dibitara.app.domain.model.Currency
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.ExportFormat
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.ExporterDonneesUseCase
 import com.dibitara.app.domain.usecase.GetExchangeRatesUseCase
@@ -28,6 +29,7 @@ import com.dibitara.app.domain.usecase.SupprimerToutesDonneesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRecommandationsUseCase
 import com.dibitara.app.domain.usecase.UpdateNotificationsMensuellesUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
+import com.dibitara.app.domain.usecase.UpdateThemeModeUseCase
 import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
 import java.util.concurrent.TimeUnit
 import com.dibitara.app.security.CredentialManager
@@ -57,6 +59,7 @@ class SettingsViewModel @Inject constructor(
     private val ucUpdateTwoFactorEnabled: UpdateTwoFactorEnabledUseCase,
     private val ucUpdateNotificationsMensuelles: UpdateNotificationsMensuellesUseCase,
     private val ucUpdateAfficherRecommandations: UpdateAfficherRecommandationsUseCase,
+    private val ucUpdateThemeMode: UpdateThemeModeUseCase,
     private val ucSupprimerToutesDonnees: SupprimerToutesDonneesUseCase,
     private val ucExporterDonnees: ExporterDonneesUseCase,
     private val ucRestaurerDonnees: RestaurerDonneesUseCase,
@@ -190,6 +193,10 @@ class SettingsViewModel @Inject constructor(
 
     fun mettreAJourDevise(currency: Currency) {
         viewModelScope.launch { ucUpdateDevise(currency) }
+    }
+
+    fun mettreAJourThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { ucUpdateThemeMode(mode) }
     }
 
     fun mettreAJourAfficherRapport(afficher: Boolean) {

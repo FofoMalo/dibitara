@@ -13,6 +13,7 @@ import com.dibitara.app.domain.usecase.CheckEnveloppeDepassementUseCase
 import com.dibitara.app.domain.usecase.CheckPendingContributionsUseCase
 import com.dibitara.app.domain.usecase.GenerateRecurringUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.usecase.MigrerTabacVersCategorieUseCase
 import com.dibitara.app.presentation.common.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -58,6 +59,11 @@ class AppViewModel @Inject constructor(
     val masquerMontants: StateFlow<Boolean> = getPreferences()
         .map { it.masquerMontants }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Lu par MainActivity pour choisir le colorScheme (clair/sombre/système) de [com.dibitara.app.presentation.common.theme.DibitaraTheme]. */
+    val themeMode: StateFlow<ThemeMode> = getPreferences()
+        .map { it.themeMode }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEME)
 
     init {
         viewModelScope.launch {

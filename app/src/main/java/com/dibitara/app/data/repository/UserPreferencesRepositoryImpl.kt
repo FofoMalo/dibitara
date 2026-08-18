@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +39,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val KEY_TAUX_EPARGNE_CIBLE           = intPreferencesKey("taux_epargne_cible_pct")
         val KEY_DERNIER_IMPORT               = longPreferencesKey("dernier_import_epoch_milli")
         val KEY_MASQUER_MONTANTS             = booleanPreferencesKey("masquer_montants")
+        val KEY_THEME_MODE                   = stringPreferencesKey("theme_mode")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -58,7 +60,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             afficherRecommandations     = prefs[KEY_AFFICHER_RECOMMANDATIONS] ?: false,
             tauxEpargneCiblePct         = prefs[KEY_TAUX_EPARGNE_CIBLE] ?: UserPreferences().tauxEpargneCiblePct,
             derniereImportEpochMilli    = prefs[KEY_DERNIER_IMPORT],
-            masquerMontants             = prefs[KEY_MASQUER_MONTANTS] ?: false
+            masquerMontants             = prefs[KEY_MASQUER_MONTANTS] ?: false,
+            themeMode                   = prefs[KEY_THEME_MODE]
+                ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
+                ?: UserPreferences().themeMode
         )
     }
 
@@ -112,6 +117,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateMasquerMontants(masquer: Boolean) {
         dataStore.edit { it[KEY_MASQUER_MONTANTS] = masquer }
+    }
+
+    override suspend fun updateThemeMode(mode: ThemeMode) {
+        dataStore.edit { it[KEY_THEME_MODE] = mode.name }
     }
 
     override suspend fun clearAll() {

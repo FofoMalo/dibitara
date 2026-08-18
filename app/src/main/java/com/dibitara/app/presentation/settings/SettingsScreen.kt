@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ExportFormat
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.presentation.auth.ClavierNumerique
 import com.dibitara.app.presentation.auth.PinDots
 import com.dibitara.app.presentation.auth.passwordCriteria
@@ -146,6 +147,25 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Paramètres", style = MaterialTheme.typography.headlineMedium)
+
+            // ─── Section apparence ─────────────────────────────────────────────
+            SectionCard(titre = "Apparence") {
+                Text(
+                    "Système suit le réglage clair/sombre de l'appareil.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeMode.entries.forEach { mode ->
+                        FilterChip(
+                            selected = prefs.themeMode == mode,
+                            onClick  = { viewModel.mettreAJourThemeMode(mode) },
+                            label    = { Text(mode.displayName) }
+                        )
+                    }
+                }
+            }
 
             // ─── Section notifications ────────────────────────────────────────
             SectionCard(titre = "Notifications") {
