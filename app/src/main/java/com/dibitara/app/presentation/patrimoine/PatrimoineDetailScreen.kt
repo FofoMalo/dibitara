@@ -23,6 +23,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.PatrimonyOverview
 import com.dibitara.app.domain.model.PatrimoineSnapshot
 import com.dibitara.app.presentation.common.DonutAvecLegende
+import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -95,12 +96,7 @@ private fun PatrimoineDetailContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ── Patrimoine brut ──────────────────────────────────────────────────
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        ) {
+        HeroCard {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -109,13 +105,13 @@ private fun PatrimoineDetailContent(
                     "Patrimoine brut",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     overview.patrimoineBrutCents.toCurrencyDisplay(overview.currency),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -176,15 +172,7 @@ private fun PatrimoineDetailContent(
 
         // ── Patrimoine net ───────────────────────────────────────────────────
         val netPositif = overview.patrimoineNetCents >= 0
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (netPositif)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.errorContainer
-            )
-        ) {
+        HeroCard {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -192,13 +180,13 @@ private fun PatrimoineDetailContent(
                 Text(
                     "Patrimoine net",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     overview.patrimoineNetCents.toCurrencyDisplay(overview.currency),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (netPositif) MaterialTheme.colorScheme.onPrimaryContainer
+                    color = if (netPositif) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.error
                 )
                 // Barre de santé : part du brut non engagée dans des dettes
@@ -221,13 +209,13 @@ private fun PatrimoineDetailContent(
                     Text(
                         "${(ratio * 100).toInt()}% du brut non endetté",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
                     "= Patrimoine brut − Dettes",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

@@ -493,7 +493,9 @@ private fun ExpensesList(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        // bottom = 160.dp pour ne pas laisser le FAB (Scaffold ne réserve pas d'espace pour lui)
+        // chevaucher la dernière ligne de transaction - 96.dp testé insuffisant sur appareil réel
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 160.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (groupByDay) {

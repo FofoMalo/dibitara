@@ -38,6 +38,7 @@ import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.model.VehicleRentalEntry
+import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.HorizontalBarChart
 import com.dibitara.app.presentation.common.HorizontalBarEntry
 import com.dibitara.app.presentation.common.TrendChip
@@ -367,10 +368,7 @@ private fun TotalInvestmentsCard(
     trendPct: Float? = null,
     hasConvertedValues: Boolean = false
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-    ) {
+    HeroCard {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -380,7 +378,7 @@ private fun TotalInvestmentsCard(
                     Text(
                         "Valeur totale",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (trendPct != null) TrendChip(trendPct)
                 }
@@ -388,13 +386,13 @@ private fun TotalInvestmentsCard(
                     totalCents.toCurrencyDisplay(currency),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    color = MaterialTheme.colorScheme.tertiary
                 )
                 if (hasConvertedValues) {
                     Text(
                         "≈ conversion appliquée (${currency.isoCode})",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -402,12 +400,12 @@ private fun TotalInvestmentsCard(
                 Text(
                     "Locatif / an",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     airbnbAnnualCents.toCurrencyDisplay(currency),
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }

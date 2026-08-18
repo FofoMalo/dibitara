@@ -199,7 +199,9 @@ private fun BudgetContent(
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(vertical = 16.dp)
+        // bottom = 160.dp pour ne pas laisser le FAB (Scaffold ne réserve pas d'espace pour lui)
+        // chevaucher le dernier élément (légende du donut) - 96.dp testé insuffisant sur appareil réel
+        contentPadding = PaddingValues(top = 16.dp, bottom = 160.dp)
     ) {
         item {
             // Navigateur de mois
