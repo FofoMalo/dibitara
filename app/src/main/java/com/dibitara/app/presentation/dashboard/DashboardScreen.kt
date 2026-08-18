@@ -33,6 +33,7 @@ import com.dibitara.app.domain.model.UpcomingPayment
 import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.ProjectionSparkline
 import com.dibitara.app.presentation.common.TrendChip
+import com.dibitara.app.presentation.common.LocalMontantsMasques
 import com.dibitara.app.presentation.common.chartColor
 import com.dibitara.app.presentation.common.chartIcon
 import com.dibitara.app.presentation.common.toCurrencyDisplay
@@ -60,6 +61,7 @@ import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
 import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
 import com.patrykandpatrick.vico.core.axis.AxisPosition
 import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
+import com.patrykandpatrick.vico.core.axis.formatter.DecimalFormatAxisValueFormatter
 import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 import com.patrykandpatrick.vico.core.entry.entryOf
 
@@ -470,6 +472,7 @@ private fun SpendingHistoryCard(history: List<MonthlyExpense>, currency: Currenc
     // ChartEntryModelProducer gère les mises à jour asynchrones des données du graphique
     val producer = remember { ChartEntryModelProducer() }
     val labels = remember(history) { history.map { moisAbrege(it.month) } }
+    val montantsMasques = LocalMontantsMasques.current
 
     LaunchedEffect(history) {
         // Conversion centimes → euros, x = index du mois dans la liste
@@ -490,7 +493,17 @@ private fun SpendingHistoryCard(history: List<MonthlyExpense>, currency: Currenc
                 Chart(
                     chart = columnChart(),
                     chartModelProducer = producer,
-                    startAxis = rememberStartAxis(),
+                    startAxis = rememberStartAxis(
+                        // Le formatter par défaut de Vico affiche les montants en clair sur l'axe,
+                        // sans passer par toCurrencyDisplay() (non applicable ici : Vico exige un
+                        // Float, pas les centimes Long attendus par l'extension) - d'où ce respect
+                        // manuel du masquage global des montants.
+                        valueFormatter = if (montantsMasques) {
+                            AxisValueFormatter<AxisPosition.Vertical.Start> { _, _ -> "••••" }
+                        } else {
+                            DecimalFormatAxisValueFormatter()
+                        }
+                    ),
                     bottomAxis = rememberBottomAxis(
                         valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
                             labels.getOrElse(value.toInt()) { "" }

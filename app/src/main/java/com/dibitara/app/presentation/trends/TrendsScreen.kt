@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.CategoryTrend
+import com.dibitara.app.presentation.common.LocalMontantsMasques
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
@@ -22,6 +23,7 @@ import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
 import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
 import com.patrykandpatrick.vico.core.axis.AxisPosition
 import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
+import com.patrykandpatrick.vico.core.axis.formatter.DecimalFormatAxisValueFormatter
 import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 import com.patrykandpatrick.vico.core.entry.entryOf
 import java.time.Month
@@ -78,6 +80,7 @@ fun TrendsScreen(
 @Composable
 private fun CategoryTrendCard(trend: CategoryTrend) {
     val producer = remember { ChartEntryModelProducer() }
+    val montantsMasques = LocalMontantsMasques.current
     val labels = remember(trend.moisData) {
         trend.moisData.map { md ->
             Month.of(md.month)
@@ -124,7 +127,16 @@ private fun CategoryTrendCard(trend: CategoryTrend) {
                 Chart(
                     chart = columnChart(),
                     chartModelProducer = producer,
-                    startAxis = rememberStartAxis(),
+                    // Le formatter par défaut de Vico affiche les montants en clair sur l'axe,
+                    // sans passer par toCurrencyDisplay() - d'où ce respect manuel du masquage
+                    // global des montants (voir SpendingHistoryCard dans DashboardScreen.kt).
+                    startAxis = rememberStartAxis(
+                        valueFormatter = if (montantsMasques) {
+                            AxisValueFormatter<AxisPosition.Vertical.Start> { _, _ -> "••••" }
+                        } else {
+                            DecimalFormatAxisValueFormatter()
+                        }
+                    ),
                     bottomAxis = rememberBottomAxis(
                         valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { _, _ -> "" }
                     ),
