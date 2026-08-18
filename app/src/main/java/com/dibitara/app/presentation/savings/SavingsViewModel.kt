@@ -3,18 +3,22 @@ package com.dibitara.app.presentation.savings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlin.math.roundToLong
+import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
+import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
+import com.dibitara.app.domain.usecase.GetAssetValuationHistoryUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
 import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
+import com.dibitara.app.domain.usecase.SaveAssetValuationSnapshotUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
@@ -41,7 +45,10 @@ class SavingsViewModel @Inject constructor(
     private val existeVersementMois: ExisteVersementMoisUseCase,
     private val getVersementsMois: GetVersementsMoisUseCase,
     private val ucGetPreferences: GetUserPreferencesUseCase,
-    private val exchangeRateRepository: ExchangeRateRepository
+    private val exchangeRateRepository: ExchangeRateRepository,
+    private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase,
+    private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase,
+    private val ucCalculerTendanceActif: CalculerTendanceActifUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -80,6 +87,13 @@ class SavingsViewModel @Inject constructor(
     private val _event = MutableSharedFlow<SavingsEvent>()
     val event: SharedFlow<SavingsEvent> = _event.asSharedFlow()
 
+    /**
+     * Tendance d'un compte épargne, lue à la demande - même logique que
+     * [com.dibitara.app.presentation.investments.InvestmentsViewModel.tendancePourActif].
+     */
+    suspend fun tendancePourActif(assetId: Long): Float? =
+        ucCalculerTendanceActif(ucGetAssetValuationHistory(AssetValuationType.SAVINGS_ACCOUNT, assetId).first())
+
     fun saveAccount(
         type: SavingsType,
         label: String,
@@ -108,7 +122,10 @@ class SavingsViewModel @Inject constructor(
                     plafondCents = plafond
                 )
             )
-                .onSuccess { _event.emit(SavingsEvent.Saved) }
+                .onSuccess { newId ->
+                    ucSaveAssetSnapshot(AssetValuationType.SAVINGS_ACCOUNT, newId, balance, currency)
+                    _event.emit(SavingsEvent.Saved)
+                }
                 .onFailure { _event.emit(SavingsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -142,7 +159,10 @@ class SavingsViewModel @Inject constructor(
                     plafondCents             = plafond
                 )
             )
-                .onSuccess { _event.emit(SavingsEvent.Saved) }
+                .onSuccess {
+                    ucSaveAssetSnapshot(AssetValuationType.SAVINGS_ACCOUNT, account.id, balance, currency)
+                    _event.emit(SavingsEvent.Saved)
+                }
                 .onFailure { _event.emit(SavingsEvent.Error(it.message ?: "Erreur")) }
         }
     }

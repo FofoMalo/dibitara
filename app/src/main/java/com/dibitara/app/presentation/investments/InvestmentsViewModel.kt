@@ -351,7 +351,10 @@ class InvestmentsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             ucSaveCustomAsset(CustomAsset(label = label, totalValueCents = cents, currency = currency, updatedAt = LocalDate.now()))
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onSuccess { newId ->
+                    ucSaveAssetSnapshot(AssetValuationType.CUSTOM_ASSET, newId, cents, currency)
+                    _event.emit(InvestmentsEvent.Saved)
+                }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -363,7 +366,10 @@ class InvestmentsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             ucUpdateCustomAsset(asset.copy(label = label, totalValueCents = cents, currency = currency, updatedAt = LocalDate.now()))
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onSuccess {
+                    ucSaveAssetSnapshot(AssetValuationType.CUSTOM_ASSET, asset.id, cents, currency)
+                    _event.emit(InvestmentsEvent.Saved)
+                }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -382,7 +388,10 @@ class InvestmentsViewModel @Inject constructor(
         val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         viewModelScope.launch {
             ucSaveEmployeeSavings(EmployeeSavings(type = type, label = label, currentBalanceCents = balance, employerContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onSuccess { newId ->
+                    ucSaveAssetSnapshot(AssetValuationType.EMPLOYEE_SAVINGS, newId, balance, currency)
+                    _event.emit(InvestmentsEvent.Saved)
+                }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -395,7 +404,10 @@ class InvestmentsViewModel @Inject constructor(
         val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         viewModelScope.launch {
             ucUpdateEmployeeSavings(savings.copy(type = type, label = label, currentBalanceCents = balance, employerContributionCents = contribution, currency = currency, updatedAt = LocalDate.now()))
-                .onSuccess { _event.emit(InvestmentsEvent.Saved) }
+                .onSuccess {
+                    ucSaveAssetSnapshot(AssetValuationType.EMPLOYEE_SAVINGS, savings.id, balance, currency)
+                    _event.emit(InvestmentsEvent.Saved)
+                }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
         }
     }

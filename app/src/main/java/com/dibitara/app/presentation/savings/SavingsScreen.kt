@@ -33,6 +33,7 @@ import com.dibitara.app.domain.model.PlafondDefaut
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.presentation.common.HeroCard
+import com.dibitara.app.presentation.common.TrendChip
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @Composable
@@ -92,7 +93,8 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                                 (state as SavingsUiState.Success).accounts,
                                 selectionnes
                             )
-                        }
+                        },
+                        getTrend = viewModel::tendancePourActif
                     )
             }
         }
@@ -139,7 +141,8 @@ private fun SavingsContent(
     onAddChild: () -> Unit,
     onDeleteChild: (Child) -> Unit,
     onAppliquerVersement: (SavingsAccount) -> Unit,
-    onAssocierComptes: (Child, Set<Long>) -> Unit
+    onAssocierComptes: (Child, Set<Long>) -> Unit,
+    getTrend: suspend (Long) -> Float?
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -197,7 +200,8 @@ private fun SavingsContent(
                     childName = state.children.find { it.id == account.childId }?.name,
                     onEdit = { onEditAccount(account) },
                     onDelete = { onDeleteAccount(account) },
-                    onVersement = { onAppliquerVersement(account) }
+                    onVersement = { onAppliquerVersement(account) },
+                    getTrend = getTrend
                 )
             }
         }
@@ -243,11 +247,14 @@ private fun SavingsAccountCard(
     childName: String?,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onVersement: () -> Unit
+    onVersement: () -> Unit,
+    getTrend: suspend (Long) -> Float?
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var showVersementConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(account.id, account.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(account.id, account.updatedAt) { trendPct = getTrend(account.id) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -274,10 +281,13 @@ private fun SavingsAccountCard(
                         Text("Pour $childName", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary)
                     }
-                    Text(
-                        "Solde : ${account.currentBalanceCents.toCurrencyDisplay(account.currency)}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Solde : ${account.currentBalanceCents.toCurrencyDisplay(account.currency)}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        if (trendPct != null) TrendChip(trendPct!!)
+                    }
                     if (account.monthlyContributionCents > 0) {
                         Text(
                             "+ ${account.monthlyContributionCents.toCurrencyDisplay(account.currency)}/mois",

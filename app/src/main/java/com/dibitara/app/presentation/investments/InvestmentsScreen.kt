@@ -344,7 +344,7 @@ private fun InvestmentsContent(
             item { EmptySectionText("Aucun actif libre enregistré (crypto, actions, œuvres...).") }
         } else {
             items(state.customAssets, key = { "custom_${it.id}" }) { asset ->
-                CustomAssetCard(asset = asset, onEdit = { onEditCustomAsset(asset) }, onDelete = { onDeleteCustomAsset(asset) })
+                CustomAssetCard(asset = asset, onEdit = { onEditCustomAsset(asset) }, onDelete = { onDeleteCustomAsset(asset) }, getTrend = getTrend)
             }
         }
 
@@ -354,7 +354,7 @@ private fun InvestmentsContent(
             item { EmptySectionText("Aucun plan d'épargne salariale enregistré (PEE, PERCO).") }
         } else {
             items(state.employeeSavings, key = { "emp_${it.id}" }) { savings ->
-                EmployeeSavingsCard(savings = savings, onEdit = { onEditEmpSavings(savings) }, onDelete = { onDeleteEmpSavings(savings) })
+                EmployeeSavingsCard(savings = savings, onEdit = { onEditEmpSavings(savings) }, onDelete = { onDeleteEmpSavings(savings) }, getTrend = getTrend)
             }
         }
     }
@@ -1589,15 +1589,25 @@ private fun EditVehicleRentalSheet(
 // ─── Cartes investissements personnalisés ─────────────────────────────────────
 
 @Composable
-private fun CustomAssetCard(asset: CustomAsset, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun CustomAssetCard(
+    asset: CustomAsset,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    getTrend: suspend (AssetValuationType, Long) -> Float?
+) {
     var showConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(asset.id, asset.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(asset.id, asset.updatedAt) { trendPct = getTrend(AssetValuationType.CUSTOM_ASSET, asset.id) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(asset.label, style = MaterialTheme.typography.bodyLarge)
-                Text(asset.totalValueCents.toCurrencyDisplay(asset.currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(asset.totalValueCents.toCurrencyDisplay(asset.currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                    if (trendPct != null) TrendChip(trendPct!!)
+                }
                 Text("Mis à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box {
@@ -1623,15 +1633,25 @@ private fun CustomAssetCard(asset: CustomAsset, onEdit: () -> Unit, onDelete: ()
 }
 
 @Composable
-private fun EmployeeSavingsCard(savings: EmployeeSavings, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun EmployeeSavingsCard(
+    savings: EmployeeSavings,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    getTrend: suspend (AssetValuationType, Long) -> Float?
+) {
     var showConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(savings.id, savings.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(savings.id, savings.updatedAt) { trendPct = getTrend(AssetValuationType.EMPLOYEE_SAVINGS, savings.id) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("${savings.type.displayName} - ${savings.label}", style = MaterialTheme.typography.bodyLarge)
-                Text("Solde : ${savings.currentBalanceCents.toCurrencyDisplay(savings.currency)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Solde : ${savings.currentBalanceCents.toCurrencyDisplay(savings.currency)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                    if (trendPct != null) TrendChip(trendPct!!)
+                }
                 if (savings.employerContributionCents > 0) {
                     Text("Abondement : ${savings.employerContributionCents.toCurrencyDisplay(savings.currency)}/mois", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }

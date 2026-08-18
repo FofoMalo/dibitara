@@ -9,13 +9,16 @@ import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
+import com.dibitara.app.domain.usecase.GetAssetValuationHistoryUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
 import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
+import com.dibitara.app.domain.usecase.SaveAssetValuationSnapshotUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
@@ -49,6 +52,9 @@ class SavingsViewModelTest {
     private val getVersementsMois: GetVersementsMoisUseCase = mockk()
     private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
     private val ratesRepo: ExchangeRateRepository = mockk()
+    private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase = mockk(relaxed = true)
+    private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase = mockk(relaxed = true)
+    private val ucCalculerTendanceActif: CalculerTendanceActifUseCase = mockk(relaxed = true)
     private lateinit var viewModel: SavingsViewModel
 
     @BeforeEach
@@ -62,7 +68,8 @@ class SavingsViewModelTest {
         viewModel = SavingsViewModel(
             getSavings, saveSavingsAccount, updateSavingsAccount,
             deleteSavingsAccount, getChildren, saveChild, deleteChild,
-            saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo
+            saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
+            ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
         )
     }
 
