@@ -2,6 +2,10 @@ package com.dibitara.app.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.dibitara.app.data.worker.PatrimoineSnapshotWorker
 import com.dibitara.app.domain.usecase.CheckAvailableFundsUseCase
 import com.dibitara.app.domain.usecase.CheckBudgetNotificationUseCase
 import com.dibitara.app.domain.usecase.CheckDebtRemindersUseCase
@@ -12,6 +16,7 @@ import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.MigrerTabacVersCategorieUseCase
 import com.dibitara.app.presentation.common.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -19,7 +24,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import android.content.Context
 
 /**
  * ViewModel attaché à MainActivity.
@@ -27,6 +34,7 @@ import javax.inject.Inject
  *  1. La migration ponctuelle de la sous-catégorie "Tabac" vers Category.TABAC (idempotente).
  *  2. La génération des transactions récurrentes du mois.
  *  3. Les vérifications de notification (budget, dettes, liquidités).
+ *  4. La planification du snapshot mensuel du patrimoine (inconditionnelle, pas liée à une préférence).
  * Le seuil d'alerte est lu depuis les préférences utilisateur - pas de valeur codée en dur.
  */
 @HiltViewModel
@@ -39,7 +47,8 @@ class AppViewModel @Inject constructor(
     private val checkEnveloppes            : CheckEnveloppeDepassementUseCase,
     private val migrerTabac                : MigrerTabacVersCategorieUseCase,
     private val getPreferences             : GetUserPreferencesUseCase,
-    private val notificationHelper         : NotificationHelper
+    private val notificationHelper         : NotificationHelper,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     /**
@@ -56,6 +65,21 @@ class AppViewModel @Inject constructor(
             generateRecurring()
             verifierNotifications()
         }
+        planifierSnapshotPatrimoine()
+    }
+
+    /**
+     * Garantit au moins un snapshot du patrimoine tous les 30 jours (voir [PatrimoineSnapshotWorker]),
+     * indépendamment du fait que l'utilisateur ouvre ou non l'écran "Détail du patrimoine".
+     * KEEP plutôt que UPDATE : ne redémarre pas le décompte à chaque lancement de l'app.
+     */
+    private fun planifierSnapshotPatrimoine() {
+        val request = PeriodicWorkRequestBuilder<PatrimoineSnapshotWorker>(30, TimeUnit.DAYS).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            PatrimoineSnapshotWorker.NOM_TRAVAIL_UNIQUE,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
     }
 
     /**
