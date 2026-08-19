@@ -44,7 +44,7 @@ import java.time.LocalDate
         AssetValuationSnapshotEntity::class,
         BankAccountEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -68,6 +68,23 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun bankAccountDao(): BankAccountDao
 
     companion object {
+        // Migration v22 → v23 : valeur et date d'acquisition (saisies rétroactivement) sur les
+        // 4 types d'actifs investissement, pour le bloc "Acquisition → Aujourd'hui" (écran
+        // Placements). Colonnes nullables : les actifs existants ne perdent rien, le bloc ne
+        // s'affiche que si l'utilisateur les renseigne via le sheet Modifier.
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE real_estate_assets ADD COLUMN acquisitionValueCents INTEGER")
+                db.execSQL("ALTER TABLE real_estate_assets ADD COLUMN acquisitionDateEpochDay INTEGER")
+                db.execSQL("ALTER TABLE scpi_investments ADD COLUMN acquisitionValueCents INTEGER")
+                db.execSQL("ALTER TABLE scpi_investments ADD COLUMN acquisitionDateEpochDay INTEGER")
+                db.execSQL("ALTER TABLE custom_assets ADD COLUMN acquisitionValueCents INTEGER")
+                db.execSQL("ALTER TABLE custom_assets ADD COLUMN acquisitionDateEpochDay INTEGER")
+                db.execSQL("ALTER TABLE employee_savings ADD COLUMN acquisitionValueCents INTEGER")
+                db.execSQL("ALTER TABLE employee_savings ADD COLUMN acquisitionDateEpochDay INTEGER")
+            }
+        }
+
         // Migration v21 → v22 : nouvelle table bank_accounts (BRED, TradeRepublic...) + colonne
         // bankAccountId sur transactions. Seed des 2 comptes connus et backfill des transactions
         // déjà importées via leur importSource existant - aucune action requise de l'utilisateur.

@@ -19,7 +19,10 @@ data class CustomAsset(
     val label           : String,
     val totalValueCents : Long,
     val currency        : Currency,
-    val updatedAt       : LocalDate
+    val updatedAt       : LocalDate,
+    // Cf. RealEstateAsset.acquisitionValueCents - saisie rétroactive, nullable
+    val acquisitionValueCents : Long? = null,
+    val acquisitionDate       : LocalDate? = null
 )
 
 /**
@@ -33,5 +36,8 @@ data class EmployeeSavings(
     val currentBalanceCents       : Long,
     val employerContributionCents : Long,
     val currency                  : Currency,
-    val updatedAt                 : LocalDate
+    val updatedAt                 : LocalDate,
+    // Cf. RealEstateAsset.acquisitionValueCents - saisie rétroactive, nullable
+    val acquisitionValueCents : Long? = null,
+    val acquisitionDate       : LocalDate? = null
 )

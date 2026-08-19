@@ -13,14 +13,18 @@ data class CustomAssetEntity(
     val label           : String,
     val totalValueCents : Long,
     val currency        : String,
-    val updatedAtEpochDay : Long
+    val updatedAtEpochDay : Long,
+    val acquisitionValueCents : Long? = null,
+    val acquisitionDateEpochDay : Long? = null
 ) {
     fun toDomain() = CustomAsset(
         id              = id,
         label           = label,
         totalValueCents = totalValueCents,
         currency        = safeValueOf(currency, Currency.EUR),
-        updatedAt       = LocalDate.ofEpochDay(updatedAtEpochDay)
+        updatedAt       = LocalDate.ofEpochDay(updatedAtEpochDay),
+        acquisitionValueCents = acquisitionValueCents,
+        acquisitionDate       = acquisitionDateEpochDay?.let { LocalDate.ofEpochDay(it) }
     )
 
     companion object {
@@ -29,7 +33,9 @@ data class CustomAssetEntity(
             label           = a.label,
             totalValueCents = a.totalValueCents,
             currency        = a.currency.name,
-            updatedAtEpochDay = a.updatedAt.toEpochDay()
+            updatedAtEpochDay = a.updatedAt.toEpochDay(),
+            acquisitionValueCents = a.acquisitionValueCents,
+            acquisitionDateEpochDay = a.acquisitionDate?.toEpochDay()
         )
     }
 }

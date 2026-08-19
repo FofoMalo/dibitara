@@ -9,6 +9,7 @@ import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.usecase.CalculerPerformanceActifUseCase
 import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.CalculerTendancePatrimoineUseCase
 import com.dibitara.app.domain.usecase.DeleteAirbnbRentalUseCase
@@ -36,6 +37,7 @@ import com.dibitara.app.domain.usecase.SaveRealEstateUseCase
 import com.dibitara.app.domain.usecase.SaveScpiUseCase
 import com.dibitara.app.domain.usecase.SaveVehicleRentalEntryUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
+import com.dibitara.app.domain.usecase.SommeVersementsDepuisUseCase
 import com.dibitara.app.domain.usecase.UpdateAirbnbRentalUseCase
 import com.dibitara.app.domain.usecase.UpdateCustomAssetUseCase
 import com.dibitara.app.domain.usecase.UpdateEmployeeSavingsUseCase
@@ -97,6 +99,8 @@ class InvestmentsViewModelTest {
     private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase = mockk(relaxed = true)
     private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase = mockk(relaxed = true)
     private val ucCalculerTendanceActif: CalculerTendanceActifUseCase = mockk(relaxed = true)
+    private val ucCalculerPerformanceActif: CalculerPerformanceActifUseCase = mockk(relaxed = true)
+    private val ucSommeVersementsDepuis: SommeVersementsDepuisUseCase = mockk(relaxed = true)
 
     private lateinit var viewModel: InvestmentsViewModel
 
@@ -125,7 +129,8 @@ class InvestmentsViewModelTest {
             ucDeleteCustomAsset, ucDeleteEmployeeSavings,
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts,
             ucGetPatrimoineHistory, ucCalculerTendance,
-            ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
+            ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
+            ucCalculerPerformanceActif, ucSommeVersementsDepuis
         )
     }
 
@@ -276,7 +281,8 @@ class InvestmentsViewModelTest {
             ucDeleteCustomAsset, ucDeleteEmployeeSavings,
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts,
             ucGetPatrimoineHistory, ucCalculerTendance,
-            ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
+            ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
+            ucCalculerPerformanceActif, ucSommeVersementsDepuis
         )
 
         val job = launch { viewModel.uiState.collect {} }

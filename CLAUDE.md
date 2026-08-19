@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Application bancaire Android à usage personnel, inspirée de **Finary**. L'objectif est de centraliser budget mensuel, suivi des dépenses, investissements et projections financières.
 
 **Stack cible :** Android natif (Kotlin), architecture MVVM + Clean Architecture.
-**Version courante :** v4.4.0 (versionCode 15) — Room v21.
+**Version courante :** v4.4.0 (versionCode 15) — Room v23.
 
 ## Fonctionnalités principales
 
@@ -71,7 +71,7 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
   dans `onCreate` (ex. `appViewModel` en instruction seule) pour forcer
   l'instanciation.
 
-## Schéma Room — Version actuelle : v21
+## Schéma Room — Version actuelle : v23
 
 | Migration | Contenu |
 |-----------|---------|
@@ -95,6 +95,8 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 | v18 → v19 | Table `vehicle_rental_entries` pour l'activité de location de véhicule |
 | v19 → v20 | Suppression de `precious_metals` (métaux précieux, fonctionnalité retirée) |
 | v20 → v21 | Table `asset_valuation_snapshots` pour les badges de tendance par actif (Immobilier/SCPI) |
+| v21 → v22 | Table `bank_accounts` (BRED, TradeRepublic) + `bankAccountId` sur `transactions`, seed et backfill via `importSource` |
+| v22 → v23 | `acquisitionValueCents`/`acquisitionDateEpochDay` sur les 4 types d'actifs investissement, pour le bloc "Acquisition → Aujourd'hui" |
 
 ## Modèles métier clés (domain/model/)
 
@@ -133,6 +135,15 @@ toute nouvelle carte de synthèse.
   `+X,X%`/`-X,X%`, réutilisé sur le patrimoine global, les placements et les
   actifs individuels. Générique et sans dépendance de domaine : à réutiliser
   pour tout nouveau badge de tendance plutôt qu'en recréer un.
+- **`AcquisitionEvolutionBlock`** (`presentation/common/AcquisitionEvolutionBlock.kt`) —
+  bloc "Acquisition → Aujourd'hui" affiché sur les 4 cartes d'actif investissement
+  (Immobilier, SCPI, Actif libre, Épargne salariale) quand `acquisitionValueCents`
+  et `acquisitionDate` sont renseignés (saisie rétroactive, jamais déduite des
+  `AssetValuationSnapshot` - ceux-ci ne remontent pas avant la refonte du 2026-08).
+  Réutilise `TrendChip` pour le badge de pourcentage. Le delta est net des
+  versements/abondements enregistrés depuis l'acquisition (`SommeVersementsDepuisUseCase`)
+  pour SCPI et Épargne salariale via `CompteType.SCPI`/`CompteType.EMPLOYEE_SAVINGS` -
+  un versement est de l'argent apporté, pas de la performance.
 - **Piège Vico (bibliothèque de graphiques) :** Vico tronque les libellés
   d'axe indépendamment de l'espace réellement disponible - il alloue la
   largeur de chaque graduation selon le nombre total de points de données,

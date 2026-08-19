@@ -17,5 +17,5 @@ data class MonthlyVersement(
     val currency: Currency
 )
 
-/** Distingue les versements épargne (SavingsAccount) des versements SCPI (ScpiInvestment). */
-enum class CompteType { EPARGNE, SCPI }
+/** Distingue les versements épargne (SavingsAccount), SCPI (ScpiInvestment) et épargne salariale (EmployeeSavings). */
+enum class CompteType { EPARGNE, SCPI, EMPLOYEE_SAVINGS }
