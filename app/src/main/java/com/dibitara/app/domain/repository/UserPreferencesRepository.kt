@@ -24,6 +24,12 @@ interface UserPreferencesRepository {
     suspend fun updateDerniereImport(epochMilli: Long)
     suspend fun updateMasquerMontants(masquer: Boolean)
     suspend fun updateThemeMode(mode: ThemeMode)
+    /** Enregistre le jour (epoch day) de la dernière alerte "liquidités insuffisantes" envoyée. */
+    suspend fun updateDerniereAlerteFonds(epochDay: Long)
+    /** Enregistre le jour (epoch day) de la dernière alerte "budget dépassé" envoyée. */
+    suspend fun updateDerniereAlerteBudget(epochDay: Long)
+    /** Enregistre le jour (epoch day) du dernier envoi des rappels d'échéance dette. */
+    suspend fun updateDerniereAlerteDettes(epochDay: Long)
     /** Efface toutes les préférences stockées dans DataStore. */
     suspend fun clearAll()
 }

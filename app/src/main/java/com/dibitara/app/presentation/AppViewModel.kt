@@ -15,6 +15,7 @@ import com.dibitara.app.domain.usecase.GenerateRecurringUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.usecase.MigrerTabacVersCategorieUseCase
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import com.dibitara.app.presentation.common.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -48,6 +49,7 @@ class AppViewModel @Inject constructor(
     private val checkEnveloppes            : CheckEnveloppeDepassementUseCase,
     private val migrerTabac                : MigrerTabacVersCategorieUseCase,
     private val getPreferences             : GetUserPreferencesUseCase,
+    private val userPreferencesRepository  : UserPreferencesRepository,
     private val notificationHelper         : NotificationHelper,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -99,38 +101,50 @@ class AppViewModel @Inject constructor(
     private suspend fun verifierNotifications() {
         // Snapshot unique des préférences - le seuil peut avoir été changé par l'utilisateur
         val prefs = getPreferences().first()
+        val today = LocalDate.now()
+        // Une seule alerte par jour et par type de notification : sans ce garde-fou,
+        // verifierNotifications() (appelée à chaque ouverture de l'app) renotifiait à
+        // l'identique tant que la condition restait vraie, même plusieurs fois par jour.
+        val aujourdhui = today.toEpochDay()
 
         // 1. Budget dépassé ?
         val budgetDepasse = checkBudget()
-        if (budgetDepasse != null) {
+        if (budgetDepasse != null && prefs.derniereAlerteBudgetEpochDay != aujourdhui) {
             notificationHelper.envoyerAlerteBudget(
                 depenseCents = budgetDepasse.spentCents,
                 alloueCents  = budgetDepasse.allocatedCents
             )
+            userPreferencesRepository.updateDerniereAlerteBudget(aujourdhui)
         }
 
         // 2. Dettes à rembourser aujourd'hui ?
+        //    Garde-fou sur le lot entier plutôt que par dette : CheckDebtRemindersUseCase ne
+        //    retourne de toute façon une dette que le jour de son échéance, donc geler l'envoi
+        //    du jour suffit à éviter les doublons sans suivre un état par dette.
         val dettesAujourdhui = checkDebtReminders()
-        dettesAujourdhui.forEach { dette ->
-            notificationHelper.envoyerRappelDette(
-                idDette      = dette.id,
-                labelDette   = dette.label,
-                montantCents = dette.monthlyPaymentCents
-            )
+        if (dettesAujourdhui.isNotEmpty() && prefs.derniereAlerteDettesEpochDay != aujourdhui) {
+            dettesAujourdhui.forEach { dette ->
+                notificationHelper.envoyerRappelDette(
+                    idDette      = dette.id,
+                    labelDette   = dette.label,
+                    montantCents = dette.monthlyPaymentCents
+                )
+            }
+            userPreferencesRepository.updateDerniereAlerteDettes(aujourdhui)
         }
 
         // 3. Liquidités insuffisantes ? (seuil depuis les préférences)
         val soldeCents = checkAvailableFunds()
-        if (soldeCents < prefs.seuilFondsCents) {
+        if (soldeCents < prefs.seuilFondsCents && prefs.derniereAlerteFondsEpochDay != aujourdhui) {
             notificationHelper.envoyerAvertissementFonds(
                 soldeCents = soldeCents,
                 seuilCents = prefs.seuilFondsCents
             )
+            userPreferencesRepository.updateDerniereAlerteFonds(aujourdhui)
         }
 
         // 4. Contributions en attente en fin de mois ?
         //    Déclenchée uniquement dans les 5 derniers jours du mois
-        val today = LocalDate.now()
         val lastDayOfMonth = today.month.length(today.isLeapYear)
         if (today.dayOfMonth >= lastDayOfMonth - 4) {
             val pending = checkPendingContributions(today.monthValue, today.year)

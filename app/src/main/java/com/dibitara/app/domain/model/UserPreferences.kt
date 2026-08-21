@@ -11,6 +11,15 @@ package com.dibitara.app.domain.model
  * [derniereImportEpochMilli] : date + heure du dernier import CSV/PDF réussi (BRED ou TradeRepublic), null si aucun import.
  * [masquerMontants]          : si true, tous les montants affichés à l'écran sont remplacés par "••••" (confidentialité).
  * [themeMode]                : apparence choisie (système/clair/sombre) - voir [ThemeMode].
+ * [derniereAlerteFondsEpochDay] : jour (epoch day) de la dernière notification "liquidités
+ *   insuffisantes" envoyée - évite de renotifier à chaque ouverture de l'app le même jour
+ *   tant que le solde reste sous le seuil.
+ * [derniereAlerteBudgetEpochDay] : jour (epoch day) de la dernière notification "budget
+ *   dépassé" envoyée - même logique que [derniereAlerteFondsEpochDay].
+ * [derniereAlerteDettesEpochDay] : jour (epoch day) du dernier envoi des rappels d'échéance
+ *   dette - même logique, gate le lot entier plutôt qu'une dette à la fois (une dette n'est
+ *   de toute façon retournée par [com.dibitara.app.domain.usecase.CheckDebtRemindersUseCase]
+ *   que le jour de son échéance).
  */
 data class UserPreferences(
     val seuilFondsCents: Long = 20_000L,
@@ -26,5 +35,8 @@ data class UserPreferences(
     val tauxEpargneCiblePct: Int = 20,
     val derniereImportEpochMilli: Long? = null,
     val masquerMontants: Boolean = false,
-    val themeMode: ThemeMode = ThemeMode.SYSTEME
+    val themeMode: ThemeMode = ThemeMode.SYSTEME,
+    val derniereAlerteFondsEpochDay: Long? = null,
+    val derniereAlerteBudgetEpochDay: Long? = null,
+    val derniereAlerteDettesEpochDay: Long? = null
 )
