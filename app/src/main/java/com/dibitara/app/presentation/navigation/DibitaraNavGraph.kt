@@ -34,6 +34,7 @@ import com.dibitara.app.presentation.settings.SettingsScreen
 import com.dibitara.app.presentation.settings.SettingsViewModel
 import com.dibitara.app.presentation.recommandations.RecommandationsScreen
 import com.dibitara.app.presentation.scenarios.ScenariosScreen
+import com.dibitara.app.presentation.scenarios.conseillerpatrimoine.ConseillerPatrimoineScreen
 import com.dibitara.app.presentation.scenarios.logement.ScenarioLogementScreen
 import com.dibitara.app.presentation.trends.TrendsScreen
 
@@ -79,6 +80,7 @@ sealed class Screen(val route: String) {
     data object Recommandations    : Screen("recommandations")
     data object Scenarios          : Screen("scenarios")
     data object ScenarioLogement   : Screen("scenario_logement")
+    data object ConseillerPatrimoine : Screen("conseiller_patrimoine")
 }
 
 // Écrans qui affichent la barre de navigation inférieure
@@ -179,11 +181,15 @@ fun DibitaraNavGraph(
             composable(Screen.Scenarios.route) {
                 ScenariosScreen(
                     onNavigateBack       = { navController.popBackStack() },
-                    onNavigateToLogement = { navController.navigate(Screen.ScenarioLogement.route) }
+                    onNavigateToLogement = { navController.navigate(Screen.ScenarioLogement.route) },
+                    onNavigateToConseillerPatrimoine = { navController.navigate(Screen.ConseillerPatrimoine.route) }
                 )
             }
             composable(Screen.ScenarioLogement.route) {
                 ScenarioLogementScreen(onNavigateBack = { navController.popBackStack() })
+            }
+            composable(Screen.ConseillerPatrimoine.route) {
+                ConseillerPatrimoineScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable(Screen.Trends.route) {
                 TrendsScreen(onNavigateBack = { navController.popBackStack() })
