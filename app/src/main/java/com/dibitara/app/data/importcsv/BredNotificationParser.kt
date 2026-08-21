@@ -14,7 +14,9 @@ import kotlin.math.roundToLong
  * Formats connus et confirmés (captures d'écran / logs réels) :
  * - "La BRED vous confirme votre paiement carte d'un montant de 35,30€ (BAR LES ARCADES) le 03/08/2026."
  * - "La BRED vous confirme votre retrait carte  d'un montant de 40,00€ le 15/08/2026."
- *   (apostrophe et double espace variables selon les messages BRED, d'où le regex tolérant ci-dessous)
+ *   (apostrophe et double espace variables selon les messages BRED, d'où la normalisation de
+ *   l'apostrophe dans [parse] et le \s+ dans les deux regex - un paiement carte n'a jamais
+ *   été confirmé capturé par notification, cette tolérance en est le suspect principal)
  *
  * BRED ne pousse pas de notification pour les virements/prélèvements :
  * cette capture reste partielle, complémentaire à l'import CSV mensuel (BredCsvParser).
@@ -25,22 +27,26 @@ internal object BredNotificationParser {
 
     // Le marchand est capturé de façon non-gourmande jusqu'à la première parenthèse fermante,
     // pour ignorer le reste du texte (ex. "contactez Bred Direct au ... (service gratuit...)").
+    // \s+ plutôt qu'un espace unique : le nombre d'espaces entre les mots varie selon les
+    // messages BRED (ex. double espace confirmé sur le format retrait).
     private val REGEX_PAIEMENT_CARTE = Regex(
-        """paiement carte d'un montant de ([\d,]+)\s*€\s*\(([^)]+)\)\s*le\s*(\d{2}/\d{2}/\d{4})""",
+        """paiement carte\s+d'un montant de ([\d,]+)\s*€\s*\(([^)]+)\)\s*le\s*(\d{2}/\d{2}/\d{4})""",
         RegexOption.IGNORE_CASE
     )
 
-    // ['’] : BRED utilise tantôt l'apostrophe droite, tantôt l'apostrophe typographique
-    // selon les messages. \s+ plutôt qu'un espace unique : le message réel contient un
-    // double espace entre "carte" et "d'un" ("retrait carte  d'un montant...").
     private val REGEX_RETRAIT = Regex(
-        """retrait carte\s+d['’]un montant de ([\d,]+)\s*€\s*le\s*(\d{2}/\d{2}/\d{4})""",
+        """retrait carte\s+d'un montant de ([\d,]+)\s*€\s*le\s*(\d{2}/\d{2}/\d{4})""",
         RegexOption.IGNORE_CASE
     )
 
     fun parse(texteNotification: String): ImportedTransaction? {
-        parsePaiementCarte(texteNotification)?.let { return it }
-        return parseRetrait(texteNotification)
+        // Normalisation avant tout matching : BRED utilise tantôt l'apostrophe droite ('),
+        // tantôt l'apostrophe typographique (’) selon les messages - les deux regex ci-dessus
+        // ne gèrent qu'une apostrophe droite, donc on uniformise ici une bonne fois pour toutes
+        // plutôt que de dupliquer la tolérance ['’] dans chaque regex.
+        val texte = texteNotification.replace('’', '\'')
+        parsePaiementCarte(texte)?.let { return it }
+        return parseRetrait(texte)
     }
 
     private fun parsePaiementCarte(texteNotification: String): ImportedTransaction? {

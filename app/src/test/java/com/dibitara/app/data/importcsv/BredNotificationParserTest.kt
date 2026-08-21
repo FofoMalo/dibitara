@@ -32,6 +32,21 @@ class BredNotificationParserTest {
     }
 
     @Test
+    fun `paiement carte avec apostrophe typographique et double espace est parsé correctement`() {
+        // Le fix retrait (2026-08-15) tolérait déjà ce format pour "retrait carte" mais pas
+        // pour "paiement carte" - hypothèse du bug "paiements carte jamais capturés" (2026-08-21) :
+        // BRED envoie parfois ce format aussi pour les paiements, jamais confirmé faute de log.
+        val texte = "La BRED vous confirme votre paiement carte  d’un montant de 35,30€ " +
+            "(BAR LES ARCADES) le 03/08/2026."
+
+        val tx = BredNotificationParser.parse(texte)
+
+        assertNotNull(tx)
+        assertEquals(3530L, tx!!.amountCents)
+        assertEquals("BAR LES ARCADES", tx.note)
+    }
+
+    @Test
     fun `retrait carte est parsé correctement`() {
         // Texte réel capturé par Florent le 15/08/2026 via bred_notif_debug.log (apostrophe
         // typographique et double espace entre "carte" et "d'un", propres à ce message).
