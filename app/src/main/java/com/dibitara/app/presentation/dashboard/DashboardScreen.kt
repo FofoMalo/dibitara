@@ -117,6 +117,7 @@ fun DashboardScreen(
                     onRefuseRecategorization    = { viewModel.refuserRecategorisation(it) },
                     onVoirDetailProjection      = { navController?.navigate(Screen.ProjectionDetail.route) },
                     onNavigateToBankAccounts    = { navController?.navigate(Screen.BankAccounts.route) },
+                    onNavigateToScenarios       = { navController?.navigate(Screen.Scenarios.route) },
                     masquerMontants             = state.masquerMontants,
                     onToggleMasquerMontants     = { viewModel.toggleMasquerMontants() }
                 )
@@ -152,6 +153,7 @@ private fun DashboardContent(
     onRefuseRecategorization    : (RecategorizationSuggestion) -> Unit,
     onVoirDetailProjection      : () -> Unit                        = {},
     onNavigateToBankAccounts    : () -> Unit                        = {},
+    onNavigateToScenarios       : () -> Unit                        = {},
     masquerMontants             : Boolean                           = false,
     onToggleMasquerMontants     : () -> Unit                        = {}
 ) {
@@ -197,6 +199,11 @@ private fun DashboardContent(
         }
         item(key = "patrimoine") {
             PatrimonyNetCard(overview = overview, trendPct = patrimoineTrendPct, onClick = onNavigateToPatrimoine)
+        }
+        item(key = "scenarios_entry") {
+            TextButton(onClick = onNavigateToScenarios, modifier = Modifier.fillMaxWidth()) {
+                Text("Scénarios →")
+            }
         }
 
         // ─── Cartes reordonnables ──────────────────────────────────────────────
