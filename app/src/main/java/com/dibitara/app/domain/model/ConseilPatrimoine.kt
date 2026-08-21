@@ -23,7 +23,8 @@ package com.dibitara.app.domain.model
  * [objectifEpargneMensuelCents] : objectif 20% du revenu moyen (UserPreferences.tauxEpargneCiblePct).
  * [resteAVivreReelCents]        : revenu moyen - besoins réels - autres dettes (ce qui est
  *                                 réellement disponible chaque mois, cf. [objectifPlafonneParResteAVivre]).
- * [versementsProgrammesCents]   : somme des versements mensuels déjà programmés (épargne + SCPI).
+ * [versementsProgrammesCents]   : somme des versements mensuels déjà programmés (épargne + SCPI
+ *                                 + abondement employeur de l'épargne salariale).
  * [capaciteNonAffecteeCents]    : capacité réaliste (min de l'objectif 20% et du reste à vivre
  *                                 réel) non encore dirigée vers une poche.
  * [objectifPlafonneParResteAVivre] : true si le reste à vivre réel est inférieur à l'objectif

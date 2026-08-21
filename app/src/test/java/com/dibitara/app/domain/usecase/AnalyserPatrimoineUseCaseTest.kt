@@ -164,4 +164,24 @@ class AnalyserPatrimoineUseCaseTest {
         assertTrue(result.objectifPlafonneParResteAVivre)
         assertEquals(100_00L, result.capaciteNonAffecteeCents)
     }
+
+    @Test
+    fun `l'abondement employeur de l'epargne salariale compte dans les versements programmes`() = runTest {
+        every { customInvestmentRepo.getAllEmployeeSavings() } returns flowOf(listOf(
+            EmployeeSavings(id = 1L, type = EmployeeSavingsType.PEE, label = "PEE AXA",
+                currentBalanceCents = 10_000_00L, employerContributionCents = 150_00L,
+                currency = Currency.EUR, updatedAt = LocalDate.of(2026, 8, 1))
+        ))
+        every { savingsRepo.getAll() } returns flowOf(listOf(
+            SavingsAccount(id = 1L, type = SavingsType.LIVRET_A, label = "Livret A",
+                currentBalanceCents = 0L, monthlyContributionCents = 100_00L,
+                currency = Currency.EUR, updatedAt = LocalDate.of(2026, 8, 1))
+        ))
+
+        val result = useCase(refMonth = 8, refYear = 2026).first()
+
+        // 100€ (Livret A) + 150€ (abondement PEE) = 250€ - avant le fix, l'abondement
+        // était absent : versementsProgrammesCents valait 100€ seulement.
+        assertEquals(250_00L, result.versementsProgrammesCents)
+    }
 }

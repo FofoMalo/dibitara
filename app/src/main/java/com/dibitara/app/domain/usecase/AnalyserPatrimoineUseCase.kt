@@ -120,7 +120,8 @@ class AnalyserPatrimoineUseCase @Inject constructor(
             val objectifEpargneMensuelCents = revenuMoyenCents * prefs.tauxEpargneCiblePct / 100
             val versementsProgrammesCents =
                 patrimoine.epargne.sumOf { it.monthlyContributionCents.cvt(it.currency) } +
-                investissements.scpi.sumOf { it.monthlyContributionCents.cvt(it.currency) }
+                investissements.scpi.sumOf { it.monthlyContributionCents.cvt(it.currency) } +
+                investissements.empSavings.sumOf { it.employerContributionCents.cvt(it.currency) }
             val capaciteCibleCents = minOf(objectifEpargneMensuelCents, resteAVivreReelCents.coerceAtLeast(0L))
             val capaciteNonAffecteeCents = (capaciteCibleCents - versementsProgrammesCents).coerceAtLeast(0L)
             val objectifPlafonneParResteAVivre = resteAVivreReelCents < objectifEpargneMensuelCents
