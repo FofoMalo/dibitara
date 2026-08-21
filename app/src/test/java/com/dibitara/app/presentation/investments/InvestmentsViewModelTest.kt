@@ -292,4 +292,42 @@ class InvestmentsViewModelTest {
         assertEquals(8000L, state.vehicleRentalChargeCents)
         job.cancel()
     }
+
+    @Test
+    fun `appliquerVersementEmployeeSavings ajoute l'abondement au solde`() = runTest {
+        val savings = com.dibitara.app.domain.model.EmployeeSavings(
+            id = 1L, type = com.dibitara.app.domain.model.EmployeeSavingsType.PEE, label = "PEE AXA",
+            currentBalanceCents = 300_000L, employerContributionCents = 10_000L,
+            currency = Currency.EUR, updatedAt = LocalDate.of(2026, 8, 1)
+        )
+        coEvery { ucExisteVersementMois(1L, com.dibitara.app.domain.model.CompteType.EMPLOYEE_SAVINGS, any(), any()) } returns false
+        coEvery { ucSaveVersement(any()) } returns Result.success(1L)
+        coEvery { ucUpdateEmployeeSavings(any()) } returns Result.success(Unit)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        viewModel.appliquerVersementEmployeeSavings(savings)
+        testScheduler.advanceUntilIdle()
+
+        coVerify { ucUpdateEmployeeSavings(match { it.currentBalanceCents == 310_000L }) }
+        job.cancel()
+    }
+
+    @Test
+    fun `appliquerVersementScpi ajoute la contre-valeur du versement en parts`() = runTest {
+        val scpi = ScpiInvestment(
+            id = 1L, label = "SCPI Primovie", sharesCount = 10.0, shareValueCents = 20_000L,
+            monthlyContributionCents = 5_000L, currency = Currency.EUR, updatedAt = LocalDate.of(2026, 8, 1)
+        )
+        coEvery { ucExisteVersementMois(1L, com.dibitara.app.domain.model.CompteType.SCPI, any(), any()) } returns false
+        coEvery { ucSaveVersement(any()) } returns Result.success(1L)
+        coEvery { ucUpdateScpi(any()) } returns Result.success(Unit)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        viewModel.appliquerVersementScpi(scpi)
+        testScheduler.advanceUntilIdle()
+
+        // 5000 centimes / 20000 centimes par part = 0,25 part supplémentaire
+        coVerify { ucUpdateScpi(match { it.sharesCount == 10.25 }) }
+        job.cancel()
+    }
 }

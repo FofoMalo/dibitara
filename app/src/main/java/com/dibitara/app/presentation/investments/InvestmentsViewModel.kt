@@ -504,10 +504,13 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     /**
-     * Applique l'abondement du mois sur un plan d'épargne salariale. Même logique que
-     * [appliquerVersementScpi] : enregistre le versement (non-rétroactif, un par mois),
-     * ne modifie pas currentBalanceCents - c'est à l'utilisateur de mettre à jour le solde
-     * réel via le sheet Modifier une fois le relevé consulté.
+     * Applique l'abondement du mois sur un plan d'épargne salariale : enregistre le versement
+     * (non-rétroactif, un par mois) et ajoute son montant au solde. Demande explicite de
+     * Florent (2026-08-21) après confirmation sur device que le solde ne bougeait pas -
+     * contrairement au choix initial, assumé en connaissance de cause : si le solde réel est
+     * aussi remis à jour manuellement depuis le relevé AXA (le fonds investi fluctue avec le
+     * marché, pas juste l'abondement), l'abondement sera compté deux fois. À Florent de ne
+     * plus resaisir manuellement l'abondement du mois lors de la prochaine mise à jour du solde.
      */
     fun appliquerVersementEmployeeSavings(savings: EmployeeSavings) {
         val now = LocalDate.now()
@@ -526,7 +529,12 @@ class InvestmentsViewModel @Inject constructor(
             )
             ucSaveVersement(versement)
                 .onSuccess {
-                    ucUpdateEmployeeSavings(savings.copy(updatedAt = now))
+                    ucUpdateEmployeeSavings(
+                        savings.copy(
+                            currentBalanceCents = savings.currentBalanceCents + savings.employerContributionCents,
+                            updatedAt = now
+                        )
+                    )
                     _event.emit(InvestmentsEvent.VersementApplique)
                 }
                 .onFailure { _event.emit(InvestmentsEvent.Error("Vérifier les informations saisies")) }
@@ -534,8 +542,10 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     /**
-     * Applique le versement mensuel prévu sur une SCPI.
-     * Même logique que pour l'épargne : non-rétroactif, un seul versement par mois.
+     * Applique le versement mensuel prévu sur une SCPI : enregistre le versement (non-rétroactif,
+     * un par mois) et ajoute sa contre-valeur au nombre de parts, au cours actuel de la part.
+     * Même demande et même risque de double-compte que [appliquerVersementEmployeeSavings]
+     * (voir sa doc) si le nombre de parts réel est aussi resaisi manuellement après relevé.
      */
     fun appliquerVersementScpi(scpi: ScpiInvestment) {
         val now = LocalDate.now()
@@ -554,9 +564,10 @@ class InvestmentsViewModel @Inject constructor(
             )
             ucSaveVersement(versement)
                 .onSuccess {
+                    val partsAchetees = scpi.monthlyContributionCents.toDouble() / scpi.shareValueCents
                     ucUpdateScpi(
                         scpi.copy(
-                            sharesCount = scpi.sharesCount,
+                            sharesCount = scpi.sharesCount + partsAchetees,
                             shareValueCents = scpi.shareValueCents,
                             monthlyContributionCents = scpi.monthlyContributionCents,
                             updatedAt = now
