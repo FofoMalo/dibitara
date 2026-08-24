@@ -3,6 +3,7 @@ package com.dibitara.app.presentation.common
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChildCare
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.DirectionsBus
@@ -78,6 +79,7 @@ fun Category.chartIcon(): ImageVector = when (this) {
 fun BankProvider.chartColor(): Color = when (this) {
     BankProvider.BRED           -> Color(0xFF1B5E20) // vert BRED
     BankProvider.TRADE_REPUBLIC -> Color(0xFF37474F) // gris ardoise
+    BankProvider.QONTO          -> Color(0xFF4E36F5) // violet Qonto
     BankProvider.ESPECES        -> Color(0xFF4CAF50)
     BankProvider.AUTRE          -> Color(0xFF9E9E9E)
 }
@@ -85,6 +87,7 @@ fun BankProvider.chartColor(): Color = when (this) {
 fun BankProvider.chartIcon(): ImageVector = when (this) {
     BankProvider.BRED           -> Icons.Filled.AccountBalance
     BankProvider.TRADE_REPUBLIC -> Icons.AutoMirrored.Filled.TrendingUp
+    BankProvider.QONTO          -> Icons.Filled.Business
     BankProvider.ESPECES        -> Icons.Filled.Payments
     BankProvider.AUTRE          -> Icons.Filled.MoreHoriz
 }

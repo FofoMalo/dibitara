@@ -29,6 +29,7 @@ data class BankAccountsSummary(
 enum class BankProvider(val displayName: String) {
     BRED           ("BRED"),
     TRADE_REPUBLIC ("TradeRepublic"),
+    QONTO          ("Qonto"),
     ESPECES        ("Espèces"),
     AUTRE          ("Autre");        // toujours en dernier - fallback de safeValueOf
 
