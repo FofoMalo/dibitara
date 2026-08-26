@@ -1,33 +1,35 @@
 package com.dibitara.app.domain.usecase
 
-import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.model.BankProvider
+import com.dibitara.app.domain.model.CurrencyConverter
+import com.dibitara.app.domain.repository.BankAccountRepository
+import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.first
-import java.time.LocalDate
 import javax.inject.Inject
 
 /**
- * Calcule le solde estimé du mois courant.
+ * Calcule le solde réel disponible sur les comptes courants suivis, hors compte pro (Qonto).
  *
- * Formule : Σ revenus (INCOME) − Σ dépenses (EXPENSE) pour le mois en cours.
- * Les investissements ne sont pas comptés dans ce solde courant.
+ * Même source que [GetCashflowProjectionUseCase] : le solde réel des [com.dibitara.app.domain.model.BankAccount],
+ * pas un flux recalculé depuis les transactions du mois en cours - cet ancien calcul repartait
+ * quasiment de zéro chaque mois avant la paie et faussait l'alerte "liquidités insuffisantes"
+ * ([com.dibitara.app.presentation.AppViewModel]) vers un déclenchement systématique.
  *
- * Retourne le solde en centimes. L'appelant compare ce solde à son seuil
- * d'alerte pour décider d'envoyer ou non une notification.
+ * Retourne le solde en centimes, dans la devise par défaut de l'utilisateur.
  */
 class CheckAvailableFundsUseCase @Inject constructor(
-    private val getMonthlyTransactions: GetMonthlyTransactionsUseCase
+    private val bankAccountRepository: BankAccountRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val exchangeRateRepository: ExchangeRateRepository
 ) {
-    suspend operator fun invoke(today: LocalDate = LocalDate.now()): Long {
-        val transactions = getMonthlyTransactions(today.monthValue, today.year).first()
+    suspend operator fun invoke(): Long {
+        val comptes = bankAccountRepository.getAll().first()
+        val prefs   = userPreferencesRepository.get().first()
+        val rates   = exchangeRateRepository.getRatesFlow().first()
 
-        val revenus  = transactions
-            .filter { it.type == TransactionType.INCOME }
-            .sumOf { it.amountCents }
-
-        val depenses = transactions
-            .filter { it.type == TransactionType.EXPENSE }
-            .sumOf { it.amountCents }
-
-        return revenus - depenses
+        return comptes
+            .filter { it.provider != BankProvider.QONTO }
+            .sumOf { CurrencyConverter.convertCents(it.currentBalanceCents, it.currency, prefs.deviseParDefaut, rates) }
     }
 }
