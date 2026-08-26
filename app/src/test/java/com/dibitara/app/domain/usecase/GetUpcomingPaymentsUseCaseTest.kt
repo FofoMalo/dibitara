@@ -84,6 +84,19 @@ class GetUpcomingPaymentsUseCaseTest {
     }
 
     @Test
+    fun `échéance mensuelle le 31 n est pas plafonnée au 28`() = runTest {
+        // Bug corrigé : le jour était systématiquement plafonné à 28, même dans un mois
+        // de 30/31 jours (voir "Correction #8" déjà appliquée dans GetCashflowProjectionUseCase).
+        every { repository.getRecurring() } returns flowOf(listOf(template(recurrenceDay = 31)))
+
+        val result = useCase().first()
+
+        val nextDate = result.first().nextDate
+        val longueurMoisCible = nextDate.month.length(nextDate.isLeapYear)
+        assertEquals(longueurMoisCible.coerceAtMost(31), nextDate.dayOfMonth)
+    }
+
+    @Test
     fun `échéance hebdomadaire retombe sur le même jour de semaine`() = runTest {
         every { repository.getRecurring() } returns flowOf(listOf(
             template(
