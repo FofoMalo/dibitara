@@ -14,7 +14,7 @@ import javax.inject.Inject
  * Même source que [GetCashflowProjectionUseCase] : le solde réel des [com.dibitara.app.domain.model.BankAccount],
  * pas un flux recalculé depuis les transactions du mois en cours - cet ancien calcul repartait
  * quasiment de zéro chaque mois avant la paie et faussait l'alerte "liquidités insuffisantes"
- * ([com.dibitara.app.presentation.AppViewModel]) vers un déclenchement systématique.
+ * vers un déclenchement systématique.
  *
  * Retourne le solde en centimes, dans la devise par défaut de l'utilisateur.
  */
