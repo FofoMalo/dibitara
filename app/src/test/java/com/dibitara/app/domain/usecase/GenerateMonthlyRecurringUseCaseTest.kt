@@ -111,6 +111,22 @@ class GenerateRecurringUseCaseTest {
     }
 
     @Test
+    fun `MONTHLY - sans recurrenceDay explicite, le jour n est pas plafonné au 28`() = runTest {
+        // Bug corrigé : sans recurrenceDay, le jour venait de base.dayOfMonth plafonné à 28 -
+        // un modèle créé le 30 générait ses occurrences le 28, en désaccord avec
+        // GetCashflowProjectionUseCase et GetUpcomingPaymentsUseCase qui, eux, ne plafonnent pas.
+        val today = LocalDate.of(2026, 5, 31)
+        val template = makeTemplate(date = today.minusMonths(1).withDayOfMonth(30), recurrenceDay = null)
+        every { repository.getRecurring() } returns flowOf(listOf(template))
+        coEvery { repository.hasRecurringOccurrenceInRange(1L, any(), any()) } returns false
+        coEvery { repository.insert(any()) } returns 10L
+
+        useCase(today)
+
+        coVerify { repository.insert(match { it.date == LocalDate.of(2026, 5, 30) }) }
+    }
+
+    @Test
     fun `MONTHLY - ne génère pas si on a dépassé endDate`() = runTest {
         val template = makeTemplate(endDate = LocalDate.now().minusDays(1))
         every { repository.getRecurring() } returns flowOf(listOf(template))

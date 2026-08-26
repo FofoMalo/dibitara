@@ -48,7 +48,10 @@ class GenerateRecurringUseCase @Inject constructor(
     // ─── MENSUEL ──────────────────────────────────────────────────────────────
 
     private suspend fun generateMonthly(template: Transaction, base: LocalDate, until: LocalDate) {
-        val day = template.recurrenceDay ?: base.dayOfMonth.coerceAtMost(28)
+        // Pas de plafond fixe à 28 : un modèle sans recurrenceDay explicite garde le jour de
+        // sa propre date (coercé plus bas à la longueur réelle du mois cible, ligne suivante).
+        // Même correction que GetCashflowProjectionUseCase et GetUpcomingPaymentsUseCase.
+        val day = template.recurrenceDay ?: base.dayOfMonth
 
         // Le mois du modèle lui-même compte comme première occurrence - on commence le mois suivant
         var cursor = base.plusMonths(1).withDayOfMonth(1)
