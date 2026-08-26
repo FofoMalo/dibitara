@@ -148,6 +148,19 @@ class AnalyserPatrimoineUseCaseTest {
     }
 
     @Test
+    fun `liquidites sures exclut le compte pro Qonto`() = runTest {
+        every { bankAccountRepo.getAll() } returns flowOf(listOf(
+            BankAccount(id = 1L, provider = BankProvider.BRED,  label = "BRED",  currentBalanceCents = 50_000L,  currency = Currency.EUR, updatedAt = LocalDate.of(2026, 8, 1)),
+            BankAccount(id = 2L, provider = BankProvider.QONTO, label = "Qonto", currentBalanceCents = 999_000L, currency = Currency.EUR, updatedAt = LocalDate.of(2026, 8, 1))
+        ))
+
+        val result = useCase(refMonth = 8, refYear = 2026).first()
+
+        // Le solde pro (999 000) n'entre pas dans l'épargne de précaution personnelle
+        assertEquals(50_000L, result.liquiditesSuresCents)
+    }
+
+    @Test
     fun `capacite non affectee est plafonnee par le reste a vivre reel quand il est inferieur a l'objectif 20 pourcent`() = runTest {
         listOf(7, 6, 5).forEach { mois ->
             every { transactionRepo.getByMonth(mois, 2026) } returns flowOf(listOf(

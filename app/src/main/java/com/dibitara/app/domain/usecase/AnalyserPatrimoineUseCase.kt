@@ -1,5 +1,6 @@
 package com.dibitara.app.domain.usecase
 
+import com.dibitara.app.domain.model.BankProvider
 import com.dibitara.app.domain.model.BudgetBucket
 import com.dibitara.app.domain.model.CategoriePatrimoine
 import com.dibitara.app.domain.model.ConseilPatrimoineResult
@@ -100,8 +101,11 @@ class AnalyserPatrimoineUseCase @Inject constructor(
 
             // ─── Axe 1 : épargne de précaution ───────────────────────────────────────
             val objectifPrecautionCents = 6 * (besoinsIncompressiblesCents + autresDettesCents)
+            // Compte pro (Qonto) exclu : même raisonnement que la trésorerie 30 jours,
+            // ce n'est pas une liquidité personnelle mobilisable pour la précaution.
             val liquiditesSuresCents =
-                patrimoine.comptes.sumOf { it.currentBalanceCents.cvt(it.currency) } +
+                patrimoine.comptes.filter { it.provider != BankProvider.QONTO }
+                    .sumOf { it.currentBalanceCents.cvt(it.currency) } +
                 patrimoine.epargne.filter { it.type in TYPES_LIQUIDES_SURS }
                     .sumOf { it.currentBalanceCents.cvt(it.currency) }
             val precautionSuffisante = liquiditesSuresCents >= objectifPrecautionCents
