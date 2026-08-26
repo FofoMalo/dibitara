@@ -127,6 +127,21 @@ class GenerateRecurringUseCaseTest {
     }
 
     @Test
+    fun `MONTHLY - sans recurrenceDay explicite, le 31 est ramené au 28 en février`() = runTest {
+        // Même correction que "prélèvement le 31 en février est ramené au 28" côté
+        // GetCashflowProjectionUseCase (Correction #8) - ici via la longueur réelle du mois
+        // cible (safeDay), pas via le plafond fixe à 28 qu'on vient de retirer.
+        val template = makeTemplate(date = LocalDate.of(2026, 1, 31), recurrenceDay = null)
+        every { repository.getRecurring() } returns flowOf(listOf(template))
+        coEvery { repository.hasRecurringOccurrenceInRange(1L, any(), any()) } returns false
+        coEvery { repository.insert(any()) } returns 10L
+
+        useCase(LocalDate.of(2026, 2, 28))
+
+        coVerify { repository.insert(match { it.date == LocalDate.of(2026, 2, 28) }) }
+    }
+
+    @Test
     fun `MONTHLY - ne génère pas si on a dépassé endDate`() = runTest {
         val template = makeTemplate(endDate = LocalDate.now().minusDays(1))
         every { repository.getRecurring() } returns flowOf(listOf(template))
