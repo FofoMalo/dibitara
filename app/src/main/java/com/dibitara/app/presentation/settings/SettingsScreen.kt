@@ -72,6 +72,9 @@ fun SettingsScreen(
     var seuilEuros by remember(prefs.seuilFondsCents) {
         mutableStateOf((prefs.seuilFondsCents / 100).toString())
     }
+    var seuilResteAVivreLogementEuros by remember(prefs.seuilResteAVivreLogementCents) {
+        mutableStateOf((prefs.seuilResteAVivreLogementCents / 100).toString())
+    }
     val focusManager = LocalFocusManager.current
 
     // L'activation de la capture live se fait dans les réglages système (hors de l'app) :
@@ -171,7 +174,7 @@ fun SettingsScreen(
             SectionCard(titre = "Notifications") {
                 Text("Seuil d'alerte - liquidités insuffisantes", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Une alerte est envoyée si le solde du mois passe sous ce montant.",
+                    "Une alerte est envoyée si le solde de tes comptes bancaires passe sous ce montant.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -215,6 +218,37 @@ fun SettingsScreen(
                         checked = prefs.notificationsMensuelles,
                         onCheckedChange = { viewModel.mettreAJourNotificationsMensuelles(it) }
                     )
+                }
+            }
+
+            // ─── Section Scénario logement ─────────────────────────────────────
+            SectionCard(titre = "Scénario logement") {
+                Text("Reste à vivre minimum", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Marge mensuelle minimale en-dessous de laquelle un scénario immobilier est " +
+                        "jugé non tenable. Distinct du seuil d'alerte ci-dessus (celui-ci est un " +
+                        "solde, celui-là une marge chaque mois).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = seuilResteAVivreLogementEuros,
+                        onValueChange = { seuilResteAVivreLogementEuros = it },
+                        label = { Text("Seuil (€/mois)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = { viewModel.mettreAJourSeuilResteAVivreLogement(seuilResteAVivreLogementEuros) },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) { Text("Appliquer") }
                 }
             }
 

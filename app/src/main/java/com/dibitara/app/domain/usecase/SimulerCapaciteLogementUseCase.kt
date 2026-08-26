@@ -105,7 +105,7 @@ class SimulerCapaciteLogementUseCase @Inject constructor(
             val revenuPlancherCents    = autresEngagementsCents + besoinsIncompressiblesCents
             val resteAVivreReelCents   = revenuReelMoyenCents - revenuPlancherCents
             val resteAVivreSimuleCents = revenuSimuleCents - revenuPlancherCents
-            val seuilResteAVivreCents  = prefs.seuilFondsCents
+            val seuilResteAVivreCents  = prefs.seuilResteAVivreLogementCents
             val estTenable             = resteAVivreSimuleCents >= seuilResteAVivreCents
 
             // ─── Suggestions de réduction sur les poches Envies si le scénario est tendu ─

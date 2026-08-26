@@ -20,9 +20,14 @@ package com.dibitara.app.domain.model
  *   dette - même logique, gate le lot entier plutôt qu'une dette à la fois (une dette n'est
  *   de toute façon retournée par [com.dibitara.app.domain.usecase.CheckDebtRemindersUseCase]
  *   que le jour de son échéance).
+ * [seuilResteAVivreLogementCents] : reste à vivre mensuel minimum en-dessous duquel un scénario
+ *   du Scénario logement est jugé non tenable (voir [com.dibitara.app.domain.usecase.SimulerCapaciteLogementUseCase]).
+ *   Distinct de [seuilFondsCents] : celui-ci est un plancher de solde (un stock), celui-là une
+ *   marge mensuelle minimale (un flux) - les deux notions ne doivent pas partager la même valeur.
  */
 data class UserPreferences(
     val seuilFondsCents: Long = 20_000L,
+    val seuilResteAVivreLogementCents: Long = 20_000L,
     val deviseParDefaut: Currency = Currency.EUR,
     val afficherRapportMensuel: Boolean = false,
     val afficherEpargne: Boolean = true,

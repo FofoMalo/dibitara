@@ -26,6 +26,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     companion object {
         val KEY_SEUIL_CENTS                  = longPreferencesKey("seuil_fonds_cents")
+        val KEY_SEUIL_RESTE_A_VIVRE_LOGEMENT = longPreferencesKey("seuil_reste_a_vivre_logement_cents")
         val KEY_DEVISE                       = stringPreferencesKey("devise_par_defaut")
         val KEY_RAPPORT_MENSUEL              = booleanPreferencesKey("afficher_rapport_mensuel")
         val KEY_AFFICHER_EPARGNE             = booleanPreferencesKey("afficher_epargne")
@@ -48,6 +49,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
         UserPreferences(
             seuilFondsCents             = prefs[KEY_SEUIL_CENTS] ?: UserPreferences().seuilFondsCents,
+            seuilResteAVivreLogementCents = prefs[KEY_SEUIL_RESTE_A_VIVRE_LOGEMENT] ?: UserPreferences().seuilResteAVivreLogementCents,
             deviseParDefaut             = prefs[KEY_DEVISE]
                 ?.let { runCatching { Currency.valueOf(it) }.getOrNull() }
                 ?: UserPreferences().deviseParDefaut,
@@ -75,6 +77,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateSeuil(seuilCents: Long) {
         dataStore.edit { it[KEY_SEUIL_CENTS] = seuilCents }
+    }
+
+    override suspend fun updateSeuilResteAVivreLogement(seuilCents: Long) {
+        dataStore.edit { it[KEY_SEUIL_RESTE_A_VIVRE_LOGEMENT] = seuilCents }
     }
 
     override suspend fun updateDevise(currency: Currency) {

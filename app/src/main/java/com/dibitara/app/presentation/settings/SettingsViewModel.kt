@@ -29,6 +29,7 @@ import com.dibitara.app.domain.usecase.SupprimerToutesDonneesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRecommandationsUseCase
 import com.dibitara.app.domain.usecase.UpdateNotificationsMensuellesUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
+import com.dibitara.app.domain.usecase.UpdateSeuilResteAVivreLogementUseCase
 import com.dibitara.app.domain.usecase.UpdateThemeModeUseCase
 import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
 import java.util.concurrent.TimeUnit
@@ -51,6 +52,7 @@ class SettingsViewModel @Inject constructor(
     private val ucGetPreferences: GetUserPreferencesUseCase,
     private val ucGetExchangeRates: GetExchangeRatesUseCase,
     private val ucUpdateSeuil: UpdateSeuilFondsUseCase,
+    private val ucUpdateSeuilResteAVivreLogement: UpdateSeuilResteAVivreLogementUseCase,
     private val ucUpdateDevise: UpdateDeviseParDefautUseCase,
     private val ucUpdateAfficherRapport: UpdateAfficherRapportUseCase,
     private val ucUpdateAfficherEpargne: UpdateAfficherEpargneUseCase,
@@ -189,6 +191,17 @@ class SettingsViewModel @Inject constructor(
     fun mettreAJourSeuil(eurosStr: String) {
         val cents = eurosStr.toLongOrNull()?.times(100) ?: return
         viewModelScope.launch { ucUpdateSeuil(cents) }
+    }
+
+    /**
+     * Met à jour le seuil de reste à vivre mensuel minimum du Scénario logement.
+     * [eurosStr] est la valeur saisie par l'utilisateur (en euros) - on convertit en centimes.
+     * Distinct du seuil d'alerte "liquidités insuffisantes" ci-dessus : celui-ci est une marge
+     * mensuelle, pas un plancher de solde.
+     */
+    fun mettreAJourSeuilResteAVivreLogement(eurosStr: String) {
+        val cents = eurosStr.toLongOrNull()?.times(100) ?: return
+        viewModelScope.launch { ucUpdateSeuilResteAVivreLogement(cents) }
     }
 
     fun mettreAJourDevise(currency: Currency) {

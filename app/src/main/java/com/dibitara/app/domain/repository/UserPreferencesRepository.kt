@@ -10,6 +10,8 @@ interface UserPreferencesRepository {
     /** Émet les préférences à chaque modification - Flow actif en temps réel. */
     fun get(): Flow<UserPreferences>
     suspend fun updateSeuil(seuilCents: Long)
+    /** Met à jour le seuil de reste à vivre mensuel minimum du Scénario logement. */
+    suspend fun updateSeuilResteAVivreLogement(seuilCents: Long)
     suspend fun updateDevise(currency: Currency)
     suspend fun updateAfficherRapport(afficher: Boolean)
     suspend fun updateAfficherEpargne(afficher: Boolean)

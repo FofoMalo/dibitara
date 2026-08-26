@@ -49,6 +49,15 @@ class UserPreferencesUseCasesTest {
         coVerify { repository.updateSeuil(120_000L) }
     }
 
+    // ─── UpdateSeuilResteAVivreLogementUseCase ────────────────────────────────
+
+    @Test
+    fun `UpdateSeuilResteAVivreLogement délègue la mise à jour au repository`() = runTest {
+        UpdateSeuilResteAVivreLogementUseCase(repository)(40_000L)
+
+        coVerify { repository.updateSeuilResteAVivreLogement(40_000L) }
+    }
+
     // ─── UpdateDeviseParDefautUseCase ─────────────────────────────────────────
 
     @Test

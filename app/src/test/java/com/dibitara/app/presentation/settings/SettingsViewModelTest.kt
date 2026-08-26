@@ -18,6 +18,7 @@ import com.dibitara.app.domain.usecase.SupprimerToutesDonneesUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRecommandationsUseCase
 import com.dibitara.app.domain.usecase.UpdateNotificationsMensuellesUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
+import com.dibitara.app.domain.usecase.UpdateSeuilResteAVivreLogementUseCase
 import com.dibitara.app.domain.usecase.UpdateThemeModeUseCase
 import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
 import com.dibitara.app.security.CredentialManager
@@ -43,6 +44,7 @@ class SettingsViewModelTest {
     private val ucGet: GetUserPreferencesUseCase = mockk()
     private val ucRates: GetExchangeRatesUseCase = mockk(relaxed = true)
     private val ucSeuil: UpdateSeuilFondsUseCase = mockk(relaxed = true)
+    private val ucSeuilResteAVivreLogement: UpdateSeuilResteAVivreLogementUseCase = mockk(relaxed = true)
     private val ucDevise: UpdateDeviseParDefautUseCase = mockk(relaxed = true)
     private val ucRapport: UpdateAfficherRapportUseCase = mockk(relaxed = true)
     private val ucEpargne: UpdateAfficherEpargneUseCase = mockk(relaxed = true)
@@ -70,7 +72,7 @@ class SettingsViewModelTest {
         every { credentialManager.isTotpSetup()     } returns false
         // ucRates retourne un succès avec des taux fictifs pour ne pas bloquer init()
         coEvery { ucRates() } returns Result.success(ExchangeRates(1.09, 655.96, 0L))
-        viewModel = SettingsViewModel(context, ucGet, ucRates, ucSeuil, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucProchainsPaiements, ucTwoFactor, ucNotifications, ucRecommandations, ucThemeMode, ucSupprimerDonnees, ucExporter, ucRestaurer, credentialManager, totpManager)
+        viewModel = SettingsViewModel(context, ucGet, ucRates, ucSeuil, ucSeuilResteAVivreLogement, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucProchainsPaiements, ucTwoFactor, ucNotifications, ucRecommandations, ucThemeMode, ucSupprimerDonnees, ucExporter, ucRestaurer, credentialManager, totpManager)
     }
 
     @AfterEach
@@ -98,6 +100,22 @@ class SettingsViewModelTest {
         testScheduler.advanceUntilIdle()
 
         coVerify(exactly = 0) { ucSeuil(any()) }
+    }
+
+    @Test
+    fun `mettreAJourSeuilResteAVivreLogement convertit les euros en centimes avant d appeler le UseCase`() = runTest {
+        viewModel.mettreAJourSeuilResteAVivreLogement("400")
+        testScheduler.advanceUntilIdle()
+
+        coVerify { ucSeuilResteAVivreLogement(40_000L) } // 400€ × 100 = 40 000 centimes
+    }
+
+    @Test
+    fun `mettreAJourSeuilResteAVivreLogement ignore une saisie non numérique`() = runTest {
+        viewModel.mettreAJourSeuilResteAVivreLogement("abc")
+        testScheduler.advanceUntilIdle()
+
+        coVerify(exactly = 0) { ucSeuilResteAVivreLogement(any()) }
     }
 
     @Test
