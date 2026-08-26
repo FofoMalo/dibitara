@@ -9,8 +9,12 @@ import javax.inject.Inject
 /**
  * Calcule une projection de trésorerie sur 30 jours.
  *
- * Point de départ : revenus − dépenses réelles du mois courant, recalculés en temps réel
- * depuis les transactions (pas depuis Budget.spentCents qui peut être périmé).
+ * Point de départ : solde réel des comptes courants suivis (BRED, TradeRepublic...),
+ * hors compte pro (Qonto, sans lien avec la trésorerie personnelle). Volontairement pas
+ * les SavingsAccount : l'épargne est de l'argent déjà mis de côté, pas de la liquidité
+ * disponible - la confondre avec le disponible irait à l'encontre de l'objet de l'épargne.
+ * Réactif : `currentBalanceCents` est saisi/modifié manuellement par l'utilisateur (voir
+ * [BankAccount]), toute modification redéclenche le calcul via le Flow de [BankAccountRepository].
  *
  * Flux pris en compte sur [today, today+30] :
  *   1. Transactions récurrentes EXPENSE → déduites du solde à chaque occurrence
@@ -22,15 +26,14 @@ import javax.inject.Inject
  * [today] est injectable pour permettre les tests sans mocker LocalDate.now().
  */
 class GetCashflowProjectionUseCase @Inject constructor(
-    private val budgetRepository: BudgetRepository,
+    private val bankAccountRepository: BankAccountRepository,
     private val transactionRepository: TransactionRepository,
     private val savingsRepository: SavingsRepository,
     private val investmentRepository: InvestmentRepository,
     private val debtRepository: DebtRepository,
     private val versementRepository: VersementRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val exchangeRateRepository: ExchangeRateRepository,
-    private val identifierVirementsInternes: IdentifierVirementsInternesUseCase
+    private val exchangeRateRepository: ExchangeRateRepository
 ) {
 
     private data class Sources(
@@ -46,27 +49,24 @@ class GetCashflowProjectionUseCase @Inject constructor(
 
     operator fun invoke(today: LocalDate = LocalDate.now()): Flow<CashflowProjection> =
         combine(
-            budgetRepository.getBudget(today.monthValue, today.year),
+            bankAccountRepository.getAll(),
             transactionRepository.getRecurring(),
-            transactionRepository.getByMonth(today.monthValue, today.year),
             savingsRepository.getAll(),
             combine(
                 userPreferencesRepository.get(),
                 exchangeRateRepository.getRatesFlow()
             ) { prefs, rates -> prefs to rates }
-        ) { _, recurring, monthTransactions, savings, (prefs, rates) ->
+        ) { comptes, recurring, savings, (prefs, rates) ->
             val target = prefs.deviseParDefaut
             fun Long.cvt(from: Currency) = CurrencyConverter.convertCents(this, from, target, rates)
 
-            // Exclut les virements internes BRED↔TradeRepublic appariés du solde de départ
-            // (voir IdentifierVirementsInternesUseCase) : un déplacement entre comptes suivis
-            // n'est ni un revenu ni une dépense réelle.
-            val idsExclus = identifierVirementsInternes(monthTransactions)
-            val txReelles    = monthTransactions.filter { !it.isRecurring && it.id !in idsExclus }
-            val revenusCents  = txReelles.filter { it.type == TransactionType.INCOME  }.sumOf { it.amountCents.cvt(it.currency) }
-            val depensesCents = txReelles.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents.cvt(it.currency) }
+            // Compte pro (Qonto) exclu : ce n'est pas de la trésorerie personnelle disponible.
+            val soldeCourantCents = comptes
+                .filter { it.provider != BankProvider.QONTO }
+                .sumOf { it.currentBalanceCents.cvt(it.currency) }
+
             Sources(
-                soldeCourantCents = revenusCents - depensesCents,
+                soldeCourantCents = soldeCourantCents,
                 currency          = target,
                 rates             = rates,
                 recurring         = recurring,
@@ -180,19 +180,19 @@ class GetCashflowProjectionUseCase @Inject constructor(
 
         // Mensualités crédit : une occurrence par mois dans la fenêtre [today, horizon].
         // Si paymentDay est renseigné on l'utilise, sinon on place en fin de mois.
+        // Une échéance hors fenêtre est exclue, jamais ramenée sur le bord de l'horizon
+        // (sinon une mensualité de fin juin se retrouverait comptée début juin).
         dettes.filter { it.monthlyPaymentCents > 0 }.forEach { debt ->
             var debutMois = today.withDayOfMonth(1)
             while (debutMois <= horizon) {
                 val lastDayOfMonth = debutMois.month.length(debutMois.isLeapYear)
-                val finMois = minOf(dernierJourDuMois(debutMois), horizon)
                 val datePaiement = if (debt.paymentDay != null) {
                     val jour = debt.paymentDay.coerceAtMost(lastDayOfMonth)
-                    val candidate = java.time.LocalDate.of(debutMois.year, debutMois.monthValue, jour)
-                    minOf(candidate, horizon)
+                    LocalDate.of(debutMois.year, debutMois.monthValue, jour)
                 } else {
-                    finMois
+                    dernierJourDuMois(debutMois)
                 }
-                if (datePaiement >= today) {
+                if (datePaiement in today..horizon) {
                     fluxParDate[datePaiement] = (fluxParDate[datePaiement] ?: 0L) - debt.monthlyPaymentCents.cvt(debt.currency)
                     evenements.add(
                         EventProjecte(

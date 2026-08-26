@@ -16,7 +16,7 @@ import java.time.LocalDate
 
 class GetCashflowProjectionUseCaseTest {
 
-    private val budgetRepo      : BudgetRepository          = mockk()
+    private val bankAccountRepo : BankAccountRepository     = mockk()
     private val transactionRepo : TransactionRepository     = mockk()
     private val savingsRepo     : SavingsRepository         = mockk()
     private val investmentRepo  : InvestmentRepository      = mockk()
@@ -26,17 +26,15 @@ class GetCashflowProjectionUseCaseTest {
     private val exchangeRateRepo: ExchangeRateRepository    = mockk()
 
     private val useCase = GetCashflowProjectionUseCase(
-        budgetRepo, transactionRepo, savingsRepo, investmentRepo, debtRepo, versementRepo, prefsRepo, exchangeRateRepo,
-        IdentifierVirementsInternesUseCase()
+        bankAccountRepo, transactionRepo, savingsRepo, investmentRepo, debtRepo, versementRepo, prefsRepo, exchangeRateRepo
     )
 
     private val today = LocalDate.of(2026, 5, 10)
 
     @BeforeEach
     fun setUp() {
-        every { budgetRepo.getBudget(any(), any()) }           returns flowOf(null)
+        every { bankAccountRepo.getAll() }                     returns flowOf(emptyList())
         every { transactionRepo.getRecurring() }               returns flowOf(emptyList())
-        every { transactionRepo.getByMonth(any(), any()) }     returns flowOf(emptyList())
         every { savingsRepo.getAll() }                         returns flowOf(emptyList())
         every { investmentRepo.getAllScpi() }                   returns flowOf(emptyList())
         every { debtRepo.getAll() }                            returns flowOf(emptyList())
@@ -45,94 +43,40 @@ class GetCashflowProjectionUseCaseTest {
         coEvery { versementRepo.existsPourMois(any(), any(), any(), any()) } returns false
     }
 
-    // ─── Solde de départ - calculé depuis les transactions réelles ───────────
+    // ─── Solde de départ - calculé depuis le solde réel des comptes bancaires ─
 
     @Test
-    fun `solde de départ est zéro sans transactions dans le mois`() = runTest {
-        // getByMonth retourne liste vide (setUp)
+    fun `solde de départ est zéro sans compte bancaire suivi`() = runTest {
+        // bankAccountRepo.getAll() retourne liste vide (setUp)
         val result = useCase(today).first()
         assertEquals(0L, result.soldeActuelCents)
     }
 
     @Test
-    fun `solde de départ reflète les transactions réelles du mois`() = runTest {
-        // Correction #1 : le solde vient des transactions, pas de Budget.spentCents (périmé en base)
-        every { transactionRepo.getByMonth(any(), any()) } returns flowOf(listOf(
-            buildTx(TransactionType.INCOME,  300_000L),  // 3 000€ de revenus
-            buildTx(TransactionType.EXPENSE, 80_000L)   // 800€ de dépenses
-        ))
+    fun `solde de départ est la somme des soldes des comptes bancaires`() = runTest {
+        mockSoldeInitial(220_000L, 30_000L)
 
         val result = useCase(today).first()
 
-        assertEquals(220_000L, result.soldeActuelCents)  // 3 000 - 800 = 2 200€
+        assertEquals(250_000L, result.soldeActuelCents)
     }
 
     @Test
-    fun `solde de départ exclut un virement interne BRED vers TradeRepublic apparié`() = runTest {
-        every { transactionRepo.getByMonth(any(), any()) } returns flowOf(listOf(
-            buildTx(TransactionType.INCOME, 300_000L),
-            Transaction(
-                id = 1, amountCents = 80_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
-                type = TransactionType.EXPENSE, date = today, importSource = "bred_csv"
-            ),
-            Transaction(
-                id = 2, amountCents = 80_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
-                type = TransactionType.INCOME, date = today.plusDays(1), importSource = "trade_republic"
-            )
+    fun `solde de départ exclut le compte pro Qonto`() = runTest {
+        every { bankAccountRepo.getAll() } returns flowOf(listOf(
+            buildBankAccount(provider = BankProvider.BRED,  balanceCents = 220_000L),
+            buildBankAccount(provider = BankProvider.QONTO, balanceCents = 999_000L)
         ))
 
         val result = useCase(today).first()
 
-        // Le virement interne appairé (80 000) ne doit pas venir en déduction du solde
-        assertEquals(300_000L, result.soldeActuelCents)
-    }
-
-    @Test
-    fun `solde de départ ignore les templates récurrents du mois`() = runTest {
-        // Un template isRecurring=true tombant dans le mois ne doit pas fausser le solde
-        every { transactionRepo.getByMonth(any(), any()) } returns flowOf(listOf(
-            buildTx(TransactionType.INCOME,  200_000L, isRecurring = false),
-            buildTx(TransactionType.EXPENSE, 999_000L, isRecurring = true)  // template - exclu
-        ))
-
-        val result = useCase(today).first()
-
-        assertEquals(200_000L, result.soldeActuelCents)
-    }
-
-    @Test
-    fun `spentCents périmé dans le budget n influence pas le solde initial`() = runTest {
-        // Budget en base avec spentCents = 50 000 (périmé - dépenses réelles = 80 000)
-        every { budgetRepo.getBudget(any(), any()) } returns flowOf(
-            Budget(month = 5, year = 2026, allocatedCents = 200_000L, spentCents = 50_000L, currency = Currency.EUR)
-        )
-        every { transactionRepo.getByMonth(any(), any()) } returns flowOf(listOf(
-            buildTx(TransactionType.INCOME,  300_000L),
-            buildTx(TransactionType.EXPENSE, 80_000L)
-        ))
-
-        val result = useCase(today).first()
-
-        // 300 000 - 80 000 = 220 000, pas 200 000 - 50 000 = 150 000
+        // Le solde pro (999 000) n'entre pas dans la trésorerie personnelle
         assertEquals(220_000L, result.soldeActuelCents)
     }
 
     @Test
-    fun `devise suit la préférence par défaut quand aucun budget créé`() = runTest {
+    fun `devise suit la préférence par défaut`() = runTest {
         val result = useCase(today).first()
-        assertEquals(Currency.EUR, result.currency)
-    }
-
-    @Test
-    fun `devise suit prefs deviseParDefaut et ignore la devise du budget`() = runTest {
-        // Bug corrigé (2026-08-05) : la devise venait de budget.currency au lieu de prefs.deviseParDefaut -
-        // un budget en XOF ne doit plus imposer la devise si la préférence globale reste EUR.
-        every { budgetRepo.getBudget(any(), any()) } returns flowOf(
-            Budget(month = 5, year = 2026, allocatedCents = 0L, spentCents = 0L, currency = Currency.XOF)
-        )
-
-        val result = useCase(today).first()
-
         assertEquals(Currency.EUR, result.currency)
     }
 
@@ -438,16 +382,30 @@ class GetCashflowProjectionUseCaseTest {
     }
 
     @Test
-    fun `mensualité crédit projetée deux fois si la fenêtre enjambe deux mois`() = runTest {
-        // today = 10 mai, horizon = 9 juin → fin mai (31/05) ET fin juin tronqué à 9/06
+    fun `mensualité crédit de fin de mois hors fenêtre 30 jours n est pas déduite`() = runTest {
+        // Bug corrigé : today = 10 mai, horizon = 9 juin → l'échéance de fin juin (30/06) est
+        // hors fenêtre et ne doit plus être ramenée sur le bord de l'horizon (9 juin).
         every { debtRepo.getAll() } returns flowOf(
             listOf(buildDebt(monthlyPaymentCents = 80_000L))
         )
 
         val result = useCase(today).first()
 
-        // Deux prélèvements : le 31 mai et le 9 juin (= min(30 juin, horizon))
-        assertEquals(-2 * 80_000L, result.soldeProjecte30jCents)
+        // Un seul prélèvement dans la fenêtre : le 31 mai
+        assertEquals(-80_000L, result.soldeProjecte30jCents)
+    }
+
+    @Test
+    fun `mensualité crédit avec jour de prélèvement hors fenêtre n est pas ramenée sur le bord`() = runTest {
+        // Même bug que ci-dessus, mais via la branche paymentDay renseigné (au lieu de fin de mois).
+        // today = 10 mai, horizon = 9 juin, paymentDay = 28 → 28 mai dans la fenêtre, 28 juin hors fenêtre.
+        every { debtRepo.getAll() } returns flowOf(
+            listOf(buildDebt(monthlyPaymentCents = 80_000L, paymentDay = 28))
+        )
+
+        val result = useCase(today).first()
+
+        assertEquals(-80_000L, result.soldeProjecte30jCents)
     }
 
     @Test
@@ -548,27 +506,22 @@ class GetCashflowProjectionUseCaseTest {
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
-    /**
-     * Configure le solde initial via un revenu fictif dans getByMonth.
-     * Remplace l'ancien pattern "Budget(allocatedCents = x, spentCents = 0)".
-     */
-    private fun mockSoldeInitial(cents: Long) {
-        every { transactionRepo.getByMonth(any(), any()) } returns flowOf(
-            listOf(buildTx(TransactionType.INCOME, cents))
+    /** Configure le solde initial via un ou plusieurs comptes bancaires (BRED par défaut). */
+    private fun mockSoldeInitial(vararg soldesCents: Long) {
+        every { bankAccountRepo.getAll() } returns flowOf(
+            soldesCents.map { buildBankAccount(balanceCents = it) }
         )
     }
 
-    private fun buildTx(
-        type        : TransactionType,
-        amountCents : Long,
-        isRecurring : Boolean = false
-    ) = Transaction(
-        amountCents = amountCents,
-        currency    = Currency.EUR,
-        category    = Category.AUTRE,
-        type        = type,
-        date        = today,
-        isRecurring = isRecurring
+    private fun buildBankAccount(
+        provider     : BankProvider = BankProvider.BRED,
+        balanceCents : Long
+    ) = BankAccount(
+        provider            = provider,
+        label               = provider.displayName,
+        currentBalanceCents = balanceCents,
+        currency            = Currency.EUR,
+        updatedAt           = today
     )
 
     private fun buildRecurrent(
@@ -605,14 +558,16 @@ class GetCashflowProjectionUseCaseTest {
     )
 
     private fun buildDebt(
-        monthlyPaymentCents : Long = 0L
+        monthlyPaymentCents : Long = 0L,
+        paymentDay          : Int? = null
     ) = Debt(
         label               = "Crédit test",
         totalCents          = 10_000_000L,
         monthlyPaymentCents = monthlyPaymentCents,
         currency            = Currency.EUR,
         type                = DebtType.CREDIT_IMMO,
-        updatedAt           = today
+        updatedAt           = today,
+        paymentDay          = paymentDay
     )
 
     private fun buildSavings(
