@@ -70,6 +70,17 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
   donc jamais sur un appareil réel. Fix : lire explicitement la propriété
   dans `onCreate` (ex. `appViewModel` en instruction seule) pour forcer
   l'instanciation.
+- **Piège `Category.AUTRE` seul ≠ « non catégorisé » :** `AUTRE` est un
+  bucket parent — la vraie catégorisation d'une transaction `AUTRE` se lit
+  dans `subCategory` (enum fixe) OU `customSubCategoryId` (sous-catégorie
+  perso), jamais dans `category` seul. Tout filtre/comptage qui veut dire
+  « à catégoriser » doit vérifier `category == AUTRE && subCategory == null
+  && customSubCategoryId == null` ensemble. Bug rencontré deux fois le même
+  jour (2026-08-27) : le chip « À catégoriser » d'`ExpensesScreen`
+  (`ExpensesFilter`) filtrait sur `category == AUTRE` seul et affichait
+  aussi les dépenses déjà classées (ex. `BAR_ET_RESTAURANT`) ; et
+  `GetRecategorizationSuggestionsUseCase` (suggestions du Dashboard)
+  vérifiait `subCategory == null` mais oubliait `customSubCategoryId`.
 
 ## Schéma Room — Version actuelle : v23
 
