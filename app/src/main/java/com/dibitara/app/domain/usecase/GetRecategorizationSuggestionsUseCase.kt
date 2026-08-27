@@ -20,8 +20,9 @@ import javax.inject.Inject
  * Seules les transactions des 90 derniers jours sont analysées pour éviter de remonter
  * des entrées trop anciennes qui n'ont plus de pertinence.
  *
- * Une transaction avec [Transaction.subCategory] déjà renseignée est exclue : cela signifie
- * que l'utilisateur a déjà statué (refus via SubCategory.DIVERS ou autre choix manuel).
+ * Une transaction avec [Transaction.subCategory] ou [Transaction.customSubCategoryId] déjà
+ * renseigné est exclue : cela signifie que l'utilisateur a déjà statué (refus via
+ * SubCategory.DIVERS, sous-catégorie personnalisée ou autre choix manuel).
  *
  * [today] est injectable pour les tests.
  */
@@ -34,7 +35,10 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
         return transactionRepository.getByDateRange(debut, today).map { transactions ->
             transactions
                 // Les revenus ne peuvent pas être recatégorisés depuis l'UI (champs masqués)
-                .filter { it.category == Category.AUTRE && it.subCategory == null && it.type == TransactionType.EXPENSE }
+                .filter {
+                    it.category == Category.AUTRE && it.type == TransactionType.EXPENSE &&
+                        it.subCategory == null && it.customSubCategoryId == null
+                }
                 .mapNotNull { trouverSuggestion(it) }
                 .distinctBy { it.transaction.id }
         }

@@ -166,7 +166,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                     && it.subCategory == null
                     && it.customSubCategoryId == null
             }
-            val isCategoriserSelected = filter.category == Category.AUTRE
+            val isCategoriserSelected = filter.uncategorizedOnly
             if (autreCount > 0 || isCategoriserSelected) {
                 Row(
                     modifier = Modifier
@@ -177,11 +177,14 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                         selected = isCategoriserSelected,
                         onClick = {
                             if (isCategoriserSelected) {
-                                viewModel.updateFilter(filter.copy(category = null))
+                                viewModel.updateFilter(filter.copy(uncategorizedOnly = false))
                             } else {
                                 viewModel.updateFilter(
                                     filter.copy(
-                                        category = Category.AUTRE,
+                                        uncategorizedOnly = true,
+                                        // category est exclusif avec uncategorizedOnly (voir apply()) :
+                                        // on l'efface pour ne pas hériter d'une sélection contradictoire
+                                        category = null,
                                         // Forcer EXPENSE pour ne jamais afficher les revenus dans ce filtre
                                         transactionType = TransactionType.EXPENSE
                                     )
@@ -425,7 +428,9 @@ private fun FilterSheet(
                 items(Category.entries) { cat ->
                     FilterChip(
                         selected = filter.category == cat,
-                        onClick = { onFilterChange(filter.copy(category = cat)) },
+                        // uncategorizedOnly est exclusif avec category (voir ExpensesFilter.apply) :
+                        // le désactiver évite une combinaison contradictoire qui viderait la liste
+                        onClick = { onFilterChange(filter.copy(category = cat, uncategorizedOnly = false)) },
                         label = { Text(cat.displayName) }
                     )
                 }
@@ -1250,5 +1255,6 @@ private fun ExpensesFilter.activeFilterCount(): Int {
     if (category != null) count++
     if (sort != SortOrder.DATE_DESC) count++
     if (bankAccountId != null) count++
+    if (uncategorizedOnly) count++
     return count
 }

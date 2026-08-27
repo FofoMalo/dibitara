@@ -329,17 +329,26 @@ class ExpensesViewModel @Inject constructor(
  * [apply] ne filtre que la catégorie, le type, la recherche textuelle et le tri.
  */
 data class ExpensesFilter(
-    val query           : String              = "",
-    val category        : Category?           = null,
-    val period          : FilterPeriod        = FilterPeriod.CURRENT_MONTH,
-    val transactionType : TransactionType?    = TransactionType.EXPENSE,
-    val sort            : SortOrder           = SortOrder.DATE_DESC,
-    val bankAccountId   : Long?                = null
+    val query             : String              = "",
+    val category          : Category?           = null,
+    val period            : FilterPeriod        = FilterPeriod.CURRENT_MONTH,
+    val transactionType   : TransactionType?    = TransactionType.EXPENSE,
+    val sort              : SortOrder           = SortOrder.DATE_DESC,
+    val bankAccountId     : Long?                = null,
+    // Chip rapide "À catégoriser" : ne garde que les dépenses AUTRE sans sous-catégorie.
+    // Distinct de `category` car category == AUTRE seul inclut aussi les dépenses déjà
+    // affectées à une sous-catégorie (ex. BAR_ET_RESTAURANT) - donc déjà catégorisées.
+    val uncategorizedOnly : Boolean              = false
 ) {
     fun apply(transactions: List<Transaction>): List<Transaction> =
         transactions
             .filter { transactionType == null || it.type == transactionType }
             .filter { category == null || it.category == category }
+            .filter {
+                !uncategorizedOnly ||
+                    (it.category == Category.AUTRE && it.type == TransactionType.EXPENSE &&
+                        it.subCategory == null && it.customSubCategoryId == null)
+            }
             .filter { bankAccountId == null || it.bankAccountId == bankAccountId }
             .filter { query.isBlank() || it.note.contains(query, ignoreCase = true) }
             .let { list ->

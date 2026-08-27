@@ -312,6 +312,24 @@ class GetRecategorizationSuggestionsUseCaseTest {
     }
 
     @Test
+    fun `exclut une transaction AUTRE avec customSubCategoryId déjà renseigné`() = runTest {
+        every { transactionRepo.getByDateRange(any(), any()) } returns flowOf(
+            listOf(
+                buildTransaction(
+                    note                = "Retrait",
+                    category            = Category.AUTRE,
+                    subCategory         = null,
+                    customSubCategoryId = 3L  // sous-catégorie personnalisée déjà posée
+                )
+            )
+        )
+
+        val result = useCase(today).first()
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
     fun `n analyse que les transactions des 90 derniers jours`() = runTest {
         // Vérifier que getByDateRange est appelé avec today-90 et today
         val debut = today.minusDays(90)
@@ -329,18 +347,20 @@ class GetRecategorizationSuggestionsUseCaseTest {
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private fun buildTransaction(
-        id          : Long        = 0L,
-        note        : String      = "",
-        category    : Category    = Category.AUTRE,
-        subCategory : SubCategory? = null
+        id                  : Long        = 0L,
+        note                : String      = "",
+        category            : Category    = Category.AUTRE,
+        subCategory         : SubCategory? = null,
+        customSubCategoryId : Long?        = null
     ) = Transaction(
-        id          = id,
-        amountCents = 5_000L,
-        currency    = Currency.EUR,
-        category    = category,
-        type        = TransactionType.EXPENSE,
-        date        = today,
-        note        = note,
-        subCategory = subCategory
+        id                  = id,
+        amountCents         = 5_000L,
+        currency            = Currency.EUR,
+        category            = category,
+        type                = TransactionType.EXPENSE,
+        date                = today,
+        note                = note,
+        subCategory         = subCategory,
+        customSubCategoryId = customSubCategoryId
     )
 }
