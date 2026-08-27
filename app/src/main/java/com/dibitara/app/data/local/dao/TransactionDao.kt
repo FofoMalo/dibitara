@@ -10,6 +10,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY dateEpochDay DESC")
     fun getAll(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE id = :id")
+    suspend fun getById(id: Long): TransactionEntity?
+
     /**
      * Filtre par mois/année en utilisant l'epoch day.
      * On calcule les bornes côté Kotlin pour rester en Long dans Room.
@@ -28,9 +31,22 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE sourceRecurringId = :recurringId AND dateEpochDay >= :fromEpoch AND dateEpochDay <= :toEpoch")
     suspend fun countBySourceAndRange(recurringId: Long, fromEpoch: Long, toEpoch: Long): Int
 
-    // Retourne tous les externalId non-null — utilisé pour la déduplication à l'import
+    // Retourne tous les externalId non-null - utilisé pour la déduplication à l'import
     @Query("SELECT externalId FROM transactions WHERE externalId IS NOT NULL")
     suspend fun getAllExternalIds(): List<String>
+
+    // Cherche une capture live (notification) déjà en base pour réconcilier avec l'import CSV
+    // du même mouvement (montant exact, date ±1 jour - le libellé n'est jamais comparable entre les deux sources)
+    @Query(
+        "SELECT * FROM transactions WHERE importSource = :importSource AND amountCents = :amountCents " +
+        "AND dateEpochDay BETWEEN :fromEpoch AND :toEpoch LIMIT 1"
+    )
+    suspend fun findByAmountDateRangeAndSource(
+        amountCents: Long,
+        fromEpoch: Long,
+        toEpoch: Long,
+        importSource: String
+    ): TransactionEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transaction: TransactionEntity): Long

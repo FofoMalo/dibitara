@@ -23,6 +23,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.PatrimonyOverview
 import com.dibitara.app.domain.model.PatrimoineSnapshot
 import com.dibitara.app.presentation.common.DonutAvecLegende
+import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -31,7 +32,6 @@ import java.util.Locale
 @Composable
 fun PatrimoineDetailScreen(
     onNavigateBack        : () -> Unit,
-    onNavigateToBudget    : () -> Unit,
     onNavigateToSavings   : () -> Unit,
     onNavigateToInvestments: () -> Unit,
     onNavigateToDebts     : () -> Unit,
@@ -71,7 +71,6 @@ fun PatrimoineDetailScreen(
                     PatrimoineDetailContent(
                         overview              = state.overview,
                         history               = state.history,
-                        onNavigateToBudget    = onNavigateToBudget,
                         onNavigateToSavings   = onNavigateToSavings,
                         onNavigateToInvestments = onNavigateToInvestments,
                         onNavigateToDebts     = onNavigateToDebts
@@ -85,7 +84,6 @@ fun PatrimoineDetailScreen(
 private fun PatrimoineDetailContent(
     overview              : PatrimonyOverview,
     history               : List<PatrimoineSnapshot>,
-    onNavigateToBudget    : () -> Unit,
     onNavigateToSavings   : () -> Unit,
     onNavigateToInvestments: () -> Unit,
     onNavigateToDebts     : () -> Unit
@@ -98,12 +96,7 @@ private fun PatrimoineDetailContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ── Patrimoine brut ──────────────────────────────────────────────────
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        ) {
+        HeroCard {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -112,13 +105,13 @@ private fun PatrimoineDetailContent(
                     "Patrimoine brut",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     overview.patrimoineBrutCents.toCurrencyDisplay(overview.currency),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -130,16 +123,10 @@ private fun PatrimoineDetailContent(
         PatrimoineEvolutionCard(history = history, currency = overview.currency)
 
         // ── Décomposition des actifs ─────────────────────────────────────────
+        // Le budget restant (liquidités) n'y figure pas : c'est un flux mensuel, pas un actif
+        // (voir PatrimonyOverview.patrimoineBrutCents) - visible séparément sur le Dashboard.
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                LigneActif(
-                    label      = "Liquidités (budget du mois)",
-                    valueCents = overview.liquiditesCents,
-                    currency   = overview.currency,
-                    color      = MaterialTheme.colorScheme.primary,
-                    onClick    = onNavigateToBudget
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 LigneActif(
                     label      = "Épargne",
                     valueCents = overview.epargneCents,
@@ -185,15 +172,7 @@ private fun PatrimoineDetailContent(
 
         // ── Patrimoine net ───────────────────────────────────────────────────
         val netPositif = overview.patrimoineNetCents >= 0
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (netPositif)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.errorContainer
-            )
-        ) {
+        HeroCard {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -201,13 +180,13 @@ private fun PatrimoineDetailContent(
                 Text(
                     "Patrimoine net",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     overview.patrimoineNetCents.toCurrencyDisplay(overview.currency),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (netPositif) MaterialTheme.colorScheme.onPrimaryContainer
+                    color = if (netPositif) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.error
                 )
                 // Barre de santé : part du brut non engagée dans des dettes
@@ -230,13 +209,13 @@ private fun PatrimoineDetailContent(
                     Text(
                         "${(ratio * 100).toInt()}% du brut non endetté",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
                     "= Patrimoine brut − Dettes",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -356,8 +335,9 @@ private fun PatrimoineEvolutionCard(
 // ─── Donut de répartition des actifs ─────────────────────────────────────────
 
 /**
- * Camembert (donut) montrant la décomposition du patrimoine brut en 3 segments :
- * liquidités (primary), épargne (secondary), investissements (tertiary).
+ * Camembert (donut) montrant la décomposition du patrimoine brut en 2 segments :
+ * épargne (secondary), investissements (tertiary). Le budget restant (liquidités) n'y figure
+ * pas : c'est un flux mensuel, pas un actif (voir PatrimonyOverview.patrimoineBrutCents).
  * Les segments à 0 sont ignorés. La carte n'est pas affichée si le brut est nul.
  */
 @Composable
@@ -366,7 +346,6 @@ private fun PatrimoineDonutCard(overview: PatrimonyOverview) {
     if (brut <= 0L) return
 
     val groupes = buildList {
-        if (overview.liquiditesCents    > 0L) add("Liquidités"      to overview.liquiditesCents)
         if (overview.epargneCents       > 0L) add("Épargne"         to overview.epargneCents)
         if (overview.investissementsCents > 0L) add("Investissements" to overview.investissementsCents)
     }
@@ -374,7 +353,6 @@ private fun PatrimoineDonutCard(overview: PatrimonyOverview) {
 
     // Couleurs M3 sémantiques : cohérence avec la décomposition textuelle ci-dessous
     val couleurs = listOf(
-        MaterialTheme.colorScheme.primary,
         MaterialTheme.colorScheme.secondary,
         MaterialTheme.colorScheme.tertiary
     )

@@ -2,17 +2,23 @@ package com.dibitara.app.presentation.savings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlin.math.roundToLong
+import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
+import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
+import com.dibitara.app.domain.usecase.GetAssetValuationHistoryUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
+import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
+import com.dibitara.app.domain.usecase.SaveAssetValuationSnapshotUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
@@ -37,8 +43,12 @@ class SavingsViewModel @Inject constructor(
     private val deleteChild: DeleteChildUseCase,
     private val saveVersement: SaveVersementUseCase,
     private val existeVersementMois: ExisteVersementMoisUseCase,
+    private val getVersementsMois: GetVersementsMoisUseCase,
     private val ucGetPreferences: GetUserPreferencesUseCase,
-    private val exchangeRateRepository: ExchangeRateRepository
+    private val exchangeRateRepository: ExchangeRateRepository,
+    private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase,
+    private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase,
+    private val ucCalculerTendanceActif: CalculerTendanceActifUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -55,12 +65,16 @@ class SavingsViewModel @Inject constructor(
         val target = prefs.deviseParDefaut
         val totalBalance = accounts.sumOf { CurrencyConverter.convertCents(it.currentBalanceCents, it.currency, target, rates) }
         val totalMonthly = accounts.sumOf { CurrencyConverter.convertCents(it.monthlyContributionCents, it.currency, target, rates) }
+        val now = LocalDate.now()
+        val totalVerse = getVersementsMois(CompteType.EPARGNE, now.year, now.monthValue)
+            .sumOf { CurrencyConverter.convertCents(it.montantCents, it.currency, target, rates) }
         SavingsUiState.Success(
-            accounts          = accounts,
-            children          = children,
-            totalEpargneCents = totalBalance,
-            totalMensuelCents = totalMonthly,
-            summaryCurrency   = target
+            accounts            = accounts,
+            children            = children,
+            totalEpargneCents   = totalBalance,
+            totalMensuelCents   = totalMonthly,
+            totalVerseMoisCents = totalVerse,
+            summaryCurrency     = target
         ) as SavingsUiState
     }
         .catch { emit(SavingsUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -73,19 +87,28 @@ class SavingsViewModel @Inject constructor(
     private val _event = MutableSharedFlow<SavingsEvent>()
     val event: SharedFlow<SavingsEvent> = _event.asSharedFlow()
 
+    /**
+     * Tendance d'un compte épargne, lue à la demande - même logique que
+     * [com.dibitara.app.presentation.investments.InvestmentsViewModel.tendancePourActif].
+     */
+    suspend fun tendancePourActif(assetId: Long): Float? =
+        ucCalculerTendanceActif(ucGetAssetValuationHistory(AssetValuationType.SAVINGS_ACCOUNT, assetId).first())
+
     fun saveAccount(
         type: SavingsType,
         label: String,
         balanceStr: String,
         contributionStr: String,
         currency: Currency,
-        childId: Long?
+        childId: Long?,
+        plafondStr: String = ""
     ) {
-        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
             return
         }
-        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
         viewModelScope.launch {
             saveSavingsAccount(
                 SavingsAccount(
@@ -95,10 +118,14 @@ class SavingsViewModel @Inject constructor(
                     monthlyContributionCents = contribution,
                     currency = currency,
                     childId = childId,
-                    updatedAt = LocalDate.now()
+                    updatedAt = LocalDate.now(),
+                    plafondCents = plafond
                 )
             )
-                .onSuccess { _event.emit(SavingsEvent.Saved) }
+                .onSuccess { newId ->
+                    ucSaveAssetSnapshot(AssetValuationType.SAVINGS_ACCOUNT, newId, balance, currency)
+                    _event.emit(SavingsEvent.Saved)
+                }
                 .onFailure { _event.emit(SavingsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -110,13 +137,15 @@ class SavingsViewModel @Inject constructor(
         balanceStr: String,
         contributionStr: String,
         currency: Currency,
-        childId: Long?
+        childId: Long?,
+        plafondStr: String = ""
     ) {
-        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
             return
         }
-        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+        val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
         viewModelScope.launch {
             updateSavingsAccount(
                 account.copy(
@@ -126,10 +155,14 @@ class SavingsViewModel @Inject constructor(
                     monthlyContributionCents = contribution,
                     currency                 = currency,
                     childId                  = childId,
-                    updatedAt                = LocalDate.now()
+                    updatedAt                = LocalDate.now(),
+                    plafondCents             = plafond
                 )
             )
-                .onSuccess { _event.emit(SavingsEvent.Saved) }
+                .onSuccess {
+                    ucSaveAssetSnapshot(AssetValuationType.SAVINGS_ACCOUNT, account.id, balance, currency)
+                    _event.emit(SavingsEvent.Saved)
+                }
                 .onFailure { _event.emit(SavingsEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -196,13 +229,20 @@ class SavingsViewModel @Inject constructor(
             )
             saveVersement(versement)
                 .onSuccess {
+                    val soldeApres = account.currentBalanceCents + account.monthlyContributionCents
                     updateSavingsAccount(
                         account.copy(
-                            currentBalanceCents = account.currentBalanceCents + account.monthlyContributionCents,
+                            currentBalanceCents = soldeApres,
                             updatedAt           = now
                         )
                     )
-                    _event.emit(SavingsEvent.VersementApplique)
+                    // Avertir si le solde résultant dépasse le plafond configuré
+                    val plafond = account.plafondCents
+                    if (plafond != null && soldeApres > plafond) {
+                        _event.emit(SavingsEvent.AvertissementPlafond(account.label))
+                    } else {
+                        _event.emit(SavingsEvent.VersementApplique)
+                    }
                 }
                 .onFailure { _event.emit(SavingsEvent.Error("Vérifier les informations saisies")) }
         }
@@ -214,9 +254,10 @@ sealed class SavingsUiState {
     data class Success(
         val accounts          : List<SavingsAccount>,
         val children          : List<Child>,
-        val totalEpargneCents : Long     = 0L,
-        val totalMensuelCents : Long     = 0L,
-        val summaryCurrency   : Currency = Currency.EUR
+        val totalEpargneCents   : Long     = 0L,
+        val totalMensuelCents   : Long     = 0L,
+        val totalVerseMoisCents : Long     = 0L,
+        val summaryCurrency     : Currency = Currency.EUR
     ) : SavingsUiState()
     data class Error(val message: String) : SavingsUiState()
 }
@@ -226,5 +267,7 @@ sealed class SavingsEvent {
     data object Deleted : SavingsEvent()
     data object ChildSaved : SavingsEvent()
     data object VersementApplique : SavingsEvent()
+    // Versement appliqué mais le nouveau solde dépasse le plafond configuré
+    data class AvertissementPlafond(val compteLabel: String) : SavingsEvent()
     data class Error(val message: String) : SavingsEvent()
 }

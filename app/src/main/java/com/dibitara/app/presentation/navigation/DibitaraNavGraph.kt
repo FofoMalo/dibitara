@@ -23,10 +23,20 @@ import com.dibitara.app.presentation.debts.DebtsScreen
 import com.dibitara.app.presentation.investments.InvestmentsScreen
 import com.dibitara.app.presentation.savings.SavingsScreen
 import com.dibitara.app.presentation.patrimoine.PatrimoineDetailScreen
+import com.dibitara.app.presentation.projection.ProjectionDetailScreen
 import com.dibitara.app.presentation.report.MonthlyReportScreen
+import com.dibitara.app.presentation.importcsv.ImportBredScreen
+import com.dibitara.app.presentation.importcsv.ImportBredPdfScreen
+import com.dibitara.app.presentation.importcsv.ImportScreen
+import com.dibitara.app.presentation.settings.BankAccountsScreen
 import com.dibitara.app.presentation.settings.DuplicateCleanupScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
 import com.dibitara.app.presentation.settings.SettingsViewModel
+import com.dibitara.app.presentation.recommandations.RecommandationsScreen
+import com.dibitara.app.presentation.scenarios.ScenariosScreen
+import com.dibitara.app.presentation.scenarios.conseillerpatrimoine.ConseillerPatrimoineScreen
+import com.dibitara.app.presentation.scenarios.logement.ScenarioLogementScreen
+import com.dibitara.app.presentation.trends.TrendsScreen
 
 sealed class Screen(val route: String) {
     data object Lock       : Screen("lock")
@@ -34,14 +44,22 @@ sealed class Screen(val route: String) {
     data object Dashboard  : Screen("dashboard")
     data object Budget     : Screen("budget")
     // category et type sont des args optionnels pour pré-filtrer depuis BudgetScreen
-    data object Expenses   : Screen("expenses?category={category}&type={type}") {
-        fun withFilter(category: String? = null, type: String? = null): String {
+    data object Expenses   : Screen("expenses?category={category}&type={type}&month={month}&year={year}&transactionId={transactionId}&bankAccountId={bankAccountId}") {
+        fun withFilter(
+            category: String? = null,
+            type: String? = null,
+            month: Int? = null,
+            year: Int? = null,
+            transactionId: Long? = null,
+            bankAccountId: Long? = null
+        ): String {
             val args = buildString {
                 if (category != null) append("category=$category")
-                if (type != null) {
-                    if (isNotEmpty()) append("&")
-                    append("type=$type")
-                }
+                if (type != null) { if (isNotEmpty()) append("&"); append("type=$type") }
+                if (month != null) { if (isNotEmpty()) append("&"); append("month=$month") }
+                if (year != null)  { if (isNotEmpty()) append("&"); append("year=$year") }
+                if (transactionId != null) { if (isNotEmpty()) append("&"); append("transactionId=$transactionId") }
+                if (bankAccountId != null) { if (isNotEmpty()) append("&"); append("bankAccountId=$bankAccountId") }
             }
             return if (args.isNotEmpty()) "expenses?$args" else "expenses"
         }
@@ -52,7 +70,17 @@ sealed class Screen(val route: String) {
     data object Settings          : Screen("settings")
     data object Report            : Screen("report")
     data object PatrimoineDetail  : Screen("patrimoine_detail")
+    data object ImportTR          : Screen("import_tr")
+    data object ImportBred        : Screen("import_bred")
+    data object ImportBredPdf     : Screen("import_bred_pdf")
     data object DuplicateCleanup  : Screen("duplicate_cleanup")
+    data object BankAccounts      : Screen("bank_accounts")
+    data object ProjectionDetail  : Screen("projection_detail")
+    data object Trends             : Screen("trends")
+    data object Recommandations    : Screen("recommandations")
+    data object Scenarios          : Screen("scenarios")
+    data object ScenarioLogement   : Screen("scenario_logement")
+    data object ConseillerPatrimoine : Screen("conseiller_patrimoine")
 }
 
 // Écrans qui affichent la barre de navigation inférieure
@@ -73,7 +101,7 @@ fun DibitaraNavGraph(
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute in bottomNavScreens
 
-    // Préférences de navigation — lues ici pour filtrer la nav bar en temps réel
+    // Préférences de navigation - lues ici pour filtrer la nav bar en temps réel
     val settingsVm: SettingsViewModel = hiltViewModel()
     val prefs by settingsVm.preferences.collectAsState()
 
@@ -95,7 +123,7 @@ fun DibitaraNavGraph(
                 LockScreen(
                     onAuthenticated = {
                         navController.navigate(Screen.Dashboard.route) {
-                            // Supprimer LockScreen de la pile — impossible de revenir en arrière
+                            // Supprimer LockScreen de la pile - impossible de revenir en arrière
                             popUpTo(Screen.Lock.route) { inclusive = true }
                         }
                     },
@@ -124,26 +152,69 @@ fun DibitaraNavGraph(
                     onNavigateToBudget       = { navController.navigate(Screen.Budget.route) },
                     onNavigateToSavings      = { navController.navigate(Screen.Savings.route) },
                     onNavigateToInvestments  = { navController.navigate(Screen.Investments.route) },
-                    onNavigateToPatrimoine   = { navController.navigate(Screen.PatrimoineDetail.route) }
+                    onNavigateToPatrimoine   = { navController.navigate(Screen.PatrimoineDetail.route) },
+                    onNavigateToExpensesTransaction = { id ->
+                        navController.navigate(Screen.Expenses.withFilter(transactionId = id))
+                    },
+                    navController            = navController
                 )
             }
-            composable(Screen.Budget.route) {
+            composable(Screen.ProjectionDetail.route) {
+                ProjectionDetailScreen(onNavigateBack = { navController.popBackStack() })
+            }
+            composable(
+                route = Screen.Budget.route,
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://budget" })
+            ) {
                 BudgetScreen(
-                    onNavigateToExpenses = { category, type ->
-                        navController.navigate(Screen.Expenses.withFilter(category, type))
-                    }
+                    onNavigateToExpenses = { category, type, month, year ->
+                        navController.navigate(Screen.Expenses.withFilter(category, type, month, year))
+                    },
+                    onNavigateToTrends          = { navController.navigate(Screen.Trends.route) },
+                    onNavigateToRecommandations = { navController.navigate(Screen.Recommandations.route) },
+                    afficherRecommandations     = prefs.afficherRecommandations
                 )
+            }
+            composable(Screen.Recommandations.route) {
+                RecommandationsScreen(onNavigateBack = { navController.popBackStack() })
+            }
+            composable(Screen.Scenarios.route) {
+                ScenariosScreen(
+                    onNavigateBack       = { navController.popBackStack() },
+                    onNavigateToLogement = { navController.navigate(Screen.ScenarioLogement.route) },
+                    onNavigateToConseillerPatrimoine = { navController.navigate(Screen.ConseillerPatrimoine.route) }
+                )
+            }
+            composable(Screen.ScenarioLogement.route) {
+                ScenarioLogementScreen(onNavigateBack = { navController.popBackStack() })
+            }
+            composable(Screen.ConseillerPatrimoine.route) {
+                ConseillerPatrimoineScreen(onNavigateBack = { navController.popBackStack() })
+            }
+            composable(Screen.Trends.route) {
+                TrendsScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable(
                 route = Screen.Expenses.route,
                 arguments = listOf(
                     navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null },
-                    navArgument("type")     { type = NavType.StringType; nullable = true; defaultValue = null }
-                )
+                    navArgument("type")     { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("month")    { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("year")     { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("transactionId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("bankAccountId") { type = NavType.StringType; nullable = true; defaultValue = null }
+                ),
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://expenses?category={category}" })
             ) { ExpensesScreen() }
-            composable(Screen.Savings.route)     { SavingsScreen() }
+            composable(
+                route = Screen.Savings.route,
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://savings" })
+            ) { SavingsScreen() }
             composable(Screen.Investments.route) { InvestmentsScreen() }
-            composable(Screen.Debts.route) {
+            composable(
+                route = Screen.Debts.route,
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://debts" })
+            ) {
                 DebtsScreen(onNavigateBack = { navController.navigateUp() })
             }
             composable(
@@ -151,21 +222,50 @@ fun DibitaraNavGraph(
                 deepLinks = listOf(navDeepLink { uriPattern = "dibitara://settings" })
             ) {
                 SettingsScreen(
-                    onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) }
+                    onNavigateToImportTR         = { navController.navigate(Screen.ImportTR.route) },
+                    onNavigateToImportBred       = { navController.navigate(Screen.ImportBred.route) },
+                    onNavigateToImportBredPdf    = { navController.navigate(Screen.ImportBredPdf.route) },
+                    onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) },
+                    onNavigateToBankAccounts     = { navController.navigate(Screen.BankAccounts.route) },
+                    onSupprimerDonnees           = {
+                        // Le PIN n'existe plus - on repart sur l'écran de configuration
+                        navController.navigate(Screen.SetupAuth.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
                 )
+            }
+            composable(Screen.ImportTR.route) {
+                ImportScreen(onNavigateBack = { navController.navigateUp() })
+            }
+            composable(Screen.ImportBred.route) {
+                ImportBredScreen(onNavigateBack = { navController.navigateUp() })
+            }
+            composable(Screen.ImportBredPdf.route) {
+                ImportBredPdfScreen(onNavigateBack = { navController.navigateUp() })
             }
             composable(Screen.DuplicateCleanup.route) {
                 DuplicateCleanupScreen(
                     onNavigateBack = { navController.navigateUp() }
                 )
             }
-            composable(Screen.Report.route) {
+            composable(Screen.BankAccounts.route) {
+                BankAccountsScreen(
+                    onNavigateBack = { navController.navigateUp() },
+                    onNavigateToTransactions = { bankAccountId ->
+                        navController.navigate(Screen.Expenses.withFilter(bankAccountId = bankAccountId))
+                    }
+                )
+            }
+            composable(
+                route = Screen.Report.route,
+                deepLinks = listOf(navDeepLink { uriPattern = "dibitara://report" })
+            ) {
                 MonthlyReportScreen(onNavigateBack = { navController.navigateUp() })
             }
             composable(Screen.PatrimoineDetail.route) {
                 PatrimoineDetailScreen(
                     onNavigateBack         = { navController.navigateUp() },
-                    onNavigateToBudget     = { navController.navigate(Screen.Budget.route) },
                     onNavigateToSavings    = { navController.navigate(Screen.Savings.route) },
                     onNavigateToInvestments = { navController.navigate(Screen.Investments.route) },
                     onNavigateToDebts      = { navController.navigate(Screen.Debts.route) }

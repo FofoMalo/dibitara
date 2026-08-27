@@ -4,22 +4,32 @@ import android.content.Context
 import androidx.room.Room
 import com.dibitara.app.data.local.database.DibitaraDatabase
 import com.dibitara.app.data.local.dao.*
+import com.dibitara.app.data.local.dao.AssetValuationSnapshotDao
+import com.dibitara.app.data.local.dao.CategorizationRuleDao
+import com.dibitara.app.data.local.dao.CategoryEnvelopeDao
 import com.dibitara.app.data.local.dao.CustomAssetDao
 import com.dibitara.app.data.local.dao.EmployeeSavingsDao
 import com.dibitara.app.data.local.dao.MonthlyVersementDao
 import com.dibitara.app.data.local.dao.PatrimoineSnapshotDao
-import com.dibitara.app.data.local.dao.PreciousMetalDao
 import com.dibitara.app.data.repository.*
+import com.dibitara.app.data.repository.AssetValuationSnapshotRepositoryImpl
+import com.dibitara.app.data.repository.CategorizationRuleRepositoryImpl
+import com.dibitara.app.data.repository.CategoryEnvelopeRepositoryImpl
 import com.dibitara.app.data.repository.CustomInvestmentRepositoryImpl
 import com.dibitara.app.data.repository.ExportRepositoryImpl
 import com.dibitara.app.data.repository.ImportRepositoryImpl
 import com.dibitara.app.data.repository.PatrimoineSnapshotRepositoryImpl
+import com.dibitara.app.data.repository.RestoreRepositoryImpl
 import com.dibitara.app.data.repository.VersementRepositoryImpl
 import com.dibitara.app.domain.repository.*
+import com.dibitara.app.domain.repository.AssetValuationSnapshotRepository
+import com.dibitara.app.domain.repository.CategorizationRuleRepository
+import com.dibitara.app.domain.repository.CategoryEnvelopeRepository
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.ExportRepository
 import com.dibitara.app.domain.repository.ImportRepository
 import com.dibitara.app.domain.repository.PatrimoineSnapshotRepository
+import com.dibitara.app.domain.repository.RestoreRepository
 import com.dibitara.app.domain.repository.VersementRepository
 import dagger.Binds
 import dagger.Module
@@ -49,7 +59,17 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_9_10,
                 DibitaraDatabase.MIGRATION_10_11,
                 DibitaraDatabase.MIGRATION_11_12,
-                DibitaraDatabase.MIGRATION_12_13
+                DibitaraDatabase.MIGRATION_12_13,
+                DibitaraDatabase.MIGRATION_13_14,
+                DibitaraDatabase.MIGRATION_14_15,
+                DibitaraDatabase.MIGRATION_15_16,
+                DibitaraDatabase.MIGRATION_16_17,
+                DibitaraDatabase.MIGRATION_17_18,
+                DibitaraDatabase.MIGRATION_18_19,
+                DibitaraDatabase.MIGRATION_19_20,
+                DibitaraDatabase.MIGRATION_20_21,
+                DibitaraDatabase.MIGRATION_21_22,
+                DibitaraDatabase.MIGRATION_22_23
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
@@ -64,10 +84,14 @@ object DatabaseModule {
     @Provides fun provideAirbnbRentalDao(db: DibitaraDatabase): AirbnbRentalDao = db.airbnbRentalDao()
     @Provides fun provideCustomSubCategoryDao(db: DibitaraDatabase): CustomSubCategoryDao = db.customSubCategoryDao()
     @Provides fun provideMonthlyVersementDao(db: DibitaraDatabase): MonthlyVersementDao = db.monthlyVersementDao()
-    @Provides fun providePreciousMetalDao(db: DibitaraDatabase): PreciousMetalDao = db.preciousMetalDao()
     @Provides fun provideCustomAssetDao(db: DibitaraDatabase): CustomAssetDao = db.customAssetDao()
     @Provides fun provideEmployeeSavingsDao(db: DibitaraDatabase): EmployeeSavingsDao = db.employeeSavingsDao()
     @Provides fun providePatrimoineSnapshotDao(db: DibitaraDatabase): PatrimoineSnapshotDao = db.patrimoineSnapshotDao()
+    @Provides fun provideCategorizationRuleDao(db: DibitaraDatabase): CategorizationRuleDao = db.categorizationRuleDao()
+    @Provides fun provideCategoryEnvelopeDao(db: DibitaraDatabase): CategoryEnvelopeDao = db.categoryEnvelopeDao()
+    @Provides fun provideVehicleRentalEntryDao(db: DibitaraDatabase): VehicleRentalEntryDao = db.vehicleRentalEntryDao()
+    @Provides fun provideAssetValuationSnapshotDao(db: DibitaraDatabase): AssetValuationSnapshotDao = db.assetValuationSnapshotDao()
+    @Provides fun provideBankAccountDao(db: DibitaraDatabase): BankAccountDao = db.bankAccountDao()
 }
 
 @Module
@@ -86,4 +110,9 @@ abstract class RepositoryModule {
     @Binds abstract fun bindCustomInvestmentRepository(impl: CustomInvestmentRepositoryImpl): CustomInvestmentRepository
     @Binds abstract fun bindImportRepository(impl: ImportRepositoryImpl): ImportRepository
     @Binds abstract fun bindPatrimoineSnapshotRepository(impl: PatrimoineSnapshotRepositoryImpl): PatrimoineSnapshotRepository
+    @Binds abstract fun bindCategorizationRuleRepository(impl: CategorizationRuleRepositoryImpl): CategorizationRuleRepository
+    @Binds abstract fun bindCategoryEnvelopeRepository(impl: CategoryEnvelopeRepositoryImpl): CategoryEnvelopeRepository
+    @Binds abstract fun bindRestoreRepository(impl: RestoreRepositoryImpl): RestoreRepository
+    @Binds abstract fun bindAssetValuationSnapshotRepository(impl: AssetValuationSnapshotRepositoryImpl): AssetValuationSnapshotRepository
+    @Binds abstract fun bindBankAccountRepository(impl: BankAccountRepositoryImpl): BankAccountRepository
 }

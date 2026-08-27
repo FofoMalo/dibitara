@@ -69,7 +69,7 @@ class GetTransactionSuggestionsUseCase @Inject constructor(
         const val MAX_SUGGESTIONS = 5
     }
 
-    // Clé de regroupement — interne au UseCase, pas un concept du domaine
+    // Clé de regroupement - interne au UseCase, pas un concept du domaine
     private data class GroupKey(
         val label: String,
         val amountCents: Long,

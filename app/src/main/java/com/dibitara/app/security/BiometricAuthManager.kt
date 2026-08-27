@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.callbackFlow
  * Gère l'authentification biométrique (empreinte, Face ID, PIN).
  *
  * On utilise callbackFlow pour transformer le callback de BiometricPrompt
- * en Flow Kotlin — ce qui permet au ViewModel de l'observer proprement.
+ * en Flow Kotlin - ce qui permet au ViewModel de l'observer proprement.
  *
  * AUTHENTICATORS : on accepte BIOMETRIC_STRONG (empreinte/face) ET DEVICE_CREDENTIAL
  * (PIN/schéma) pour maximiser la compatibilité des appareils.
@@ -57,7 +57,7 @@ class BiometricAuthManager {
             }
 
             override fun onAuthenticationFailed() {
-                // Tentative échouée (mauvaise empreinte) — ne pas fermer le dialogue
+                // Tentative échouée (mauvaise empreinte) - ne pas fermer le dialogue
                 trySend(AuthResult.Failed)
             }
         }

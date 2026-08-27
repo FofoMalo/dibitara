@@ -1,6 +1,10 @@
 package com.dibitara.app.presentation.settings
 
 import android.content.Intent
+import android.provider.Settings
+import com.dibitara.app.BuildConfig
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -9,6 +13,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -27,14 +34,23 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ExportFormat
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.presentation.auth.ClavierNumerique
 import com.dibitara.app.presentation.auth.PinDots
 import com.dibitara.app.presentation.auth.passwordCriteria
 import com.dibitara.app.presentation.common.QrCodeImage
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun SettingsScreen(
+    onNavigateToImportTR: () -> Unit = {},
+    onNavigateToImportBred: () -> Unit = {},
+    onNavigateToImportBredPdf: () -> Unit = {},
     onNavigateToDuplicateCleanup: () -> Unit = {},
+    onNavigateToBankAccounts: () -> Unit = {},
+    onSupprimerDonnees: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val prefs by viewModel.preferences.collectAsState()
@@ -42,19 +58,45 @@ fun SettingsScreen(
     val totpSetupState by viewModel.totpSetupState.collectAsState()
     val tauxDeChange by viewModel.tauxDeChange.collectAsState()
     val exportEnCours by viewModel.exportEnCours.collectAsState()
+    val restoreEnCours by viewModel.restoreEnCours.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+
+    // Launcher SAF pour choisir un fichier JSON de sauvegarde
+    val restaurerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) viewModel.restaurerDonnees(uri)
+    }
 
     var seuilEuros by remember(prefs.seuilFondsCents) {
         mutableStateOf((prefs.seuilFondsCents / 100).toString())
     }
+    var seuilResteAVivreLogementEuros by remember(prefs.seuilResteAVivreLogementCents) {
+        mutableStateOf((prefs.seuilResteAVivreLogementCents / 100).toString())
+    }
     val focusManager = LocalFocusManager.current
+
+    // L'activation de la capture live se fait dans les réglages système (hors de l'app) :
+    // on revérifie l'état au retour sur l'écran plutôt qu'une seule fois à la composition.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var captureLiveBredActivee by remember { mutableStateOf(viewModel.captureLiveBredActivee()) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                captureLiveBredActivee = viewModel.captureLiveBredActivee()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Dialogues de sécurité
     var showChangerPin        by remember { mutableStateOf(false) }
     var showChangerMdp        by remember { mutableStateOf(false) }
     var showDesactiverTotp    by remember { mutableStateOf(false) }
-    var showDialogueExport    by remember { mutableStateOf(false) }
+    var showDialogueExport       by remember { mutableStateOf(false) }
+    var showSupprimerDialog      by remember { mutableStateOf(false) }
 
     // Écouter les événements du ViewModel pour les Snackbars
     LaunchedEffect(Unit) {
@@ -64,6 +106,17 @@ fun SettingsScreen(
                 is SettingsEvent.MotDePasseMisAJour -> "Mot de passe mis à jour"
                 is SettingsEvent.TotpActive         -> "Double authentification activée"
                 is SettingsEvent.TotpDesactive      -> "Double authentification désactivée"
+            }
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    // Écouter les événements de restauration pour afficher le résultat
+    LaunchedEffect(Unit) {
+        viewModel.restoreEvent.collect { event ->
+            val message = when (event) {
+                is RestoreEvent.Succes -> "${event.nbElements} éléments restaurés avec succès."
+                is RestoreEvent.Erreur -> "Échec de la restauration : ${event.message}"
             }
             snackbarHostState.showSnackbar(message)
         }
@@ -98,11 +151,30 @@ fun SettingsScreen(
         ) {
             Text("Paramètres", style = MaterialTheme.typography.headlineMedium)
 
+            // ─── Section apparence ─────────────────────────────────────────────
+            SectionCard(titre = "Apparence") {
+                Text(
+                    "Système suit le réglage clair/sombre de l'appareil.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeMode.entries.forEach { mode ->
+                        FilterChip(
+                            selected = prefs.themeMode == mode,
+                            onClick  = { viewModel.mettreAJourThemeMode(mode) },
+                            label    = { Text(mode.displayName) }
+                        )
+                    }
+                }
+            }
+
             // ─── Section notifications ────────────────────────────────────────
             SectionCard(titre = "Notifications") {
-                Text("Seuil d'alerte — liquidités insuffisantes", style = MaterialTheme.typography.titleSmall)
+                Text("Seuil d'alerte - liquidités insuffisantes", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Une alerte est envoyée si le solde du mois passe sous ce montant.",
+                    "Une alerte est envoyée si le solde de tes comptes bancaires passe sous ce montant.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -128,7 +200,7 @@ fun SettingsScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                // Bilan mensuel en notification — activé/désactivé par l'utilisateur
+                // Bilan mensuel en notification - activé/désactivé par l'utilisateur
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -146,6 +218,37 @@ fun SettingsScreen(
                         checked = prefs.notificationsMensuelles,
                         onCheckedChange = { viewModel.mettreAJourNotificationsMensuelles(it) }
                     )
+                }
+            }
+
+            // ─── Section Scénario logement ─────────────────────────────────────
+            SectionCard(titre = "Scénario logement") {
+                Text("Reste à vivre minimum", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Marge mensuelle minimale en-dessous de laquelle un scénario immobilier est " +
+                        "jugé non tenable. Distinct du seuil d'alerte ci-dessus (celui-ci est un " +
+                        "solde, celui-là une marge chaque mois).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = seuilResteAVivreLogementEuros,
+                        onValueChange = { seuilResteAVivreLogementEuros = it },
+                        label = { Text("Seuil (€/mois)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = { viewModel.mettreAJourSeuilResteAVivreLogement(seuilResteAVivreLogementEuros) },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) { Text("Appliquer") }
                 }
             }
 
@@ -186,6 +289,25 @@ fun SettingsScreen(
                     Switch(
                         checked = prefs.afficherProchainsPaiements,
                         onCheckedChange = { viewModel.mettreAJourAfficherProchainsPaiements(it) }
+                    )
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Recommandations budgétaires", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Accès aux suggestions de poches et objectif d'épargne depuis l'écran Budget.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = prefs.afficherRecommandations,
+                        onCheckedChange = { viewModel.mettreAJourAfficherRecommandations(it) }
                     )
                 }
             }
@@ -267,7 +389,7 @@ fun SettingsScreen(
                     }
                     tauxDeChange!!.isFailure -> {
                         Text(
-                            "Taux indisponibles — vérifiez votre connexion",
+                            "Taux indisponibles - vérifiez votre connexion",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -310,10 +432,82 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
+                    onClick  = { restaurerLauncher.launch("application/json") },
+                    enabled  = !restoreEnCours,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (restoreEnCours) {
+                        CircularProgressIndicator(
+                            modifier    = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Restauration en cours…")
+                    } else {
+                        Text("Restaurer une sauvegarde JSON")
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                prefs.derniereImportEpochMilli?.let { epochMilli ->
+                    val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                    val derniereImport = Instant.ofEpochMilli(epochMilli)
+                        .atZone(ZoneId.systemDefault())
+                        .format(dateFmt)
+                    Text(
+                        "Dernier import : $derniereImport",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                // Imports bancaires personnels (BRED/TradeRepublic) - masqués sur un build
+                // partagé avec quelqu'un qui n'a pas ces comptes (voir AFFICHER_IMPORTS_BANCAIRES_PERSO)
+                if (BuildConfig.AFFICHER_IMPORTS_BANCAIRES_PERSO) {
+                    OutlinedButton(
+                        onClick = onNavigateToImportBred,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Importer depuis BRED (CSV)")
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = {
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (captureLiveBredActivee) "Capture live BRED activée ✓"
+                            else "Activer la capture live BRED (paiements carte)"
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = onNavigateToImportBredPdf,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Importer relevé PDF BRED")
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = onNavigateToImportTR,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Importer depuis TradeRepublic")
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+                OutlinedButton(
                     onClick = onNavigateToDuplicateCleanup,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Nettoyer les doublons")
+                }
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(
+                    onClick = onNavigateToBankAccounts,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Gérer mes comptes bancaires")
                 }
             }
 
@@ -384,7 +578,60 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // ─── Section confidentialité ──────────────────────────────────────
+            SectionCard(titre = "Confidentialité") {
+                Text(
+                    "Conformément au RGPD (Art. 17), vous pouvez demander la suppression " +
+                        "de toutes vos données personnelles stockées sur cet appareil.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick  = { showSupprimerDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors   = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border   = androidx.compose.foundation.BorderStroke(
+                        1.dp, MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Supprimer toutes mes données")
+                }
+            }
         }
+    }
+
+    // ─── Dialogue suppression données ─────────────────────────────────────────
+    if (showSupprimerDialog) {
+        AlertDialog(
+            onDismissRequest = { showSupprimerDialog = false },
+            title = { Text("Supprimer toutes mes données ?") },
+            text  = {
+                Text(
+                    "Cette action est irréversible.\n\n" +
+                        "Toutes vos transactions, investissements, budgets, préférences " +
+                        "et identifiants seront définitivement supprimés de cet appareil.\n\n" +
+                        "Aucune donnée n'est envoyée sur un serveur - la suppression est locale et immédiate.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSupprimerDialog = false
+                        viewModel.supprimerToutesDonnees { onSupprimerDonnees() }
+                    }
+                ) {
+                    Text("Supprimer", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSupprimerDialog = false }) { Text("Annuler") }
+            }
+        )
     }
 
     // ─── Dialogue PIN ─────────────────────────────────────────────────────────
@@ -432,12 +679,12 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "• CSV — tableau lisible dans Excel ou Google Sheets",
+                        "• CSV - tableau lisible dans Excel ou Google Sheets",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "• JSON — sauvegarde complète (transactions, budgets, épargne, investissements, dettes)",
+                        "• JSON - sauvegarde complète (transactions, budgets, épargne, investissements, dettes)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

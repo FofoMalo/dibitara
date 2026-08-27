@@ -8,4 +8,5 @@ interface VersementRepository {
     suspend fun save(versement: MonthlyVersement): Result<Long>
     suspend fun existsPourMois(accountId: Long, type: CompteType, year: Int, month: Int): Boolean
     fun getForAccount(accountId: Long, type: CompteType): Flow<List<MonthlyVersement>>
+    suspend fun getAllPourMois(type: CompteType, year: Int, month: Int): List<MonthlyVersement>
 }

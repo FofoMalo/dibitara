@@ -28,14 +28,20 @@ android {
         applicationId = "com.dibitara.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "4.5.0"
+        versionCode = 15
+        versionName = "4.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Activé uniquement si google-services.json est présent (Firebase configuré)
         val googleServicesFile = rootProject.file("app/google-services.json")
         buildConfigField("boolean", "CRASHLYTICS_ENABLED", googleServicesFile.exists().toString())
+
+        // Masque les imports bancaires personnels (BRED CSV/PDF, TradeRepublic, capture live BRED)
+        // pour un build destiné à être partagé avec quelqu'un qui n'a pas ces comptes -
+        // activé par défaut (usage perso), désactivable via -PmasquerImportsPerso=true.
+        val masquerImportsPerso = (project.findProperty("masquerImportsPerso") as? String)?.toBoolean() ?: false
+        buildConfigField("boolean", "AFFICHER_IMPORTS_BANCAIRES_PERSO", (!masquerImportsPerso).toString())
     }
 
     buildFeatures {
@@ -191,6 +197,9 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.crashlytics)
 
+    // PDF — extraction de texte pour les relevés bancaires BRED
+    implementation(libs.pdfbox.android)
+
     // Réseau — taux de change (API Frankfurter)
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
@@ -204,10 +213,14 @@ dependencies {
     testImplementation(libs.coroutines.test)
     testImplementation(libs.room.testing)
 
-    // Tests instrumentés (UI)
+    // Tests instrumentés (UI + Room intégration)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(libs.room.testing)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.coroutines.test)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 }

@@ -72,7 +72,7 @@ class DebtsViewModelTest {
         val events = mutableListOf<DebtsEvent>()
         val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
 
-        viewModel.addDebt("Crédit auto", "10000.00", "250.00", Currency.EUR, DebtType.CREDIT_CONSO)
+        viewModel.addDebt("Crédit auto", "10000.00", "250.00", "", null, "", Currency.EUR, DebtType.CREDIT_CONSO)
         testScheduler.advanceUntilIdle()
 
         assertTrue(events.any { it is DebtsEvent.Saved })

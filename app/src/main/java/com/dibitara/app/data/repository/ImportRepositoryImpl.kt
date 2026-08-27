@@ -4,10 +4,11 @@ import com.dibitara.app.data.local.dao.TransactionDao
 import com.dibitara.app.data.local.entity.TransactionEntity
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.repository.ImportRepository
+import java.time.LocalDate
 import javax.inject.Inject
 
 /**
- * Implémentation de [ImportRepository] — s'appuie sur le [TransactionDao] existant.
+ * Implémentation de [ImportRepository] - s'appuie sur le [TransactionDao] existant.
  * Pas de nouveau DAO nécessaire : les transactions importées vivent dans la même table.
  */
 class ImportRepositoryImpl @Inject constructor(
@@ -20,5 +21,17 @@ class ImportRepositoryImpl @Inject constructor(
     override suspend fun importerTransactions(transactions: List<Transaction>): Int {
         transactions.forEach { dao.insert(TransactionEntity.fromDomain(it)) }
         return transactions.size
+    }
+
+    override suspend fun trouverCaptureLiveProche(date: LocalDate, amountCents: Long): Transaction? =
+        dao.findByAmountDateRangeAndSource(
+            amountCents  = amountCents,
+            fromEpoch    = date.minusDays(1).toEpochDay(),
+            toEpoch      = date.plusDays(1).toEpochDay(),
+            importSource = "bred_notification"
+        )?.toDomain()
+
+    override suspend fun mettreAJour(transaction: Transaction) {
+        dao.update(TransactionEntity.fromDomain(transaction))
     }
 }

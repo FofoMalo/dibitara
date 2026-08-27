@@ -4,10 +4,12 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.DashboardCard
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +26,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     companion object {
         val KEY_SEUIL_CENTS                  = longPreferencesKey("seuil_fonds_cents")
+        val KEY_SEUIL_RESTE_A_VIVRE_LOGEMENT = longPreferencesKey("seuil_reste_a_vivre_logement_cents")
         val KEY_DEVISE                       = stringPreferencesKey("devise_par_defaut")
         val KEY_RAPPORT_MENSUEL              = booleanPreferencesKey("afficher_rapport_mensuel")
         val KEY_AFFICHER_EPARGNE             = booleanPreferencesKey("afficher_epargne")
@@ -33,11 +36,20 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         // Ordre des cartes : noms d'enum séparés par des virgules, ex. "DETTES,RAPPORT_GRAPHIQUE,..."
         val KEY_DASHBOARD_CARD_ORDER         = stringPreferencesKey("dashboard_card_order")
         val KEY_NOTIFICATIONS_MENSUELLES     = booleanPreferencesKey("notifications_mensuelles")
+        val KEY_AFFICHER_RECOMMANDATIONS     = booleanPreferencesKey("afficher_recommandations")
+        val KEY_TAUX_EPARGNE_CIBLE           = intPreferencesKey("taux_epargne_cible_pct")
+        val KEY_DERNIER_IMPORT               = longPreferencesKey("dernier_import_epoch_milli")
+        val KEY_MASQUER_MONTANTS             = booleanPreferencesKey("masquer_montants")
+        val KEY_THEME_MODE                   = stringPreferencesKey("theme_mode")
+        val KEY_DERNIERE_ALERTE_FONDS        = longPreferencesKey("derniere_alerte_fonds_epoch_day")
+        val KEY_DERNIERE_ALERTE_BUDGET       = longPreferencesKey("derniere_alerte_budget_epoch_day")
+        val KEY_DERNIERE_ALERTE_DETTES       = longPreferencesKey("derniere_alerte_dettes_epoch_day")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
         UserPreferences(
             seuilFondsCents             = prefs[KEY_SEUIL_CENTS] ?: UserPreferences().seuilFondsCents,
+            seuilResteAVivreLogementCents = prefs[KEY_SEUIL_RESTE_A_VIVRE_LOGEMENT] ?: UserPreferences().seuilResteAVivreLogementCents,
             deviseParDefaut             = prefs[KEY_DEVISE]
                 ?.let { runCatching { Currency.valueOf(it) }.getOrNull() }
                 ?: UserPreferences().deviseParDefaut,
@@ -49,12 +61,26 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             dashboardCardOrder          = prefs[KEY_DASHBOARD_CARD_ORDER]
                 ?.deserializeDashboardOrder()
                 ?: DashboardCard.entries.toList(),
-            notificationsMensuelles     = prefs[KEY_NOTIFICATIONS_MENSUELLES] ?: false
+            notificationsMensuelles     = prefs[KEY_NOTIFICATIONS_MENSUELLES] ?: false,
+            afficherRecommandations     = prefs[KEY_AFFICHER_RECOMMANDATIONS] ?: false,
+            tauxEpargneCiblePct         = prefs[KEY_TAUX_EPARGNE_CIBLE] ?: UserPreferences().tauxEpargneCiblePct,
+            derniereImportEpochMilli    = prefs[KEY_DERNIER_IMPORT],
+            masquerMontants             = prefs[KEY_MASQUER_MONTANTS] ?: false,
+            themeMode                   = prefs[KEY_THEME_MODE]
+                ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
+                ?: UserPreferences().themeMode,
+            derniereAlerteFondsEpochDay = prefs[KEY_DERNIERE_ALERTE_FONDS],
+            derniereAlerteBudgetEpochDay = prefs[KEY_DERNIERE_ALERTE_BUDGET],
+            derniereAlerteDettesEpochDay = prefs[KEY_DERNIERE_ALERTE_DETTES]
         )
     }
 
     override suspend fun updateSeuil(seuilCents: Long) {
         dataStore.edit { it[KEY_SEUIL_CENTS] = seuilCents }
+    }
+
+    override suspend fun updateSeuilResteAVivreLogement(seuilCents: Long) {
+        dataStore.edit { it[KEY_SEUIL_RESTE_A_VIVRE_LOGEMENT] = seuilCents }
     }
 
     override suspend fun updateDevise(currency: Currency) {
@@ -87,6 +113,42 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateNotificationsMensuelles(enabled: Boolean) {
         dataStore.edit { it[KEY_NOTIFICATIONS_MENSUELLES] = enabled }
+    }
+
+    override suspend fun updateAfficherRecommandations(afficher: Boolean) {
+        dataStore.edit { it[KEY_AFFICHER_RECOMMANDATIONS] = afficher }
+    }
+
+    override suspend fun updateTauxEpargneCible(pct: Int) {
+        dataStore.edit { it[KEY_TAUX_EPARGNE_CIBLE] = pct }
+    }
+
+    override suspend fun updateDerniereImport(epochMilli: Long) {
+        dataStore.edit { it[KEY_DERNIER_IMPORT] = epochMilli }
+    }
+
+    override suspend fun updateMasquerMontants(masquer: Boolean) {
+        dataStore.edit { it[KEY_MASQUER_MONTANTS] = masquer }
+    }
+
+    override suspend fun updateThemeMode(mode: ThemeMode) {
+        dataStore.edit { it[KEY_THEME_MODE] = mode.name }
+    }
+
+    override suspend fun updateDerniereAlerteFonds(epochDay: Long) {
+        dataStore.edit { it[KEY_DERNIERE_ALERTE_FONDS] = epochDay }
+    }
+
+    override suspend fun updateDerniereAlerteBudget(epochDay: Long) {
+        dataStore.edit { it[KEY_DERNIERE_ALERTE_BUDGET] = epochDay }
+    }
+
+    override suspend fun updateDerniereAlerteDettes(epochDay: Long) {
+        dataStore.edit { it[KEY_DERNIERE_ALERTE_DETTES] = epochDay }
+    }
+
+    override suspend fun clearAll() {
+        dataStore.edit { it.clear() }
     }
 
     // ─── Sérialisation de l'ordre des cartes ─────────────────────────────────

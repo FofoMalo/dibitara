@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
  */
 class CurrencyConverterTest {
 
-    // Taux de test simples — différents des valeurs réelles pour détecter une inversion de ratio
+    // Taux de test simples - différents des valeurs réelles pour détecter une inversion de ratio
     private val rates = ExchangeRates(
         usdParEur  = 1.10,   // 1 € = 1,10 $
         xofParEur  = 660.0,  // 1 € = 660 FCFA
@@ -26,26 +26,26 @@ class CurrencyConverterTest {
     }
 
     @Test
-    fun `XOF vers XAF retourne le montant inchangé — parité 1 à 1`() {
+    fun `XOF vers XAF retourne le montant inchangé - parité 1 à 1`() {
         assertEquals(66000L, CurrencyConverter.convertCents(66000L, Currency.XOF, Currency.XAF, rates))
     }
 
     @Test
-    fun `XAF vers XOF retourne le montant inchangé — parité 1 à 1`() {
+    fun `XAF vers XOF retourne le montant inchangé - parité 1 à 1`() {
         assertEquals(66000L, CurrencyConverter.convertCents(66000L, Currency.XAF, Currency.XOF, rates))
     }
 
     // ─── EUR ↔ USD ────────────────────────────────────────────────────────────
 
     @Test
-    fun `EUR vers USD — multiplie par le taux`() {
+    fun `EUR vers USD - multiplie par le taux`() {
         // 100 € = 100 * 1,10 $ = 110 $  →  10000 centimes * 1.10 = 11000
         val result = CurrencyConverter.convertCents(10_000L, Currency.EUR, Currency.USD, rates)
         assertEquals(11_000L, result)
     }
 
     @Test
-    fun `USD vers EUR — divise par le taux`() {
+    fun `USD vers EUR - divise par le taux`() {
         // 110 $ = 100 €  →  11000 centimes / 1.10 = 10000
         val result = CurrencyConverter.convertCents(11_000L, Currency.USD, Currency.EUR, rates)
         assertEquals(10_000L, result)
@@ -54,14 +54,14 @@ class CurrencyConverterTest {
     // ─── EUR ↔ XOF ────────────────────────────────────────────────────────────
 
     @Test
-    fun `EUR vers XOF — multiplie par le taux`() {
+    fun `EUR vers XOF - multiplie par le taux`() {
         // 1 € = 660 FCFA  →  100 centimes EUR * 660 = 66000 centimes XOF
         val result = CurrencyConverter.convertCents(100L, Currency.EUR, Currency.XOF, rates)
         assertEquals(66_000L, result)
     }
 
     @Test
-    fun `XOF vers EUR — divise par le taux`() {
+    fun `XOF vers EUR - divise par le taux`() {
         // 660 FCFA = 1 €  →  66000 centimes XOF / 660 = 100 centimes EUR
         val result = CurrencyConverter.convertCents(66_000L, Currency.XOF, Currency.EUR, rates)
         assertEquals(100L, result)
@@ -82,5 +82,23 @@ class CurrencyConverterTest {
         // 66000 centimes XAF = 66000 XOF → 100 EUR → 110 USD
         val result = CurrencyConverter.convertCents(66_000L, Currency.XAF, Currency.USD, rates)
         assertEquals(110L, result)
+    }
+
+    // ─── isSameCurrency ───────────────────────────────────────────────────────
+
+    @Test
+    fun `isSameCurrency - même devise stricte est vraie`() {
+        assertTrue(CurrencyConverter.isSameCurrency(Currency.EUR, Currency.EUR))
+    }
+
+    @Test
+    fun `isSameCurrency - XOF et XAF sont considérées identiques (parité)`() {
+        assertTrue(CurrencyConverter.isSameCurrency(Currency.XOF, Currency.XAF))
+        assertTrue(CurrencyConverter.isSameCurrency(Currency.XAF, Currency.XOF))
+    }
+
+    @Test
+    fun `isSameCurrency - devises réellement différentes sont fausses`() {
+        assertFalse(CurrencyConverter.isSameCurrency(Currency.EUR, Currency.USD))
     }
 }

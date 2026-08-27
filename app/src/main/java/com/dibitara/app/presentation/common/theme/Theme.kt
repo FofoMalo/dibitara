@@ -6,7 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-// ─── Schéma dark — mode par défaut pour Dibitara ─────────────────────────────
+// ─── Schéma dark - mode par défaut pour Dibitara ─────────────────────────────
 //
 // Finance apps + fond sombre = meilleur confort de lecture la nuit
 // et mise en valeur de l'or (#F5C542) sur noir (#0D0D0D).

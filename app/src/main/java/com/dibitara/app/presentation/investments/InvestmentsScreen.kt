@@ -2,18 +2,22 @@ package com.dibitara.app.presentation.investments
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import kotlin.math.roundToLong
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,26 +27,26 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.AirbnbRental
+import com.dibitara.app.domain.model.AssetValuationType
+import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomAsset
 import com.dibitara.app.domain.model.EmployeeSavings
 import com.dibitara.app.domain.model.EmployeeSavingsType
-import com.dibitara.app.domain.model.MetalType
-import com.dibitara.app.domain.model.PreciousMetalAsset
+import com.dibitara.app.domain.model.CurrencyConverter
 import com.dibitara.app.domain.model.Debt
+import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
+import com.dibitara.app.domain.model.VehicleEntryType
+import com.dibitara.app.domain.model.VehicleRentalEntry
+import com.dibitara.app.domain.usecase.PerformanceActif
+import com.dibitara.app.presentation.common.AcquisitionEvolutionBlock
+import com.dibitara.app.presentation.common.HeroCard
+import com.dibitara.app.presentation.common.HorizontalBarChart
+import com.dibitara.app.presentation.common.HorizontalBarEntry
+import com.dibitara.app.presentation.common.TrendChip
 import com.dibitara.app.presentation.common.toCurrencyDisplay
-import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.column.columnChart
-import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
-import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
-import com.patrykandpatrick.vico.core.axis.AxisPosition
-import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
-import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
-import com.patrykandpatrick.vico.core.entry.entryOf
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -54,14 +58,14 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     var showAddRealEstate    by remember { mutableStateOf(false) }
     var showAddScpi          by remember { mutableStateOf(false) }
     var showAddAirbnb        by remember { mutableStateOf(false) }
-    var showAddMetal         by remember { mutableStateOf(false) }
+    var showAddVehicle       by remember { mutableStateOf(false) }
     var showAddCustomAsset   by remember { mutableStateOf(false) }
     var showAddEmpSavings    by remember { mutableStateOf(false) }
-    // Éléments en cours d'édition — null = pas d'édition ouverte
+    // Éléments en cours d'édition - null = pas d'édition ouverte
     var realEstateToEdit  by remember { mutableStateOf<RealEstateAsset?>(null) }
     var scpiToEdit        by remember { mutableStateOf<ScpiInvestment?>(null) }
     var airbnbToEdit      by remember { mutableStateOf<AirbnbRental?>(null) }
-    var metalToEdit       by remember { mutableStateOf<PreciousMetalAsset?>(null) }
+    var vehicleToEdit     by remember { mutableStateOf<VehicleRentalEntry?>(null) }
     var customAssetToEdit by remember { mutableStateOf<CustomAsset?>(null) }
     var empSavingsToEdit  by remember { mutableStateOf<EmployeeSavings?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -70,10 +74,10 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
         viewModel.event.collect { event ->
             when (event) {
                 is InvestmentsEvent.Saved -> {
-                    showAddRealEstate = false; showAddScpi = false; showAddAirbnb = false
-                    showAddMetal = false; showAddCustomAsset = false; showAddEmpSavings = false
-                    realEstateToEdit = null; scpiToEdit = null; airbnbToEdit = null
-                    metalToEdit = null; customAssetToEdit = null; empSavingsToEdit = null
+                    showAddRealEstate = false; showAddScpi = false; showAddAirbnb = false; showAddVehicle = false
+                    showAddCustomAsset = false; showAddEmpSavings = false
+                    realEstateToEdit = null; scpiToEdit = null; airbnbToEdit = null; vehicleToEdit = null
+                    customAssetToEdit = null; empSavingsToEdit = null
                     snackbarHostState.showSnackbar("Investissement enregistré")
                 }
                 is InvestmentsEvent.VersementApplique -> snackbarHostState.showSnackbar("Versement appliqué ✓")
@@ -99,55 +103,48 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                         onAddRealEstate = { showAddRealEstate = true },
                         onAddScpi = { showAddScpi = true },
                         onAddAirbnb = { showAddAirbnb = true },
-                        onAddMetal = { showAddMetal = true },
+                        onAddVehicle = { showAddVehicle = true },
                         onAddCustomAsset = { showAddCustomAsset = true },
                         onAddEmpSavings = { showAddEmpSavings = true },
                         onEditRealEstate = { realEstateToEdit = it },
                         onEditScpi = { scpiToEdit = it },
                         onEditAirbnb = { airbnbToEdit = it },
-                        onEditMetal = { metalToEdit = it },
+                        onEditVehicle = { vehicleToEdit = it },
                         onEditCustomAsset = { customAssetToEdit = it },
                         onEditEmpSavings = { empSavingsToEdit = it },
                         onDeleteRealEstate = viewModel::deleteRealEstate,
                         onDeleteScpi = viewModel::deleteScpi,
                         onDeleteAirbnb = viewModel::deleteAirbnb,
-                        onDeleteMetal = viewModel::deletePreciousMetal,
+                        onDeleteVehicle = viewModel::deleteVehicleRentalEntry,
                         onDeleteCustomAsset = viewModel::deleteCustomAsset,
                         onDeleteEmpSavings = viewModel::deleteEmployeeSavings,
-                        onAppliquerVersementScpi = viewModel::appliquerVersementScpi
+                        onAppliquerVersementScpi = viewModel::appliquerVersementScpi,
+                        onAppliquerVersementEmpSavings = viewModel::appliquerVersementEmployeeSavings,
+                        getTrend = viewModel::tendancePourActif,
+                        getPerformance = viewModel::performanceDepuisAcquisition
                     )
             }
         }
     }
 
-    if (showAddMetal) {
-        AddMetalSheet(defaultCurrency = defaultCurrency,
-            onSave = { type, label, qty, price, cur -> viewModel.addPreciousMetal(type, label, qty, price, cur) },
-            onDismiss = { showAddMetal = false })
-    }
     if (showAddCustomAsset) {
         AddCustomAssetSheet(defaultCurrency = defaultCurrency,
-            onSave = { label, value, cur -> viewModel.addCustomAsset(label, value, cur) },
+            onSave = { label, value, cur, acqValue, acqDate -> viewModel.addCustomAsset(label, value, cur, acqValue, acqDate) },
             onDismiss = { showAddCustomAsset = false })
     }
     if (showAddEmpSavings) {
         AddEmployeeSavingsSheet(defaultCurrency = defaultCurrency,
-            onSave = { type, label, balance, contrib, cur -> viewModel.addEmployeeSavings(type, label, balance, contrib, cur) },
+            onSave = { type, label, balance, contrib, cur, acqValue, acqDate -> viewModel.addEmployeeSavings(type, label, balance, contrib, cur, acqValue, acqDate) },
             onDismiss = { showAddEmpSavings = false })
-    }
-    metalToEdit?.let { metal ->
-        EditMetalSheet(asset = metal,
-            onSave = { type, label, qty, price, cur -> viewModel.updatePreciousMetal(metal, type, label, qty, price, cur) },
-            onDismiss = { metalToEdit = null })
     }
     customAssetToEdit?.let { asset ->
         EditCustomAssetSheet(asset = asset,
-            onSave = { label, value, cur -> viewModel.updateCustomAsset(asset, label, value, cur) },
+            onSave = { label, value, cur, acqValue, acqDate -> viewModel.updateCustomAsset(asset, label, value, cur, acqValue, acqDate) },
             onDismiss = { customAssetToEdit = null })
     }
     empSavingsToEdit?.let { savings ->
         EditEmployeeSavingsSheet(savings = savings,
-            onSave = { type, label, balance, contrib, cur -> viewModel.updateEmployeeSavings(savings, type, label, balance, contrib, cur) },
+            onSave = { type, label, balance, contrib, cur, acqValue, acqDate -> viewModel.updateEmployeeSavings(savings, type, label, balance, contrib, cur, acqValue, acqDate) },
             onDismiss = { empSavingsToEdit = null })
     }
     if (showAddRealEstate) {
@@ -155,8 +152,8 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
         AddRealEstateSheet(
             defaultCurrency = defaultCurrency,
             availableDebts  = debts,
-            onSave = { label, value, currency, debtId ->
-                viewModel.addRealEstate(label, value, currency, debtId)
+            onSave = { label, value, currency, debtId, acqValue, acqDate ->
+                viewModel.addRealEstate(label, value, currency, debtId, acqValue, acqDate)
             },
             onDismiss = { showAddRealEstate = false }
         )
@@ -164,8 +161,8 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     if (showAddScpi) {
         AddScpiSheet(
             defaultCurrency = defaultCurrency,
-            onSave = { label, shares, shareValue, contribution, currency ->
-                viewModel.addScpi(label, shares, shareValue, contribution, currency)
+            onSave = { label, shares, shareValue, contribution, currency, acqValue, acqDate ->
+                viewModel.addScpi(label, shares, shareValue, contribution, currency, acqValue, acqDate)
             },
             onDismiss = { showAddScpi = false }
         )
@@ -177,6 +174,13 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
             onDismiss = { showAddAirbnb = false }
         )
     }
+    if (showAddVehicle) {
+        AddVehicleRentalSheet(
+            defaultCurrency = defaultCurrency,
+            onSave = { label, amount, type, date, currency -> viewModel.addVehicleRentalEntry(label, amount, type, date, currency) },
+            onDismiss = { showAddVehicle = false }
+        )
+    }
 
     // Sheets d'édition
     realEstateToEdit?.let { asset ->
@@ -184,8 +188,8 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
         EditRealEstateSheet(
             asset          = asset,
             availableDebts = debts,
-            onSave = { label, value, currency, debtId ->
-                viewModel.updateRealEstate(asset, label, value, currency, debtId)
+            onSave = { label, value, currency, debtId, acqValue, acqDate ->
+                viewModel.updateRealEstate(asset, label, value, currency, debtId, acqValue, acqDate)
             },
             onDismiss = { realEstateToEdit = null }
         )
@@ -193,8 +197,8 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     scpiToEdit?.let { scpi ->
         EditScpiSheet(
             scpi = scpi,
-            onSave = { label, shares, shareValue, contribution, currency ->
-                viewModel.updateScpi(scpi, label, shares, shareValue, contribution, currency)
+            onSave = { label, shares, shareValue, contribution, currency, acqValue, acqDate ->
+                viewModel.updateScpi(scpi, label, shares, shareValue, contribution, currency, acqValue, acqDate)
             },
             onDismiss = { scpiToEdit = null }
         )
@@ -206,6 +210,13 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
             onDismiss = { airbnbToEdit = null }
         )
     }
+    vehicleToEdit?.let { entry ->
+        EditVehicleRentalSheet(
+            entry = entry,
+            onSave = { label, amount, type, date, currency -> viewModel.updateVehicleRentalEntry(entry, label, amount, type, date, currency) },
+            onDismiss = { vehicleToEdit = null }
+        )
+    }
 }
 
 @Composable
@@ -214,22 +225,25 @@ private fun InvestmentsContent(
     onAddRealEstate: () -> Unit,
     onAddScpi: () -> Unit,
     onAddAirbnb: () -> Unit,
-    onAddMetal: () -> Unit,
+    onAddVehicle: () -> Unit,
     onAddCustomAsset: () -> Unit,
     onAddEmpSavings: () -> Unit,
     onEditRealEstate: (RealEstateAsset) -> Unit,
     onEditScpi: (ScpiInvestment) -> Unit,
     onEditAirbnb: (AirbnbRental) -> Unit,
-    onEditMetal: (PreciousMetalAsset) -> Unit,
+    onEditVehicle: (VehicleRentalEntry) -> Unit,
     onEditCustomAsset: (CustomAsset) -> Unit,
     onEditEmpSavings: (EmployeeSavings) -> Unit,
     onDeleteRealEstate: (RealEstateAsset) -> Unit,
     onDeleteScpi: (ScpiInvestment) -> Unit,
     onDeleteAirbnb: (AirbnbRental) -> Unit,
-    onDeleteMetal: (PreciousMetalAsset) -> Unit,
+    onDeleteVehicle: (VehicleRentalEntry) -> Unit,
     onDeleteCustomAsset: (CustomAsset) -> Unit,
     onDeleteEmpSavings: (EmployeeSavings) -> Unit,
-    onAppliquerVersementScpi: (ScpiInvestment) -> Unit
+    onAppliquerVersementScpi: (ScpiInvestment) -> Unit,
+    onAppliquerVersementEmpSavings: (EmployeeSavings) -> Unit,
+    getTrend: suspend (AssetValuationType, Long) -> Float?,
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -242,12 +256,21 @@ private fun InvestmentsContent(
         item { TotalInvestmentsCard(
             totalCents       = state.totalInvestmentsCents,
             airbnbAnnualCents = state.airbnbAnnualTotal,
-            currency         = state.summaryCurrency
+            currency         = state.summaryCurrency,
+            trendPct         = state.patrimoineTrendPct,
+            hasConvertedValues = state.hasConvertedValues
         ) }
 
-        // Graphique barres — affiché si au moins un actif immo ou SCPI
+        // Graphique barres - affiché si au moins un actif immo ou SCPI
         if (state.realEstate.isNotEmpty() || state.scpi.isNotEmpty()) {
-            item { AssetsBarChart(realEstate = state.realEstate, scpi = state.scpi) }
+            item {
+                AssetsBarChart(
+                    realEstate     = state.realEstate,
+                    scpi           = state.scpi,
+                    targetCurrency = state.summaryCurrency,
+                    rates          = state.rates
+                )
+            }
         }
 
         // --- Section Immobilier ---
@@ -262,10 +285,13 @@ private fun InvestmentsContent(
             items(state.realEstate, key = { "immo_${it.id}" }) { asset ->
                 val linkedDebt = asset.debtId?.let { id -> state.availableDebts.find { it.id == id } }
                 RealEstateCard(
-                    asset       = asset,
-                    linkedDebt  = linkedDebt,
-                    onEdit      = { onEditRealEstate(asset) },
-                    onDelete    = { onDeleteRealEstate(asset) }
+                    asset          = asset,
+                    linkedDebt     = linkedDebt,
+                    rates          = state.rates,
+                    onEdit         = { onEditRealEstate(asset) },
+                    onDelete       = { onDeleteRealEstate(asset) },
+                    getTrend       = getTrend,
+                    getPerformance = getPerformance
                 )
             }
         }
@@ -284,7 +310,9 @@ private fun InvestmentsContent(
                     scpi = scpi,
                     onEdit = { onEditScpi(scpi) },
                     onDelete = { onDeleteScpi(scpi) },
-                    onVersement = { onAppliquerVersementScpi(scpi) }
+                    onVersement = { onAppliquerVersementScpi(scpi) },
+                    getTrend = getTrend,
+                    getPerformance = getPerformance
                 )
             }
         }
@@ -301,13 +329,22 @@ private fun InvestmentsContent(
             }
         }
 
-        // --- Section Métaux précieux ---
-        item { SectionHeader(title = "Métaux précieux", onAdd = onAddMetal) }
-        if (state.preciousMetals.isEmpty()) {
-            item { EmptySectionText("Aucun métal précieux enregistré.") }
+        // --- Section Véhicule locatif ---
+        // Indépendante d'Airbnb : cumulée depuis le début de l'activité (pas filtrée par année),
+        // avec une carte de synthèse séparée puisque revenus ET charges sont suivis ici.
+        item { SectionHeader(title = "Véhicule locatif", onAdd = onAddVehicle) }
+        if (state.vehicleRentalEntries.isEmpty()) {
+            item { EmptySectionText("Aucune entrée enregistrée pour le véhicule locatif.") }
         } else {
-            items(state.preciousMetals, key = { "metal_${it.id}" }) { metal ->
-                PreciousMetalCard(asset = metal, onEdit = { onEditMetal(metal) }, onDelete = { onDeleteMetal(metal) })
+            item {
+                VehicleRentalSummaryCard(
+                    revenueCents = state.vehicleRentalRevenueCents,
+                    chargeCents  = state.vehicleRentalChargeCents,
+                    currency     = state.summaryCurrency
+                )
+            }
+            items(state.vehicleRentalEntries, key = { "vehicle_${it.id}" }) { entry ->
+                VehicleRentalEntryCard(entry = entry, onEdit = { onEditVehicle(entry) }, onDelete = { onDeleteVehicle(entry) })
             }
         }
 
@@ -317,7 +354,7 @@ private fun InvestmentsContent(
             item { EmptySectionText("Aucun actif libre enregistré (crypto, actions, œuvres...).") }
         } else {
             items(state.customAssets, key = { "custom_${it.id}" }) { asset ->
-                CustomAssetCard(asset = asset, onEdit = { onEditCustomAsset(asset) }, onDelete = { onDeleteCustomAsset(asset) })
+                CustomAssetCard(asset = asset, onEdit = { onEditCustomAsset(asset) }, onDelete = { onDeleteCustomAsset(asset) }, getTrend = getTrend, getPerformance = getPerformance)
             }
         }
 
@@ -327,17 +364,77 @@ private fun InvestmentsContent(
             item { EmptySectionText("Aucun plan d'épargne salariale enregistré (PEE, PERCO).") }
         } else {
             items(state.employeeSavings, key = { "emp_${it.id}" }) { savings ->
-                EmployeeSavingsCard(savings = savings, onEdit = { onEditEmpSavings(savings) }, onDelete = { onDeleteEmpSavings(savings) })
+                EmployeeSavingsCard(
+                    savings = savings,
+                    onEdit = { onEditEmpSavings(savings) },
+                    onDelete = { onDeleteEmpSavings(savings) },
+                    onVersement = { onAppliquerVersementEmpSavings(savings) },
+                    getTrend = getTrend,
+                    getPerformance = getPerformance
+                )
             }
         }
     }
 }
 
 @Composable
-private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long, currency: Currency) {
+private fun TotalInvestmentsCard(
+    totalCents: Long,
+    airbnbAnnualCents: Long,
+    currency: Currency,
+    trendPct: Float? = null,
+    hasConvertedValues: Boolean = false
+) {
+    HeroCard {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Valeur totale",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (trendPct != null) TrendChip(trendPct)
+                }
+                Text(
+                    totalCents.toCurrencyDisplay(currency),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                if (hasConvertedValues) {
+                    Text(
+                        "≈ conversion appliquée (${currency.isoCode})",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "Locatif / an",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    airbnbAnnualCents.toCurrencyDisplay(currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VehicleRentalSummaryCard(revenueCents: Long, chargeCents: Long, currency: Currency) {
+    val netCents = revenueCents - chargeCents
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
     ) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -345,27 +442,40 @@ private fun TotalInvestmentsCard(totalCents: Long, airbnbAnnualCents: Long, curr
         ) {
             Column {
                 Text(
-                    "Valeur totale",
+                    "Revenus",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                 )
                 Text(
-                    totalCents.toCurrencyDisplay(currency),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    revenueCents.toCurrencyDisplay(currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            Column {
+                Text(
+                    "Charges",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                )
+                Text(
+                    chargeCents.toCurrencyDisplay(currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "Locatif / an",
+                    "Net",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                 )
                 Text(
-                    airbnbAnnualCents.toCurrencyDisplay(currency),
+                    netCents.toCurrencyDisplay(currency),
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    fontWeight = FontWeight.Bold,
+                    // error réservé au cas net négatif, jamais utilisé pour signaler une simple charge
+                    color = if (netCents < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
         }
@@ -397,14 +507,31 @@ private fun EmptySectionText(text: String) {
     )
 }
 
+// "depuis mars 2023" - sous-titre affiché à côté du libellé quand une date d'acquisition est renseignée
+private fun LocalDate.depuisLabel(): String =
+    "depuis ${format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRENCH))}"
+
 @Composable
 private fun RealEstateCard(
-    asset      : RealEstateAsset,
-    linkedDebt : com.dibitara.app.domain.model.Debt?,
-    onEdit     : () -> Unit,
-    onDelete   : () -> Unit
+    asset         : RealEstateAsset,
+    linkedDebt    : com.dibitara.app.domain.model.Debt?,
+    rates         : ExchangeRates,
+    onEdit        : () -> Unit,
+    onDelete      : () -> Unit,
+    getTrend      : suspend (AssetValuationType, Long) -> Float?,
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
 ) {
     var showConfirm by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(asset.id, asset.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(asset.id, asset.updatedAt) { trendPct = getTrend(AssetValuationType.REAL_ESTATE, asset.id) }
+    val acquisitionValue = asset.acquisitionValueCents
+    val acquisitionDate = asset.acquisitionDate
+    var performance by remember(asset.id, acquisitionValue, acquisitionDate, asset.currentValueCents) { mutableStateOf<PerformanceActif?>(null) }
+    LaunchedEffect(asset.id, acquisitionValue, acquisitionDate, asset.currentValueCents) {
+        performance = if (acquisitionValue != null && acquisitionDate != null)
+            getPerformance(asset.id, acquisitionValue, asset.currentValueCents, acquisitionDate, null) else null
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -412,20 +539,42 @@ private fun RealEstateCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(asset.label, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "Valeur actuelle : ${asset.currentValueCents.toCurrencyDisplay(asset.currency)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column {
+                    Text(asset.label, style = MaterialTheme.typography.bodyLarge)
+                    if (acquisitionDate != null) {
+                        Text(acquisitionDate.depuisLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                if (performance != null) {
+                    AcquisitionEvolutionBlock(
+                        acquisitionValueCents = acquisitionValue!!,
+                        currentValueCents = asset.currentValueCents,
+                        currency = asset.currency,
+                        deltaCents = performance!!.deltaCents,
+                        deltaPct = performance!!.deltaPct
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Valeur actuelle : ${asset.currentValueCents.toCurrencyDisplay(asset.currency)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (trendPct != null) TrendChip(trendPct!!)
+                    }
+                }
                 if (linkedDebt != null) {
                     Text(
-                        "Crédit lié : ${linkedDebt.label} — −${linkedDebt.totalCents.toCurrencyDisplay(linkedDebt.currency)}",
+                        "Crédit lié : ${linkedDebt.label} - −${linkedDebt.totalCents.toCurrencyDisplay(linkedDebt.currency)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
-                    val equite = asset.currentValueCents - linkedDebt.totalCents
+                    // Conversion nécessaire : le crédit lié peut être dans une devise différente du bien
+                    val detteDansDeviseDuBien = CurrencyConverter.convertCents(
+                        linkedDebt.totalCents, linkedDebt.currency, asset.currency, rates
+                    )
+                    val equite = asset.currentValueCents - detteDansDeviseDuBien
                     Text(
                         "Équité nette : ${equite.toCurrencyDisplay(asset.currency)}",
                         style = MaterialTheme.typography.bodySmall,
@@ -439,12 +588,24 @@ private fun RealEstateCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = { showConfirm = true }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Modifier") },
+                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary) },
+                        onClick = { showMenu = false; onEdit() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error) },
+                        onClick = { showMenu = false; showConfirm = true }
+                    )
                 }
             }
         }
@@ -461,9 +622,26 @@ private fun RealEstateCard(
 }
 
 @Composable
-private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> Unit, onVersement: () -> Unit) {
+private fun ScpiCard(
+    scpi: ScpiInvestment,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onVersement: () -> Unit,
+    getTrend: suspend (AssetValuationType, Long) -> Float?,
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
+) {
     var showConfirm by remember { mutableStateOf(false) }
     var showVersementConfirm by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(scpi.id, scpi.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(scpi.id, scpi.updatedAt) { trendPct = getTrend(AssetValuationType.SCPI, scpi.id) }
+    val acquisitionValue = scpi.acquisitionValueCents
+    val acquisitionDate = scpi.acquisitionDate
+    var performance by remember(scpi.id, acquisitionValue, acquisitionDate, scpi.totalValueCents) { mutableStateOf<PerformanceActif?>(null) }
+    LaunchedEffect(scpi.id, acquisitionValue, acquisitionDate, scpi.totalValueCents) {
+        performance = if (acquisitionValue != null && acquisitionDate != null)
+            getPerformance(scpi.id, acquisitionValue, scpi.totalValueCents, acquisitionDate, CompteType.SCPI) else null
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -475,18 +653,34 @@ private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> U
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(scpi.label, style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "${if (scpi.sharesCount % 1.0 == 0.0) scpi.sharesCount.toInt().toString() else scpi.sharesCount.toString()} parts × ${scpi.shareValueCents.toCurrencyDisplay(scpi.currency)}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        "Total : ${scpi.totalValueCents.toCurrencyDisplay(scpi.currency)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column {
+                        Text(scpi.label, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "${if (scpi.sharesCount % 1.0 == 0.0) scpi.sharesCount.toInt().toString() else scpi.sharesCount.toString()} parts × ${scpi.shareValueCents.toCurrencyDisplay(scpi.currency)}" +
+                                if (acquisitionDate != null) " · ${acquisitionDate.depuisLabel()}" else "",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    if (performance != null) {
+                        AcquisitionEvolutionBlock(
+                            acquisitionValueCents = acquisitionValue!!,
+                            currentValueCents = scpi.totalValueCents,
+                            currency = scpi.currency,
+                            deltaCents = performance!!.deltaCents,
+                            deltaPct = performance!!.deltaPct
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Total : ${scpi.totalValueCents.toCurrencyDisplay(scpi.currency)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                            if (trendPct != null) TrendChip(trendPct!!)
+                        }
+                    }
                     if (scpi.monthlyContributionCents > 0) {
                         Text(
                             "+ ${scpi.monthlyContributionCents.toCurrencyDisplay(scpi.currency)}/mois",
@@ -495,12 +689,24 @@ private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> U
                         )
                     }
                 }
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = { showConfirm = true }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Modifier") },
+                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary) },
+                            onClick = { showMenu = false; onEdit() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; showConfirm = true }
+                        )
                     }
                 }
             }
@@ -551,6 +757,7 @@ private fun ScpiCard(scpi: ScpiInvestment, onEdit: () -> Unit, onDelete: () -> U
 @Composable
 private fun AirbnbRentalCard(rental: AirbnbRental, onEdit: () -> Unit, onDelete: () -> Unit) {
     var showConfirm by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
     val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH)
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -573,12 +780,24 @@ private fun AirbnbRentalCard(rental: AirbnbRental, onEdit: () -> Unit, onDelete:
                     color = MaterialTheme.colorScheme.tertiary
                 )
             }
-            Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = { showConfirm = true }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Modifier") },
+                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary) },
+                        onClick = { showMenu = false; onEdit() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error) },
+                        onClick = { showMenu = false; showConfirm = true }
+                    )
                 }
             }
         }
@@ -594,6 +813,141 @@ private fun AirbnbRentalCard(rental: AirbnbRental, onEdit: () -> Unit, onDelete:
     }
 }
 
+@Composable
+private fun VehicleRentalEntryCard(entry: VehicleRentalEntry, onEdit: () -> Unit, onDelete: () -> Unit) {
+    var showConfirm by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val isRevenu = entry.entryType == VehicleEntryType.REVENU
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(entry.label, style = MaterialTheme.typography.bodyLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        entry.date.format(formatter),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    AssistChip(
+                        onClick = {},
+                        label = { Text(entry.entryType.displayName, style = MaterialTheme.typography.labelSmall) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = if (isRevenu) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                            labelColor     = if (isRevenu) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    )
+                }
+                Text(
+                    "${if (isRevenu) "+" else "-"}${entry.amountCents.toCurrencyDisplay(entry.currency)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isRevenu) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Modifier") },
+                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary) },
+                        onClick = { showMenu = false; onEdit() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error) },
+                        onClick = { showMenu = false; showConfirm = true }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Supprimer cette entrée ?") },
+            confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
+            dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } }
+        )
+    }
+}
+
+// ─── Champ partagé "valeur + date d'acquisition" (Add/Edit sheets ci-dessous) ─────────────────
+
+/**
+ * Champs optionnels "valeur d'acquisition" + "date d'acquisition" (avec DatePicker), communs
+ * aux 4 types d'actifs investissement. Facultatifs et saisis rétroactivement - voir
+ * [com.dibitara.app.presentation.common.AcquisitionEvolutionBlock] pour l'affichage résultant.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AcquisitionFields(
+    acquisitionValue: String,
+    onAcquisitionValueChange: (String) -> Unit,
+    acquisitionDate: LocalDate?,
+    onAcquisitionDateChange: (LocalDate?) -> Unit,
+    focusManager: FocusManager
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+    OutlinedTextField(
+        value = acquisitionValue,
+        onValueChange = onAcquisitionValueChange,
+        label = { Text("Valeur à l'acquisition (optionnel)") },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+    OutlinedTextField(
+        value = acquisitionDate?.format(dateFormatter) ?: "",
+        onValueChange = {},
+        readOnly = true,
+        label = { Text("Date d'acquisition (optionnel)") },
+        trailingIcon = {
+            IconButton(onClick = { showDatePicker = true }) {
+                Icon(Icons.Filled.CalendarToday, contentDescription = "Choisir une date")
+            }
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (acquisitionDate ?: LocalDate.now()).toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        onAcquisitionDateChange(LocalDate.ofEpochDay(millis / 86_400_000L))
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Annuler") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
 // ─── Bottom Sheets d'ajout ───────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -601,7 +955,7 @@ private fun AirbnbRentalCard(rental: AirbnbRental, onEdit: () -> Unit, onDelete:
 private fun AddRealEstateSheet(
     defaultCurrency: Currency = Currency.EUR,
     availableDebts : List<Debt> = emptyList(),
-    onSave: (label: String, value: String, currency: Currency, debtId: Long?) -> Unit,
+    onSave: (label: String, value: String, currency: Currency, debtId: Long?, acquisitionValue: String, acquisitionDate: LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf("") }
@@ -610,6 +964,8 @@ private fun AddRealEstateSheet(
     var currencyExpanded by remember { mutableStateOf(false) }
     var selectedDebtId by remember { mutableStateOf<Long?>(null) }
     var debtExpanded by remember { mutableStateOf(false) }
+    var acquisitionValue by remember { mutableStateOf("") }
+    var acquisitionDate by remember { mutableStateOf<LocalDate?>(null) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -687,8 +1043,16 @@ private fun AddRealEstateSheet(
                 }
             }
 
+            AcquisitionFields(
+                acquisitionValue = acquisitionValue,
+                onAcquisitionValueChange = { acquisitionValue = it },
+                acquisitionDate = acquisitionDate,
+                onAcquisitionDateChange = { acquisitionDate = it },
+                focusManager = focusManager
+            )
+
             Button(
-                onClick = { onSave(label, value, selectedCurrency, selectedDebtId) },
+                onClick = { onSave(label, value, selectedCurrency, selectedDebtId, acquisitionValue, acquisitionDate) },
                 enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
@@ -700,7 +1064,7 @@ private fun AddRealEstateSheet(
 @Composable
 private fun AddScpiSheet(
     defaultCurrency: Currency = Currency.EUR,
-    onSave: (label: String, shares: String, shareValue: String, contribution: String, currency: Currency) -> Unit,
+    onSave: (label: String, shares: String, shareValue: String, contribution: String, currency: Currency, acquisitionValue: String, acquisitionDate: LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf("") }
@@ -709,6 +1073,8 @@ private fun AddScpiSheet(
     var contribution by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var acquisitionValue by remember { mutableStateOf("") }
+    var acquisitionDate by remember { mutableStateOf<LocalDate?>(null) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -785,7 +1151,7 @@ private fun AddScpiSheet(
 
             // Aperçu du total si les champs sont remplis
             val previewTotal = shares.replace(',', '.').toDoubleOrNull()?.let { s ->
-                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).toLong() }
+                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).roundToLong() }
             }
             if (previewTotal != null) {
                 Text(
@@ -795,8 +1161,16 @@ private fun AddScpiSheet(
                 )
             }
 
+            AcquisitionFields(
+                acquisitionValue = acquisitionValue,
+                onAcquisitionValueChange = { acquisitionValue = it },
+                acquisitionDate = acquisitionDate,
+                onAcquisitionDateChange = { acquisitionDate = it },
+                focusManager = focusManager
+            )
+
             Button(
-                onClick = { onSave(label, shares, shareValue, contribution, selectedCurrency) },
+                onClick = { onSave(label, shares, shareValue, contribution, selectedCurrency, acquisitionValue, acquisitionDate) },
                 enabled = label.isNotBlank() && shares.replace(',', '.').toDoubleOrNull()?.let { it > 0.0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter") }
@@ -815,7 +1189,7 @@ private fun AddAirbnbSheet(
     var amount by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
-    // Le mois courant est utilisé par défaut — l'utilisateur entre les revenus du mois
+    // Le mois courant est utilisé par défaut - l'utilisateur entre les revenus du mois
     val today = remember { LocalDate.now() }
     val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRENCH)
     val focusManager = LocalFocusManager.current
@@ -885,6 +1259,128 @@ private fun AddAirbnbSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddVehicleRentalSheet(
+    defaultCurrency: Currency = Currency.EUR,
+    onSave: (label: String, amount: String, type: VehicleEntryType, date: LocalDate, currency: Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(VehicleEntryType.REVENU) }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val focusManager = LocalFocusManager.current
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Véhicule locatif", style = MaterialTheme.typography.titleLarge)
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                VehicleEntryType.entries.forEachIndexed { index, type ->
+                    SegmentedButton(
+                        selected = selectedType == type,
+                        onClick = { selectedType = type },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = VehicleEntryType.entries.size)
+                    ) { Text(type.displayName) }
+                }
+            }
+
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it },
+                label = { Text(if (selectedType == VehicleEntryType.REVENU) "Source (ex. Location weekend)" else "Nature (ex. Entretien, Assurance)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = amount,
+                onValueChange = { amount = it },
+                label = { Text("Montant") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = selectedDate.format(dateFormatter),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Date") },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Filled.CalendarToday, contentDescription = "Choisir une date")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Devise") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    Currency.entries.forEach { c ->
+                        DropdownMenuItem(
+                            text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false }
+                        )
+                    }
+                }
+            }
+
+            Button(
+                onClick = { onSave(label, amount, selectedType, selectedDate, selectedCurrency) },
+                enabled = label.isNotBlank() && amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Ajouter") }
+        }
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = LocalDate.ofEpochDay(millis / 86_400_000L)
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Annuler") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
 // ─── Bottom Sheets d'édition ─────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -892,7 +1388,7 @@ private fun AddAirbnbSheet(
 private fun EditRealEstateSheet(
     asset          : RealEstateAsset,
     availableDebts : List<Debt> = emptyList(),
-    onSave: (label: String, value: String, currency: Currency, debtId: Long?) -> Unit,
+    onSave: (label: String, value: String, currency: Currency, debtId: Long?, acquisitionValue: String, acquisitionDate: LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(asset.label) }
@@ -902,6 +1398,8 @@ private fun EditRealEstateSheet(
     // Pré-sélectionne le crédit déjà rattaché au bien, le cas échéant
     var selectedDebtId by remember { mutableStateOf(asset.debtId) }
     var debtExpanded by remember { mutableStateOf(false) }
+    var acquisitionValue by remember { mutableStateOf(asset.acquisitionValueCents?.let { "%.2f".format(it / 100.0).replace(',', '.') } ?: "") }
+    var acquisitionDate by remember { mutableStateOf(asset.acquisitionDate) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -943,7 +1441,7 @@ private fun EditRealEstateSheet(
                 }
             }
 
-            // Liaison à un crédit existant (optionnelle — pré-remplie si déjà rattaché)
+            // Liaison à un crédit existant (optionnelle - pré-remplie si déjà rattaché)
             ExposedDropdownMenuBox(expanded = debtExpanded, onExpandedChange = { debtExpanded = it }) {
                 OutlinedTextField(
                     value = availableDebts.find { it.id == selectedDebtId }?.label ?: "Aucun",
@@ -967,8 +1465,16 @@ private fun EditRealEstateSheet(
                 }
             }
 
+            AcquisitionFields(
+                acquisitionValue = acquisitionValue,
+                onAcquisitionValueChange = { acquisitionValue = it },
+                acquisitionDate = acquisitionDate,
+                onAcquisitionDateChange = { acquisitionDate = it },
+                focusManager = focusManager
+            )
+
             Button(
-                onClick = { onSave(label, value, selectedCurrency, selectedDebtId) },
+                onClick = { onSave(label, value, selectedCurrency, selectedDebtId, acquisitionValue, acquisitionDate) },
                 enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
@@ -980,7 +1486,7 @@ private fun EditRealEstateSheet(
 @Composable
 private fun EditScpiSheet(
     scpi: ScpiInvestment,
-    onSave: (label: String, shares: String, shareValue: String, contribution: String, currency: Currency) -> Unit,
+    onSave: (label: String, shares: String, shareValue: String, contribution: String, currency: Currency, acquisitionValue: String, acquisitionDate: LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(scpi.label) }
@@ -992,6 +1498,8 @@ private fun EditScpiSheet(
     }
     var selectedCurrency by remember { mutableStateOf(scpi.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var acquisitionValue by remember { mutableStateOf(scpi.acquisitionValueCents?.let { "%.2f".format(it / 100.0).replace(',', '.') } ?: "") }
+    var acquisitionDate by remember { mutableStateOf(scpi.acquisitionDate) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -1047,15 +1555,23 @@ private fun EditScpiSheet(
             }
 
             val previewTotal = shares.replace(',', '.').toDoubleOrNull()?.let { s ->
-                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).toLong() }
+                shareValue.replace(',', '.').toDoubleOrNull()?.let { v -> (s * v * 100).roundToLong() }
             }
             if (previewTotal != null) {
                 Text("Total estimé : ${previewTotal.toCurrencyDisplay(selectedCurrency)}",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
             }
 
+            AcquisitionFields(
+                acquisitionValue = acquisitionValue,
+                onAcquisitionValueChange = { acquisitionValue = it },
+                acquisitionDate = acquisitionDate,
+                onAcquisitionDateChange = { acquisitionDate = it },
+                focusManager = focusManager
+            )
+
             Button(
-                onClick = { onSave(label, shares, shareValue, contribution, selectedCurrency) },
+                onClick = { onSave(label, shares, shareValue, contribution, selectedCurrency, acquisitionValue, acquisitionDate) },
                 enabled = label.isNotBlank() && shares.replace(',', '.').toDoubleOrNull()?.let { it > 0.0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
@@ -1129,47 +1645,175 @@ private fun EditAirbnbSheet(
     }
 }
 
-// ─── Cartes investissements personnalisés ─────────────────────────────────────
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PreciousMetalCard(asset: PreciousMetalAsset, onEdit: () -> Unit, onDelete: () -> Unit) {
-    var showConfirm by remember { mutableStateOf(false) }
-    val qtyDisplay = if (asset.quantityGrams % 1.0 == 0.0) asset.quantityGrams.toInt().toString() else "%.2f".format(asset.quantityGrams)
+private fun EditVehicleRentalSheet(
+    entry: VehicleRentalEntry,
+    onSave: (label: String, amount: String, type: VehicleEntryType, date: LocalDate, currency: Currency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf(entry.label) }
+    var amount by remember { mutableStateOf("%.2f".format(entry.amountCents / 100.0).replace(',', '.')) }
+    var selectedType by remember { mutableStateOf(entry.entryType) }
+    var selectedDate by remember { mutableStateOf(entry.date) }
+    var selectedCurrency by remember { mutableStateOf(entry.currency) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val focusManager = LocalFocusManager.current
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("${asset.metalType.displayName} — ${asset.label}", style = MaterialTheme.typography.bodyLarge)
-                Text("$qtyDisplay g × ${asset.pricePerGramCents.toCurrencyDisplay(asset.currency)}/g", style = MaterialTheme.typography.bodyMedium)
-                Text("Total : ${asset.totalValueCents.toCurrencyDisplay(asset.currency)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Modifier l'entrée véhicule", style = MaterialTheme.typography.titleLarge)
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                VehicleEntryType.entries.forEachIndexed { index, type ->
+                    SegmentedButton(
+                        selected = selectedType == type,
+                        onClick = { selectedType = type },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = VehicleEntryType.entries.size)
+                    ) { Text(type.displayName) }
+                }
             }
-            Row {
-                IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Modifier") }
-                IconButton(onClick = { showConfirm = true }) { Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error) }
+
+            OutlinedTextField(value = label, onValueChange = { label = it },
+                label = { Text(if (selectedType == VehicleEntryType.REVENU) "Source (ex. Location weekend)" else "Nature (ex. Entretien, Assurance)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(value = amount, onValueChange = { amount = it },
+                label = { Text("Montant") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(
+                value = selectedDate.format(dateFormatter),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Date") },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Filled.CalendarToday, contentDescription = "Choisir une date")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
+                    readOnly = true, label = { Text("Devise") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    Currency.entries.forEach { c ->
+                        DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false })
+                    }
+                }
             }
+
+            Button(
+                onClick = { onSave(label, amount, selectedType, selectedDate, selectedCurrency) },
+                enabled = label.isNotBlank() && amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Enregistrer les modifications") }
         }
     }
-    if (showConfirm) {
-        AlertDialog(onDismissRequest = { showConfirm = false }, title = { Text("Supprimer ce métal ?") },
-            confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
-            dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } })
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = LocalDate.ofEpochDay(millis / 86_400_000L)
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Annuler") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 }
 
+// ─── Cartes investissements personnalisés ─────────────────────────────────────
+
 @Composable
-private fun CustomAssetCard(asset: CustomAsset, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun CustomAssetCard(
+    asset: CustomAsset,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    getTrend: suspend (AssetValuationType, Long) -> Float?,
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
+) {
     var showConfirm by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(asset.id, asset.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(asset.id, asset.updatedAt) { trendPct = getTrend(AssetValuationType.CUSTOM_ASSET, asset.id) }
+    val acquisitionValue = asset.acquisitionValueCents
+    val acquisitionDate = asset.acquisitionDate
+    var performance by remember(asset.id, acquisitionValue, acquisitionDate, asset.totalValueCents) { mutableStateOf<PerformanceActif?>(null) }
+    LaunchedEffect(asset.id, acquisitionValue, acquisitionDate, asset.totalValueCents) {
+        performance = if (acquisitionValue != null && acquisitionDate != null)
+            getPerformance(asset.id, acquisitionValue, asset.totalValueCents, acquisitionDate, null) else null
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(asset.label, style = MaterialTheme.typography.bodyLarge)
-                Text(asset.totalValueCents.toCurrencyDisplay(asset.currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
-                Text("Mis à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column {
+                    Text(asset.label, style = MaterialTheme.typography.bodyLarge)
+                    if (acquisitionDate != null) {
+                        Text(acquisitionDate.depuisLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                if (performance != null) {
+                    AcquisitionEvolutionBlock(
+                        acquisitionValueCents = acquisitionValue!!,
+                        currentValueCents = asset.totalValueCents,
+                        currency = asset.currency,
+                        deltaCents = performance!!.deltaCents,
+                        deltaPct = performance!!.deltaPct
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(asset.totalValueCents.toCurrencyDisplay(asset.currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                        if (trendPct != null) TrendChip(trendPct!!)
+                    }
+                    Text("Mis à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Row {
-                IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Modifier") }
-                IconButton(onClick = { showConfirm = true }) { Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error) }
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(text = { Text("Modifier") },
+                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        onClick = { showMenu = false; onEdit() })
+                    DropdownMenuItem(text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        onClick = { showMenu = false; showConfirm = true })
+                }
             }
         }
     }
@@ -1181,21 +1825,80 @@ private fun CustomAssetCard(asset: CustomAsset, onEdit: () -> Unit, onDelete: ()
 }
 
 @Composable
-private fun EmployeeSavingsCard(savings: EmployeeSavings, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun EmployeeSavingsCard(
+    savings: EmployeeSavings,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onVersement: () -> Unit,
+    getTrend: suspend (AssetValuationType, Long) -> Float?,
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
+) {
     var showConfirm by remember { mutableStateOf(false) }
+    var showVersementConfirm by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(savings.id, savings.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(savings.id, savings.updatedAt) { trendPct = getTrend(AssetValuationType.EMPLOYEE_SAVINGS, savings.id) }
+    val acquisitionValue = savings.acquisitionValueCents
+    val acquisitionDate = savings.acquisitionDate
+    var performance by remember(savings.id, acquisitionValue, acquisitionDate, savings.currentBalanceCents) { mutableStateOf<PerformanceActif?>(null) }
+    LaunchedEffect(savings.id, acquisitionValue, acquisitionDate, savings.currentBalanceCents) {
+        performance = if (acquisitionValue != null && acquisitionDate != null)
+            getPerformance(savings.id, acquisitionValue, savings.currentBalanceCents, acquisitionDate, CompteType.EMPLOYEE_SAVINGS) else null
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("${savings.type.displayName} — ${savings.label}", style = MaterialTheme.typography.bodyLarge)
-                Text("Solde : ${savings.currentBalanceCents.toCurrencyDisplay(savings.currency)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
-                if (savings.employerContributionCents > 0) {
-                    Text("Abondement : ${savings.employerContributionCents.toCurrencyDisplay(savings.currency)}/mois", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column {
+                        Text("${savings.type.displayName} - ${savings.label}", style = MaterialTheme.typography.bodyLarge)
+                        if (acquisitionDate != null) {
+                            Text(acquisitionDate.depuisLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (performance != null) {
+                        AcquisitionEvolutionBlock(
+                            acquisitionValueCents = acquisitionValue!!,
+                            currentValueCents = savings.currentBalanceCents,
+                            currency = savings.currency,
+                            deltaCents = performance!!.deltaCents,
+                            deltaPct = performance!!.deltaPct
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Solde : ${savings.currentBalanceCents.toCurrencyDisplay(savings.currency)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                            if (trendPct != null) TrendChip(trendPct!!)
+                        }
+                    }
+                    if (savings.employerContributionCents > 0) {
+                        Text("Abondement : ${savings.employerContributionCents.toCurrencyDisplay(savings.currency)}/mois", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Modifier") },
+                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            onClick = { showMenu = false; onEdit() })
+                        DropdownMenuItem(text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; showConfirm = true })
+                    }
                 }
             }
-            Row {
-                IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Modifier") }
-                IconButton(onClick = { showConfirm = true }) { Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error) }
+
+            // Bouton versement : visible uniquement si un abondement mensuel est configuré - même
+            // logique que le versement SCPI (voir ScpiCard), utilisée pour neutraliser l'abondement
+            // dans le calcul de performance depuis acquisition.
+            if (savings.employerContributionCents > 0) {
+                OutlinedButton(
+                    onClick = { showVersementConfirm = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Versement du mois (+${savings.employerContributionCents.toCurrencyDisplay(savings.currency)})")
+                }
             }
         }
     }
@@ -1204,18 +1907,24 @@ private fun EmployeeSavingsCard(savings: EmployeeSavings, onEdit: () -> Unit, on
             confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
             dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } })
     }
+    if (showVersementConfirm) {
+        val dateAujourdhui = LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH))
+        AlertDialog(
+            onDismissRequest = { showVersementConfirm = false },
+            title = { Text("Appliquer le versement ?") },
+            text = {
+                Text(
+                    "${savings.employerContributionCents.toCurrencyDisplay(savings.currency)} seront " +
+                    "enregistrés comme versement le $dateAujourdhui. Un seul versement par mois est autorisé."
+                )
+            },
+            confirmButton = { TextButton(onClick = { onVersement(); showVersementConfirm = false }) { Text("Confirmer") } },
+            dismissButton = { TextButton(onClick = { showVersementConfirm = false }) { Text("Annuler") } }
+        )
+    }
 }
 
 // ─── Bottom Sheets investissements personnalisés ──────────────────────────────
-
-@Composable
-private fun MetalTypeSelector(selected: MetalType, onSelect: (MetalType) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        MetalType.entries.forEach { type ->
-            FilterChip(selected = selected == type, onClick = { onSelect(type) }, label = { Text(type.displayName) })
-        }
-    }
-}
 
 @Composable
 private fun EmployeeSavingsTypeSelector(selected: EmployeeSavingsType, onSelect: (EmployeeSavingsType) -> Unit) {
@@ -1228,85 +1937,17 @@ private fun EmployeeSavingsTypeSelector(selected: EmployeeSavingsType, onSelect:
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddMetalSheet(
-    defaultCurrency: Currency = Currency.EUR,
-    onSave: (MetalType, String, String, String, Currency) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var metalType by remember { mutableStateOf(MetalType.OR) }
-    var label by remember { mutableStateOf("") }
-    var quantity by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
-    var currencyExpanded by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
-
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Nouveau métal précieux", style = MaterialTheme.typography.titleLarge)
-            MetalTypeSelector(selected = metalType, onSelect = { metalType = it })
-            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Libellé (ex. Lingot 100g)") }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = quantity, onValueChange = { quantity = it }, label = { Text("Quantité (g)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }), singleLine = true, modifier = Modifier.weight(1f))
-                OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Prix/g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }), singleLine = true, modifier = Modifier.weight(1f))
-            }
-            val previewTotal = quantity.replace(',', '.').toDoubleOrNull()?.let { q -> price.replace(',', '.').toDoubleOrNull()?.let { p -> (q * p * 100).toLong() } }
-            if (previewTotal != null) Text("Total estimé : ${previewTotal.toCurrencyDisplay(selectedCurrency)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
-            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
-                OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
-                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
-            }
-            Button(onClick = { onSave(metalType, label, quantity, price, selectedCurrency) }, enabled = label.isNotBlank() && quantity.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Ajouter") }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun EditMetalSheet(
-    asset: PreciousMetalAsset,
-    onSave: (MetalType, String, String, String, Currency) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var metalType by remember { mutableStateOf(asset.metalType) }
-    var label by remember { mutableStateOf(asset.label) }
-    var quantity by remember { mutableStateOf(if (asset.quantityGrams % 1.0 == 0.0) asset.quantityGrams.toInt().toString() else "%.2f".format(asset.quantityGrams)) }
-    var price by remember { mutableStateOf("%.2f".format(asset.pricePerGramCents / 100.0).replace(',', '.')) }
-    var selectedCurrency by remember { mutableStateOf(asset.currency) }
-    var currencyExpanded by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
-
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Modifier le métal précieux", style = MaterialTheme.typography.titleLarge)
-            MetalTypeSelector(selected = metalType, onSelect = { metalType = it })
-            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Libellé") }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, modifier = Modifier.fillMaxWidth())
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = quantity, onValueChange = { quantity = it }, label = { Text("Quantité (g)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }), singleLine = true, modifier = Modifier.weight(1f))
-                OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Prix/g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }), singleLine = true, modifier = Modifier.weight(1f))
-            }
-            val previewTotal = quantity.replace(',', '.').toDoubleOrNull()?.let { q -> price.replace(',', '.').toDoubleOrNull()?.let { p -> (q * p * 100).toLong() } }
-            if (previewTotal != null) Text("Total estimé : ${previewTotal.toCurrencyDisplay(selectedCurrency)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
-            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
-                OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
-                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
-            }
-            Button(onClick = { onSave(metalType, label, quantity, price, selectedCurrency) }, enabled = label.isNotBlank() && quantity.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 private fun AddCustomAssetSheet(
     defaultCurrency: Currency = Currency.EUR,
-    onSave: (String, String, Currency) -> Unit,
+    onSave: (String, String, Currency, String, LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf("") }
     var value by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var acquisitionValue by remember { mutableStateOf("") }
+    var acquisitionDate by remember { mutableStateOf<LocalDate?>(null) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -1319,7 +1960,14 @@ private fun AddCustomAssetSheet(
                 OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
                 ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
             }
-            Button(onClick = { onSave(label, value, selectedCurrency) }, enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Ajouter") }
+            AcquisitionFields(
+                acquisitionValue = acquisitionValue,
+                onAcquisitionValueChange = { acquisitionValue = it },
+                acquisitionDate = acquisitionDate,
+                onAcquisitionDateChange = { acquisitionDate = it },
+                focusManager = focusManager
+            )
+            Button(onClick = { onSave(label, value, selectedCurrency, acquisitionValue, acquisitionDate) }, enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Ajouter") }
         }
     }
 }
@@ -1328,13 +1976,15 @@ private fun AddCustomAssetSheet(
 @Composable
 private fun EditCustomAssetSheet(
     asset: CustomAsset,
-    onSave: (String, String, Currency) -> Unit,
+    onSave: (String, String, Currency, String, LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(asset.label) }
     var value by remember { mutableStateOf("%.2f".format(asset.totalValueCents / 100.0).replace(',', '.')) }
     var selectedCurrency by remember { mutableStateOf(asset.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var acquisitionValue by remember { mutableStateOf(asset.acquisitionValueCents?.let { "%.2f".format(it / 100.0).replace(',', '.') } ?: "") }
+    var acquisitionDate by remember { mutableStateOf(asset.acquisitionDate) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -1346,7 +1996,14 @@ private fun EditCustomAssetSheet(
                 OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
                 ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
             }
-            Button(onClick = { onSave(label, value, selectedCurrency) }, enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
+            AcquisitionFields(
+                acquisitionValue = acquisitionValue,
+                onAcquisitionValueChange = { acquisitionValue = it },
+                acquisitionDate = acquisitionDate,
+                onAcquisitionDateChange = { acquisitionDate = it },
+                focusManager = focusManager
+            )
+            Button(onClick = { onSave(label, value, selectedCurrency, acquisitionValue, acquisitionDate) }, enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
         }
     }
 }
@@ -1355,7 +2012,7 @@ private fun EditCustomAssetSheet(
 @Composable
 private fun AddEmployeeSavingsSheet(
     defaultCurrency: Currency = Currency.EUR,
-    onSave: (EmployeeSavingsType, String, String, String, Currency) -> Unit,
+    onSave: (EmployeeSavingsType, String, String, String, Currency, String, LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var savingsType by remember { mutableStateOf(EmployeeSavingsType.PEE) }
@@ -1364,6 +2021,8 @@ private fun AddEmployeeSavingsSheet(
     var contribution by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var acquisitionValue by remember { mutableStateOf("") }
+    var acquisitionDate by remember { mutableStateOf<LocalDate?>(null) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -1377,7 +2036,14 @@ private fun AddEmployeeSavingsSheet(
                 OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
                 ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
             }
-            Button(onClick = { onSave(savingsType, label, balance, contribution, selectedCurrency) }, enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Ajouter") }
+            AcquisitionFields(
+                acquisitionValue = acquisitionValue,
+                onAcquisitionValueChange = { acquisitionValue = it },
+                acquisitionDate = acquisitionDate,
+                onAcquisitionDateChange = { acquisitionDate = it },
+                focusManager = focusManager
+            )
+            Button(onClick = { onSave(savingsType, label, balance, contribution, selectedCurrency, acquisitionValue, acquisitionDate) }, enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Ajouter") }
         }
     }
 }
@@ -1386,7 +2052,7 @@ private fun AddEmployeeSavingsSheet(
 @Composable
 private fun EditEmployeeSavingsSheet(
     savings: EmployeeSavings,
-    onSave: (EmployeeSavingsType, String, String, String, Currency) -> Unit,
+    onSave: (EmployeeSavingsType, String, String, String, Currency, String, LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var savingsType by remember { mutableStateOf(savings.type) }
@@ -1395,6 +2061,8 @@ private fun EditEmployeeSavingsSheet(
     var contribution by remember { mutableStateOf(if (savings.employerContributionCents > 0) "%.2f".format(savings.employerContributionCents / 100.0).replace(',', '.') else "") }
     var selectedCurrency by remember { mutableStateOf(savings.currency) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var acquisitionValue by remember { mutableStateOf(savings.acquisitionValueCents?.let { "%.2f".format(it / 100.0).replace(',', '.') } ?: "") }
+    var acquisitionDate by remember { mutableStateOf(savings.acquisitionDate) }
     val focusManager = LocalFocusManager.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -1408,7 +2076,14 @@ private fun EditEmployeeSavingsSheet(
                 OutlinedTextField(value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {}, readOnly = true, label = { Text("Devise") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
                 ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) { Currency.entries.forEach { c -> DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") }, onClick = { selectedCurrency = c; currencyExpanded = false }) } }
             }
-            Button(onClick = { onSave(savingsType, label, balance, contribution, selectedCurrency) }, enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
+            AcquisitionFields(
+                acquisitionValue = acquisitionValue,
+                onAcquisitionValueChange = { acquisitionValue = it },
+                acquisitionDate = acquisitionDate,
+                onAcquisitionDateChange = { acquisitionDate = it },
+                focusManager = focusManager
+            )
+            Button(onClick = { onSave(savingsType, label, balance, contribution, selectedCurrency, acquisitionValue, acquisitionDate) }, enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
         }
     }
 }
@@ -1418,48 +2093,46 @@ private fun EditEmployeeSavingsSheet(
 @Composable
 private fun AssetsBarChart(
     realEstate: List<RealEstateAsset>,
-    scpi: List<ScpiInvestment>
+    scpi: List<ScpiInvestment>,
+    targetCurrency: Currency,
+    rates: ExchangeRates
 ) {
-    // On combine immobilier et SCPI en une liste (libellé, valeur en centimes)
-    val actifs = (realEstate.map { it.label to it.currentValueCents } +
-                  scpi.map { it.label to it.totalValueCents })
-        .filter { it.second > 0 }
+    val gold = MaterialTheme.colorScheme.primary
+    val sage = MaterialTheme.colorScheme.tertiary
 
-    if (actifs.isEmpty()) return
+    // Convertit chaque actif vers la devise d'affichage (summaryCurrency) : les actifs
+    // peuvent être dans des devises différentes, un graphique comparatif doit les
+    // ramener à une base commune pour que les longueurs de barres soient comparables.
+    val entries = (
+        realEstate.map { asset ->
+            HorizontalBarEntry(
+                label = asset.label,
+                value = CurrencyConverter.convertCents(asset.currentValueCents, asset.currency, targetCurrency, rates),
+                valueLabel = CurrencyConverter.convertCents(asset.currentValueCents, asset.currency, targetCurrency, rates)
+                    .toCurrencyDisplay(targetCurrency),
+                color = gold
+            )
+        } +
+        scpi.map { investment ->
+            HorizontalBarEntry(
+                label = investment.label,
+                value = CurrencyConverter.convertCents(investment.totalValueCents, investment.currency, targetCurrency, rates),
+                valueLabel = CurrencyConverter.convertCents(investment.totalValueCents, investment.currency, targetCurrency, rates)
+                    .toCurrencyDisplay(targetCurrency),
+                color = sage
+            )
+        }
+    ).filter { it.value > 0 }
 
-    // ChartEntryModelProducer gère les mises à jour asynchrones des données du graphique
-    val producer = remember { ChartEntryModelProducer() }
-    // Libellés tronqués à 8 caractères pour tenir sur l'axe
-    val labels = actifs.map { it.first.take(8) }
-
-    LaunchedEffect(actifs) {
-        // Conversion centimes → euros, x = index de l'actif dans la liste
-        producer.setEntries(
-            actifs.mapIndexed { i, (_, valueCents) ->
-                entryOf(i.toFloat(), valueCents.toFloat() / 100f)
-            }
-        )
-    }
+    if (entries.isEmpty()) return
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Valeur par actif (€)", style = MaterialTheme.typography.titleMedium)
-            ProvideChartStyle(m3ChartStyle()) {
-                Chart(
-                    chart = columnChart(),
-                    chartModelProducer = producer,
-                    startAxis = rememberStartAxis(),
-                    bottomAxis = rememberBottomAxis(
-                        valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-                            labels.getOrElse(value.toInt()) { "" }
-                        }
-                    ),
-                    modifier = Modifier.fillMaxWidth().height(180.dp)
-                )
-            }
+            Text("Valeur par actif", style = MaterialTheme.typography.titleMedium)
+            HorizontalBarChart(entries = entries)
         }
     }
 }

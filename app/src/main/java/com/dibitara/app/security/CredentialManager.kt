@@ -1,6 +1,7 @@
 package com.dibitara.app.security
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,7 +18,7 @@ import javax.inject.Singleton
 /**
  * Gestionnaire centralisé des identifiants d'authentification locale.
  *
- * Stocke les hash (PBKDF2WithHmacSHA256) dans EncryptedSharedPreferences —
+ * Stocke les hash (PBKDF2WithHmacSHA256) dans EncryptedSharedPreferences -
  * protégé par AES256-GCM via le KeyStore Android.
  * Le salt aléatoire (32 octets) est régénéré à chaque changement de secret,
  * ce qui empêche les attaques par dictionnaire pré-calculées (rainbow tables).
@@ -39,7 +40,7 @@ class CredentialManager @Inject constructor(
         private const val KEY_EMAIL      = "email"
         private const val KEY_TOTP_SECRET = "totp_secret"
 
-        // Fichier stocké dans noBackupFilesDir — jamais sauvegardé ni transféré,
+        // Fichier stocké dans noBackupFilesDir - jamais sauvegardé ni transféré,
         // quelle que soit la configuration de backup (y compris les transferts D2D Android 12+).
         // Son absence au démarrage trahit des credentials issus d'un transfert illégitime.
         private const val INSTALL_PROOF_FILE = "install_proof"
@@ -52,7 +53,7 @@ class CredentialManager @Inject constructor(
         private const val ALGORITHM = "PBKDF2WithHmacSHA256"
     }
 
-    // Initialisation paresseuse — l'accès au KeyStore peut prendre quelques ms
+    // Initialisation paresseuse - l'accès au KeyStore peut prendre quelques ms
     private val prefs by lazy {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -92,20 +93,20 @@ class CredentialManager @Inject constructor(
 
     /**
      * Enregistre un nouveau PIN (remplace l'ancien si existant).
-     * Bloquant — doit être appelé via une coroutine (Dispatchers.IO géré en interne).
+     * Bloquant - doit être appelé via une coroutine (Dispatchers.IO géré en interne).
      */
     suspend fun setupPin(pin: String) = withContext(Dispatchers.IO) {
         val salt = generateSalt()
         val hash = hashWithPbkdf2(pin, salt, ITERATIONS_PIN)
-        prefs.edit()
-            .putString(KEY_PIN_HASH, hash)
-            .putString(KEY_PIN_SALT, salt.toHex())
-            .apply()
+        prefs.edit {
+            putString(KEY_PIN_HASH, hash)
+            putString(KEY_PIN_SALT, salt.toHex())
+        }
     }
 
     /**
      * Vérifie un PIN contre le hash stocké.
-     * Bloquant — Dispatchers.IO géré en interne.
+     * Bloquant - Dispatchers.IO géré en interne.
      * @return true si le PIN est correct
      */
     suspend fun verifyPin(pin: String): Boolean = withContext(Dispatchers.IO) {
@@ -130,11 +131,11 @@ class CredentialManager @Inject constructor(
     suspend fun setupPassword(email: String, password: String) = withContext(Dispatchers.IO) {
         val salt = generateSalt()
         val hash = hashWithPbkdf2(password, salt, ITERATIONS_PWD)
-        prefs.edit()
-            .putString(KEY_EMAIL, email)
-            .putString(KEY_PWD_HASH, hash)
-            .putString(KEY_PWD_SALT, salt.toHex())
-            .apply()
+        prefs.edit {
+            putString(KEY_EMAIL, email)
+            putString(KEY_PWD_HASH, hash)
+            putString(KEY_PWD_SALT, salt.toHex())
+        }
     }
 
     /**
@@ -161,30 +162,30 @@ class CredentialManager @Inject constructor(
 
     /** Enregistre le secret TOTP (Base32) dans le stockage chiffré. */
     suspend fun setupTotp(secret: String) = withContext(Dispatchers.IO) {
-        prefs.edit().putString(KEY_TOTP_SECRET, secret).apply()
+        prefs.edit { putString(KEY_TOTP_SECRET, secret) }
     }
 
     /** Efface le secret TOTP uniquement. */
     fun clearTotp() {
-        prefs.edit().remove(KEY_TOTP_SECRET).apply()
+        prefs.edit { remove(KEY_TOTP_SECRET) }
     }
 
     // ─── Réinitialisation ────────────────────────────────────────────────────
 
     /**
      * Efface tous les secrets stockés (PIN + mot de passe + email + TOTP).
-     * La base de données Room n'est PAS touchée — les données financières sont conservées.
+     * La base de données Room n'est PAS touchée - les données financières sont conservées.
      * À n'appeler qu'après une vérification biométrique réussie.
      */
     fun clearCredentials() {
-        prefs.edit()
-            .remove(KEY_PIN_HASH)
-            .remove(KEY_PIN_SALT)
-            .remove(KEY_PWD_HASH)
-            .remove(KEY_PWD_SALT)
-            .remove(KEY_EMAIL)
-            .remove(KEY_TOTP_SECRET)
-            .apply()
+        prefs.edit {
+            remove(KEY_PIN_HASH)
+            remove(KEY_PIN_SALT)
+            remove(KEY_PWD_HASH)
+            remove(KEY_PWD_SALT)
+            remove(KEY_EMAIL)
+            remove(KEY_TOTP_SECRET)
+        }
     }
 
     // ─── Utilitaires cryptographiques ─────────────────────────────────────────

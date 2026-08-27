@@ -24,4 +24,10 @@ interface MonthlyVersementDao {
         ORDER BY year DESC, month DESC
     """)
     fun getForAccount(accountId: Long, accountType: String): Flow<List<MonthlyVersementEntity>>
+
+    @Query("""
+        SELECT * FROM monthly_versements
+        WHERE account_type = :accountType AND year = :year AND month = :month
+    """)
+    suspend fun getAllPourMois(accountType: String, year: Int, month: Int): List<MonthlyVersementEntity>
 }

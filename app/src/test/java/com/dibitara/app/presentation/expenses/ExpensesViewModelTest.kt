@@ -11,10 +11,13 @@ import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
+import com.dibitara.app.domain.usecase.GetTransactionByIdUseCase
 import com.dibitara.app.domain.usecase.GetTransactionSuggestionsUseCase
 import com.dibitara.app.domain.usecase.GetTransactionsByDateRangeUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
+import com.dibitara.app.domain.usecase.IdentifierVirementsInternesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
+import com.dibitara.app.domain.usecase.UpsertCategorizationRuleUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
 import androidx.lifecycle.SavedStateHandle
 import io.mockk.coEvery
@@ -48,6 +51,10 @@ class ExpensesViewModelTest {
     private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase  = mockk(relaxed = true)
     private val ucGetPreferences         : GetUserPreferencesUseCase       = mockk()
     private val ucGetSuggestions         : GetTransactionSuggestionsUseCase = mockk()
+    private val ucUpsertRule             : UpsertCategorizationRuleUseCase = mockk(relaxed = true)
+    private val ucGetTransactionById      : GetTransactionByIdUseCase      = mockk()
+    private val ucGetBankAccounts         : com.dibitara.app.domain.usecase.GetBankAccountsUseCase = mockk()
+    private val identifierVirementsInternes : IdentifierVirementsInternesUseCase = IdentifierVirementsInternesUseCase()
 
     private lateinit var viewModel: ExpensesViewModel
 
@@ -59,6 +66,7 @@ class ExpensesViewModelTest {
         every { ucGetCustomSubCategories() } returns flowOf(emptyList())
         every { ucGetPreferences() } returns flowOf(UserPreferences())
         every { ucGetSuggestions() } returns flowOf(emptyList())
+        every { ucGetBankAccounts() } returns flowOf(emptyList())
         viewModel = buildViewModel()
     }
 
@@ -70,7 +78,8 @@ class ExpensesViewModelTest {
             ucGetMonthlyTransactions, ucGetByDateRange, ucGetAll,
             ucAdd, ucUpdate, ucDelete,
             ucGetCustomSubCategories, ucUpsertCustomSubCategory, ucDeleteCustomSubCategory,
-            ucGetPreferences, ucGetSuggestions,
+            ucGetPreferences, ucGetSuggestions, ucUpsertRule, ucGetTransactionById,
+            ucGetBankAccounts, identifierVirementsInternes,
             savedState
         )
 
@@ -118,12 +127,12 @@ class ExpensesViewModelTest {
         val before = viewModel.selectedMonth.value
         val now = LocalDate.now()
 
-        // Premier avancement — doit atteindre le mois courant
+        // Premier avancement - doit atteindre le mois courant
         viewModel.nextMonth()
         assertEquals(now.monthValue, viewModel.selectedMonth.value)
         assertEquals(now.year, viewModel.selectedYear.value)
 
-        // Second avancement — bloqué au mois courant
+        // Second avancement - bloqué au mois courant
         viewModel.nextMonth()
         assertEquals(now.monthValue, viewModel.selectedMonth.value)
     }
@@ -153,8 +162,52 @@ class ExpensesViewModelTest {
         job.cancel()
     }
 
+    @Test
+    fun `transactionId dans les args de navigation résout transactionToOpen`() = runTest {
+        val transaction = buildTransaction(TransactionType.EXPENSE).copy(id = 42L)
+        coEvery { ucGetTransactionById(42L) } returns transaction
+
+        val savedState = SavedStateHandle(mapOf("transactionId" to "42"))
+        val vm = buildViewModel(savedState)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(transaction, vm.transactionToOpen.value)
+    }
+
+    @Test
+    fun `bankAccountId dans les args de navigation pré-remplit le filtre`() = runTest {
+        val savedState = SavedStateHandle(mapOf("bankAccountId" to "7"))
+        val vm = buildViewModel(savedState)
+
+        assertEquals(7L, vm.filter.value.bankAccountId)
+    }
+
     private fun buildTransaction(type: TransactionType) = Transaction(
         amountCents = 1000L, currency = Currency.EUR,
         category = Category.ALIMENTATION, type = type, date = LocalDate.now()
     )
+
+    @Test
+    fun `virementsInternesIds détecte une paire même si le filtre par défaut exclut la jambe INCOME`() = runTest {
+        val today = LocalDate.now()
+        val sortantBred = Transaction(
+            id = 1, amountCents = 50_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+            type = TransactionType.EXPENSE, date = today, importSource = "bred_csv"
+        )
+        val entrantTradeRepublic = Transaction(
+            id = 2, amountCents = 50_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+            type = TransactionType.INCOME, date = today, importSource = "trade_republic"
+        )
+        every { ucGetMonthlyTransactions(any(), any()) } returns flowOf(listOf(sortantBred, entrantTradeRepublic))
+        viewModel = buildViewModel()
+
+        val job = launch { viewModel.uiState.collect {} }
+        val state = viewModel.uiState.first { it is ExpensesUiState.Success } as ExpensesUiState.Success
+
+        // Le filtre par défaut (EXPENSE uniquement) ne garde que le sortant BRED dans expenses...
+        assertEquals(1, state.expenses.size)
+        // ...mais les deux ids doivent être appariés dans virementsInternesIds
+        assertEquals(setOf(1L, 2L), state.virementsInternesIds)
+        job.cancel()
+    }
 }

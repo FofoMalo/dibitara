@@ -14,7 +14,9 @@ data class RealEstateAssetEntity(
     val currentValueCents: Long,
     val currency: String,
     val updatedAtEpochDay: Long,
-    val debtId: Long? = null
+    val debtId: Long? = null,
+    val acquisitionValueCents: Long? = null,
+    val acquisitionDateEpochDay: Long? = null
 ) {
     fun toDomain() = RealEstateAsset(
         id = id,
@@ -22,7 +24,9 @@ data class RealEstateAssetEntity(
         currentValueCents = currentValueCents,
         currency = safeValueOf(currency, Currency.EUR),
         updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay),
-        debtId = debtId
+        debtId = debtId,
+        acquisitionValueCents = acquisitionValueCents,
+        acquisitionDate = acquisitionDateEpochDay?.let { LocalDate.ofEpochDay(it) }
     )
 
     companion object {
@@ -32,7 +36,9 @@ data class RealEstateAssetEntity(
             currentValueCents = r.currentValueCents,
             currency = r.currency.name,
             updatedAtEpochDay = r.updatedAt.toEpochDay(),
-            debtId = r.debtId
+            debtId = r.debtId,
+            acquisitionValueCents = r.acquisitionValueCents,
+            acquisitionDateEpochDay = r.acquisitionDate?.toEpochDay()
         )
     }
 }

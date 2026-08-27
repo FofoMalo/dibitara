@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -28,8 +29,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.PlafondDefaut
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
+import com.dibitara.app.presentation.common.HeroCard
+import com.dibitara.app.presentation.common.TrendChip
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @Composable
@@ -53,6 +57,8 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                 is SavingsEvent.Deleted           -> snackbarHostState.showSnackbar("Compte supprimé")
                 is SavingsEvent.ChildSaved        -> { showAddChild = false; snackbarHostState.showSnackbar("Enfant ajouté") }
                 is SavingsEvent.VersementApplique -> snackbarHostState.showSnackbar("Versement appliqué ✓")
+                is SavingsEvent.AvertissementPlafond ->
+                    snackbarHostState.showSnackbar("Versement appliqué - plafond dépassé sur « ${event.compteLabel} »")
                 is SavingsEvent.Error             -> snackbarHostState.showSnackbar(event.message)
             }
         }
@@ -87,7 +93,8 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                                 (state as SavingsUiState.Success).accounts,
                                 selectionnes
                             )
-                        }
+                        },
+                        getTrend = viewModel::tendancePourActif
                     )
             }
         }
@@ -98,8 +105,8 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
         AddSavingsSheet(
             children = children,
             defaultCurrency = defaultCurrency,
-            onSave = { type, label, balance, contribution, currency, childId ->
-                viewModel.saveAccount(type, label, balance, contribution, currency, childId)
+            onSave = { type, label, balance, contribution, currency, childId, plafond ->
+                viewModel.saveAccount(type, label, balance, contribution, currency, childId, plafond)
             },
             onDismiss = { showAddSheet = false }
         )
@@ -111,8 +118,8 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
         EditSavingsSheet(
             account = compte,
             children = children,
-            onSave = { type, label, balance, contribution, currency, childId ->
-                viewModel.updateAccount(compte, type, label, balance, contribution, currency, childId)
+            onSave = { type, label, balance, contribution, currency, childId, plafond ->
+                viewModel.updateAccount(compte, type, label, balance, contribution, currency, childId, plafond)
             },
             onDismiss = { accountToEdit = null }
         )
@@ -134,7 +141,8 @@ private fun SavingsContent(
     onAddChild: () -> Unit,
     onDeleteChild: (Child) -> Unit,
     onAppliquerVersement: (SavingsAccount) -> Unit,
-    onAssocierComptes: (Child, Set<Long>) -> Unit
+    onAssocierComptes: (Child, Set<Long>) -> Unit,
+    getTrend: suspend (Long) -> Float?
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -147,22 +155,36 @@ private fun SavingsContent(
 
         // Résumé global
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("Total épargne", style = MaterialTheme.typography.labelMedium)
-                        Text(state.totalEpargneCents.toCurrencyDisplay(state.summaryCurrency),
-                            style = MaterialTheme.typography.titleLarge)
+            HeroCard {
+                Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Total épargne", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(state.totalEpargneCents.toCurrencyDisplay(state.summaryCurrency),
+                                style = MaterialTheme.typography.titleLarge)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Versements/mois", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(state.totalMensuelCents.toCurrencyDisplay(state.summaryCurrency),
+                                style = MaterialTheme.typography.titleMedium)
+                        }
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Versements/mois", style = MaterialTheme.typography.labelMedium)
-                        Text(state.totalMensuelCents.toCurrencyDisplay(state.summaryCurrency),
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Versé ce mois-ci", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(state.totalVerseMoisCents.toCurrencyDisplay(state.summaryCurrency),
                             style = MaterialTheme.typography.titleMedium)
                     }
                 }
@@ -178,7 +200,8 @@ private fun SavingsContent(
                     childName = state.children.find { it.id == account.childId }?.name,
                     onEdit = { onEditAccount(account) },
                     onDelete = { onDeleteAccount(account) },
-                    onVersement = { onAppliquerVersement(account) }
+                    onVersement = { onAppliquerVersement(account) },
+                    getTrend = getTrend
                 )
             }
         }
@@ -224,10 +247,14 @@ private fun SavingsAccountCard(
     childName: String?,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onVersement: () -> Unit
+    onVersement: () -> Unit,
+    getTrend: suspend (Long) -> Float?
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var showVersementConfirm by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var trendPct by remember(account.id, account.updatedAt) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(account.id, account.updatedAt) { trendPct = getTrend(account.id) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -245,7 +272,7 @@ private fun SavingsAccountCard(
                             type       = account.type,
                             customName = if (account.type == SavingsType.AUTRE) account.label else null
                         )
-                        // Quand type == AUTRE, le label EST le nom du type — pas de doublon
+                        // Quand type == AUTRE, le label EST le nom du type - pas de doublon
                         if (account.type != SavingsType.AUTRE) {
                             Text(account.label, style = MaterialTheme.typography.bodyLarge)
                         }
@@ -254,10 +281,13 @@ private fun SavingsAccountCard(
                         Text("Pour $childName", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary)
                     }
-                    Text(
-                        "Solde : ${account.currentBalanceCents.toCurrencyDisplay(account.currency)}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Solde : ${account.currentBalanceCents.toCurrencyDisplay(account.currency)}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        if (trendPct != null) TrendChip(trendPct!!)
+                    }
                     if (account.monthlyContributionCents > 0) {
                         Text(
                             "+ ${account.monthlyContributionCents.toCurrencyDisplay(account.currency)}/mois",
@@ -266,14 +296,46 @@ private fun SavingsAccountCard(
                         )
                     }
                 }
-                // Crayon = modifier | Poubelle = supprimer
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Modifier")
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = { showConfirm = true }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Modifier") },
+                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary) },
+                            onClick = { showMenu = false; onEdit() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; showConfirm = true }
+                        )
                     }
+                }
+            }
+
+            // Barre de progression vers le plafond (visible uniquement si plafond configuré)
+            account.plafondCents?.let { plafond ->
+                if (plafond > 0) {
+                    val progression = (account.currentBalanceCents.toFloat() / plafond).coerceIn(0f, 1f)
+                    val couleur = if (progression >= 0.9f) MaterialTheme.colorScheme.error
+                                  else MaterialTheme.colorScheme.primary
+                    LinearProgressIndicator(
+                        progress = { progression },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = couleur,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    Text(
+                        "${(progression * 100).toInt()}% du plafond" +
+                            " • max ${plafond.toCurrencyDisplay(account.currency)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = couleur
+                    )
                 }
             }
 
@@ -374,7 +436,7 @@ private fun ChildCard(
             } else {
                 savingsAccounts.forEach { acc ->
                     Text(
-                        "• ${acc.type.displayName} — ${acc.currentBalanceCents.toCurrencyDisplay(acc.currency)}",
+                        "• ${acc.type.displayName} - ${acc.currentBalanceCents.toCurrencyDisplay(acc.currency)}",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -464,7 +526,7 @@ private fun AssocierComptesDialog(
 private fun AddSavingsSheet(
     children: List<Child>,
     defaultCurrency: Currency = Currency.EUR,
-    onSave: (SavingsType, String, String, String, Currency, Long?) -> Unit,
+    onSave: (SavingsType, String, String, String, Currency, Long?, String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var selectedType by remember { mutableStateOf(SavingsType.LIVRET_A) }
@@ -477,6 +539,14 @@ private fun AddSavingsSheet(
     var currencyExpanded by remember { mutableStateOf(false) }
     var childExpanded by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+
+    // Plafond : pré-rempli automatiquement depuis PlafondDefaut quand un type connu est sélectionné
+    var plafond by remember {
+        mutableStateOf(
+            PlafondDefaut.suggerer(SavingsType.LIVRET_A, defaultCurrency)
+                ?.let { "%.2f".format(it / 100.0) } ?: ""
+        )
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -502,10 +572,11 @@ private fun AddSavingsSheet(
                         DropdownMenuItem(text = { Text(type.displayName) },
                             onClick = {
                                 selectedType = type
-                                // AUTRE : vider le libellé pour forcer la saisie du nom personnalisé
-                                // Autres types : pré-remplir avec le displayName si le champ est vide
                                 if (type == SavingsType.AUTRE) label = ""
                                 else if (label.isEmpty()) label = type.displayName
+                                // Mise à jour automatique du plafond si un défaut est connu
+                                plafond = PlafondDefaut.suggerer(type, selectedCurrency)
+                                    ?.let { "%.2f".format(it / 100.0) } ?: ""
                                 typeExpanded = false
                             })
                     }
@@ -540,8 +611,8 @@ private fun AddSavingsSheet(
 
             OutlinedTextField(value = contribution, onValueChange = { contribution = it },
                 label = { Text("Versement mensuel (optionnel)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
@@ -554,10 +625,31 @@ private fun AddSavingsSheet(
                 ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
                     Currency.entries.forEach { c ->
                         DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") },
-                            onClick = { selectedCurrency = c; currencyExpanded = false })
+                            onClick = {
+                                selectedCurrency = c
+                                // Recalculer la suggestion de plafond avec la nouvelle devise
+                                plafond = PlafondDefaut.suggerer(selectedType, c)
+                                    ?.let { "%.2f".format(it / 100.0) } ?: ""
+                                currencyExpanded = false
+                            })
                     }
                 }
             }
+
+            OutlinedTextField(
+                value = plafond,
+                onValueChange = { plafond = it },
+                label = { Text("Plafond (optionnel)") },
+                supportingText = {
+                    val suggestion = PlafondDefaut.suggerer(selectedType, selectedCurrency)
+                    if (suggestion != null)
+                        Text("Plafond légal : ${"%.2f".format(suggestion / 100.0)} ${selectedCurrency.symbol}")
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             if (children.isNotEmpty()) {
                 ExposedDropdownMenuBox(expanded = childExpanded, onExpandedChange = { childExpanded = it }) {
@@ -579,7 +671,7 @@ private fun AddSavingsSheet(
             }
 
             Button(
-                onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id) },
+                onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id, plafond) },
                 enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter le compte") }
@@ -592,7 +684,7 @@ private fun AddSavingsSheet(
 private fun EditSavingsSheet(
     account: SavingsAccount,
     children: List<Child>,
-    onSave: (SavingsType, String, String, String, Currency, Long?) -> Unit,
+    onSave: (SavingsType, String, String, String, Currency, Long?, String) -> Unit,
     onDismiss: () -> Unit
 ) {
     // Pré-remplissage avec les valeurs actuelles du compte
@@ -610,6 +702,14 @@ private fun EditSavingsSheet(
     var currencyExpanded by remember { mutableStateOf(false) }
     var childExpanded by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    // Pré-remplir le plafond existant ; sinon suggérer le plafond légal connu
+    var plafond by remember {
+        mutableStateOf(
+            account.plafondCents?.let { "%.2f".format(it / 100.0) }
+                ?: PlafondDefaut.suggerer(account.type, account.currency)?.let { "%.2f".format(it / 100.0) }
+                ?: ""
+        )
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -636,6 +736,8 @@ private fun EditSavingsSheet(
                             onClick = {
                                 if (type == SavingsType.AUTRE && selectedType != SavingsType.AUTRE) label = ""
                                 selectedType = type
+                                plafond = PlafondDefaut.suggerer(type, selectedCurrency)
+                                    ?.let { "%.2f".format(it / 100.0) } ?: ""
                                 typeExpanded = false
                             })
                     }
@@ -669,8 +771,8 @@ private fun EditSavingsSheet(
 
             OutlinedTextField(value = contribution, onValueChange = { contribution = it },
                 label = { Text("Versement mensuel (optionnel)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
@@ -683,10 +785,30 @@ private fun EditSavingsSheet(
                 ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
                     Currency.entries.forEach { c ->
                         DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") },
-                            onClick = { selectedCurrency = c; currencyExpanded = false })
+                            onClick = {
+                                selectedCurrency = c
+                                plafond = PlafondDefaut.suggerer(selectedType, c)
+                                    ?.let { "%.2f".format(it / 100.0) } ?: ""
+                                currencyExpanded = false
+                            })
                     }
                 }
             }
+
+            OutlinedTextField(
+                value = plafond,
+                onValueChange = { plafond = it },
+                label = { Text("Plafond (optionnel)") },
+                supportingText = {
+                    val suggestion = PlafondDefaut.suggerer(selectedType, selectedCurrency)
+                    if (suggestion != null)
+                        Text("Plafond légal : ${"%.2f".format(suggestion / 100.0)} ${selectedCurrency.symbol}")
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             if (children.isNotEmpty()) {
                 ExposedDropdownMenuBox(expanded = childExpanded, onExpandedChange = { childExpanded = it }) {
@@ -708,7 +830,7 @@ private fun EditSavingsSheet(
             }
 
             Button(
-                onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id) },
+                onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id, plafond) },
                 enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }

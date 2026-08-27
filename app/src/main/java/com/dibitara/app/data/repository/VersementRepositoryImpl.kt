@@ -22,4 +22,7 @@ class VersementRepositoryImpl @Inject constructor(
 
     override fun getForAccount(accountId: Long, type: CompteType): Flow<List<MonthlyVersement>> =
         dao.getForAccount(accountId, type.name).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun getAllPourMois(type: CompteType, year: Int, month: Int): List<MonthlyVersement> =
+        dao.getAllPourMois(type.name, year, month).map { it.toDomain() }
 }

@@ -2,6 +2,7 @@ package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.CategoryExpense
+import com.dibitara.app.domain.model.CategoryVariation
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CurrencyConverter
 import com.dibitara.app.domain.model.MonthlyReport
@@ -24,11 +25,12 @@ import javax.inject.Inject
  * si l'une des sources est modifiée.
  */
 class GetMonthlyReportUseCase @Inject constructor(
-    private val getMonthlyTransactions   : GetMonthlyTransactionsUseCase,
-    private val getMonthlyBudget         : GetMonthlyBudgetUseCase,
-    private val getCustomSubCategories   : GetCustomSubCategoriesUseCase,
-    private val userPreferencesRepository: UserPreferencesRepository,
-    private val exchangeRateRepository   : ExchangeRateRepository
+    private val getMonthlyTransactions      : GetMonthlyTransactionsUseCase,
+    private val getMonthlyBudget            : GetMonthlyBudgetUseCase,
+    private val getCustomSubCategories      : GetCustomSubCategoriesUseCase,
+    private val userPreferencesRepository   : UserPreferencesRepository,
+    private val exchangeRateRepository      : ExchangeRateRepository,
+    private val identifierVirementsInternes : IdentifierVirementsInternesUseCase
 ) {
     operator fun invoke(month: Int, year: Int): Flow<MonthlyReport> {
         val datePrecedente = LocalDate.of(year, month, 1).minusMonths(1)
@@ -45,7 +47,14 @@ class GetMonthlyReportUseCase @Inject constructor(
             getMonthlyBudget(month, year),
             getCustomSubCategories(),
             conversionFlow
-        ) { current, previous, budget, customSubCats, (targetCurrency, rates) ->
+        ) { currentBrut, previousBrut, budget, customSubCats, (targetCurrency, rates) ->
+
+            // Exclut les virements internes BRED↔TradeRepublic appariés : un déplacement entre
+            // comptes suivis n'est ni un revenu ni une dépense réelle (voir IdentifierVirementsInternesUseCase).
+            val idsExclusCurrent  = identifierVirementsInternes(currentBrut)
+            val idsExclusPrevious = identifierVirementsInternes(previousBrut)
+            val current  = currentBrut.filterNot { it.id in idsExclusCurrent }
+            val previous = previousBrut.filterNot { it.id in idsExclusPrevious }
 
             fun Long.cvt(from: Currency) =
                 CurrencyConverter.convertCents(this, from, targetCurrency, rates)
@@ -79,13 +88,46 @@ class GetMonthlyReportUseCase @Inject constructor(
                         else -> firstTx.category.displayName
                     }
                     CategoryExpense(
-                        category     = firstTx.category,
-                        totalCents   = total,
-                        pourcentage  = if (depenses > 0) total.toFloat() / depenses * 100f else 0f,
-                        displayLabel = label
+                        category           = firstTx.category,
+                        totalCents         = total,
+                        pourcentage        = if (depenses > 0) total.toFloat() / depenses * 100f else 0f,
+                        displayLabel       = label,
+                        nombreTransactions = transactions.size
                     )
                 }
                 .sortedByDescending { it.totalCents }
+                .take(5)
+
+            // Taux d'épargne = (revenus - dépenses) * 100 / revenus (null si aucun revenu)
+            val tauxEpargnePct = if (revenus > 0)
+                ((revenus - depenses) * 100 / revenus).toInt()
+            else null
+
+            // Dépenses du mois courant par catégorie (clé = nom de catégorie)
+            val depensesCourantesParCat = current
+                .filter { it.type == TransactionType.EXPENSE }
+                .groupBy { it.category }
+                .mapValues { (_, txs) -> txs.sumOf { it.amountCents.cvt(it.currency) } }
+
+            // Dépenses du mois précédent par catégorie
+            val depensesPrecedentesParCat = previous
+                .filter { it.type == TransactionType.EXPENSE }
+                .groupBy { it.category }
+                .mapValues { (_, txs) -> txs.sumOf { it.amountCents.cvt(it.currency) } }
+
+            // Variation par catégorie - top 5 par variation absolue, catégories du mois courant uniquement
+            val variationParCategorie = depensesCourantesParCat
+                .map { (cat, currentCents) ->
+                    val previousCents = depensesPrecedentesParCat[cat] ?: 0L
+                    CategoryVariation(
+                        category      = cat,
+                        displayLabel  = cat.displayName,
+                        currentCents  = currentCents,
+                        variationCents = currentCents - previousCents
+                    )
+                }
+                .filter { it.variationCents != 0L }
+                .sortedByDescending { kotlin.math.abs(it.variationCents) }
                 .take(5)
 
             MonthlyReport(
@@ -97,7 +139,9 @@ class GetMonthlyReportUseCase @Inject constructor(
                 soldeCents              = revenus - depenses,
                 budget                  = budget,
                 topCategories           = topCategories,
-                variationDepensesCents  = depenses - depensesPrecedent
+                variationDepensesCents  = depenses - depensesPrecedent,
+                tauxEpargnePct          = tauxEpargnePct,
+                variationParCategorie   = variationParCategorie
             )
         }
     }

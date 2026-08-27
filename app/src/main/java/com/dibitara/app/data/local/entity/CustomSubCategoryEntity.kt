@@ -8,7 +8,7 @@ import com.dibitara.app.domain.model.CustomSubCategory
 /**
  * Ligne Room pour une sous-catégorie personnalisée.
  * [parentCategory] est stocké en String (nom de l'enum [Category])
- * — même convention que TransactionEntity.category.
+ * - même convention que TransactionEntity.category.
  */
 @Entity(tableName = "custom_sub_categories")
 data class CustomSubCategoryEntity(

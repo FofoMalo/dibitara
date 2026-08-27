@@ -1,6 +1,7 @@
 package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.repository.UserPreferencesRepository
 import io.mockk.coVerify
@@ -48,6 +49,15 @@ class UserPreferencesUseCasesTest {
         coVerify { repository.updateSeuil(120_000L) }
     }
 
+    // ─── UpdateSeuilResteAVivreLogementUseCase ────────────────────────────────
+
+    @Test
+    fun `UpdateSeuilResteAVivreLogement délègue la mise à jour au repository`() = runTest {
+        UpdateSeuilResteAVivreLogementUseCase(repository)(40_000L)
+
+        coVerify { repository.updateSeuilResteAVivreLogement(40_000L) }
+    }
+
     // ─── UpdateDeviseParDefautUseCase ─────────────────────────────────────────
 
     @Test
@@ -64,5 +74,14 @@ class UserPreferencesUseCasesTest {
         UpdateAfficherProchainsPaiementsUseCase(repository)(false)
 
         coVerify { repository.updateAfficherProchainsPaiements(false) }
+    }
+
+    // ─── UpdateThemeModeUseCase ────────────────────────────────────────────────
+
+    @Test
+    fun `UpdateThemeMode délègue la mise à jour au repository`() = runTest {
+        UpdateThemeModeUseCase(repository)(ThemeMode.SOMBRE)
+
+        coVerify { repository.updateThemeMode(ThemeMode.SOMBRE) }
     }
 }

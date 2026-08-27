@@ -1,78 +1,90 @@
 package com.dibitara.app.domain.usecase
 
-import com.dibitara.app.domain.model.Category
+import com.dibitara.app.domain.model.BankAccount
+import com.dibitara.app.domain.model.BankProvider
 import com.dibitara.app.domain.model.Currency
-import com.dibitara.app.domain.model.Transaction
-import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.model.ExchangeRates
+import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.repository.BankAccountRepository
+import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.repository.UserPreferencesRepository
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class CheckAvailableFundsUseCaseTest {
 
-    private val getMonthlyTransactions: GetMonthlyTransactionsUseCase = mockk()
-    private val useCase = CheckAvailableFundsUseCase(getMonthlyTransactions)
+    private val bankAccountRepo : BankAccountRepository     = mockk()
+    private val prefsRepo       : UserPreferencesRepository = mockk()
+    private val exchangeRateRepo: ExchangeRateRepository    = mockk()
 
-    private val today = LocalDate.of(2026, 5, 15)
+    private val useCase = CheckAvailableFundsUseCase(bankAccountRepo, prefsRepo, exchangeRateRepo)
 
-    private fun buildTransaction(type: TransactionType, amountCents: Long) = Transaction(
-        amountCents = amountCents,
-        currency = Currency.EUR,
-        category = Category.ALIMENTATION,
-        type = type,
-        date = today
-    )
+    private val rates = ExchangeRates(usdParEur = 1.09, xofParEur = 655.957, horodatage = 0L)
+
+    @BeforeEach
+    fun setUp() {
+        every { prefsRepo.get() }             returns flowOf(UserPreferences())
+        every { exchangeRateRepo.getRatesFlow() } returns flowOf(rates)
+    }
+
+    private fun buildBankAccount(provider: BankProvider = BankProvider.BRED, balanceCents: Long, currency: Currency = Currency.EUR) =
+        BankAccount(
+            provider            = provider,
+            label               = provider.displayName,
+            currentBalanceCents = balanceCents,
+            currency            = currency,
+            updatedAt           = LocalDate.of(2026, 8, 1)
+        )
 
     @Test
-    fun `retourne revenus moins dépenses du mois`() = runTest {
-        val transactions = listOf(
-            buildTransaction(TransactionType.INCOME,  300_000L),
-            buildTransaction(TransactionType.EXPENSE, 120_000L),
-            buildTransaction(TransactionType.EXPENSE,  30_000L)
-        )
-        every { getMonthlyTransactions(5, 2026) } returns flowOf(transactions)
+    fun `retourne la somme des soldes des comptes bancaires`() = runTest {
+        every { bankAccountRepo.getAll() } returns flowOf(listOf(
+            buildBankAccount(balanceCents = 150_000L),
+            buildBankAccount(balanceCents = 30_000L)
+        ))
 
-        val solde = useCase(today)
+        val solde = useCase()
 
-        assertEquals(150_000L, solde) // 300 000 - 120 000 - 30 000
+        assertEquals(180_000L, solde)
     }
 
     @Test
-    fun `retourne 0 quand aucune transaction ce mois`() = runTest {
-        every { getMonthlyTransactions(5, 2026) } returns flowOf(emptyList())
+    fun `retourne 0 sans compte bancaire suivi`() = runTest {
+        every { bankAccountRepo.getAll() } returns flowOf(emptyList())
 
-        val solde = useCase(today)
+        val solde = useCase()
 
         assertEquals(0L, solde)
     }
 
     @Test
-    fun `les investissements ne sont pas comptés dans le solde`() = runTest {
-        val transactions = listOf(
-            buildTransaction(TransactionType.INCOME,      200_000L),
-            buildTransaction(TransactionType.INVESTMENT,  50_000L) // ne doit pas affecter le solde
-        )
-        every { getMonthlyTransactions(5, 2026) } returns flowOf(transactions)
+    fun `exclut le compte pro Qonto`() = runTest {
+        every { bankAccountRepo.getAll() } returns flowOf(listOf(
+            buildBankAccount(provider = BankProvider.BRED,  balanceCents = 150_000L),
+            buildBankAccount(provider = BankProvider.QONTO, balanceCents = 999_000L)
+        ))
 
-        val solde = useCase(today)
+        val solde = useCase()
 
-        assertEquals(200_000L, solde)
+        assertEquals(150_000L, solde)
     }
 
     @Test
-    fun `solde négatif quand dépenses supérieures aux revenus`() = runTest {
-        val transactions = listOf(
-            buildTransaction(TransactionType.INCOME,   50_000L),
-            buildTransaction(TransactionType.EXPENSE, 120_000L)
-        )
-        every { getMonthlyTransactions(5, 2026) } returns flowOf(transactions)
+    fun `convertit les soldes dans la devise par défaut`() = runTest {
+        every { prefsRepo.get() } returns flowOf(UserPreferences(deviseParDefaut = Currency.XOF))
+        every { bankAccountRepo.getAll() } returns flowOf(listOf(
+            buildBankAccount(balanceCents = 1_000L, currency = Currency.EUR)
+        ))
 
-        val solde = useCase(today)
+        val solde = useCase()
 
-        assertEquals(-70_000L, solde)
+        // 1 000 centimes EUR (10€) * 655.957 = 655 957 centimes XOF
+        assertEquals(655_957L, solde)
     }
 }

@@ -2,6 +2,8 @@ package com.dibitara.app.presentation.expenses
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlin.math.roundToLong
+import com.dibitara.app.domain.model.BankAccount
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
@@ -14,12 +16,16 @@ import com.dibitara.app.domain.usecase.AddTransactionUseCase
 import com.dibitara.app.domain.usecase.DeleteCustomSubCategoryUseCase
 import com.dibitara.app.domain.usecase.DeleteTransactionUseCase
 import com.dibitara.app.domain.usecase.GetAllTransactionsUseCase
+import com.dibitara.app.domain.usecase.GetBankAccountsUseCase
 import com.dibitara.app.domain.usecase.GetCustomSubCategoriesUseCase
+import com.dibitara.app.domain.usecase.IdentifierVirementsInternesUseCase
 import com.dibitara.app.domain.usecase.GetMonthlyTransactionsUseCase
+import com.dibitara.app.domain.usecase.GetTransactionByIdUseCase
 import com.dibitara.app.domain.usecase.GetTransactionSuggestionsUseCase
 import com.dibitara.app.domain.usecase.GetTransactionsByDateRangeUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.UpdateTransactionUseCase
+import com.dibitara.app.domain.usecase.UpsertCategorizationRuleUseCase
 import com.dibitara.app.domain.usecase.UpsertCustomSubCategoryUseCase
 import androidx.lifecycle.SavedStateHandle
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,6 +49,10 @@ class ExpensesViewModel @Inject constructor(
     private val ucDeleteCustomSubCategory: DeleteCustomSubCategoryUseCase,
     private val ucGetPreferences         : GetUserPreferencesUseCase,
     private val ucGetSuggestions         : GetTransactionSuggestionsUseCase,
+    private val ucUpsertRule             : UpsertCategorizationRuleUseCase,
+    private val ucGetTransactionById     : GetTransactionByIdUseCase,
+    private val ucGetBankAccounts        : GetBankAccountsUseCase,
+    private val identifierVirementsInternes : IdentifierVirementsInternesUseCase,
     savedStateHandle                     : SavedStateHandle
 ) : ViewModel() {
 
@@ -50,15 +60,22 @@ class ExpensesViewModel @Inject constructor(
         .map { it.deviseParDefaut }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.EUR)
 
-    // Suggestions de saisie rapide — issues des 30 derniers jours, fréquence ≥ 2
+    val bankAccounts: StateFlow<List<BankAccount>> = ucGetBankAccounts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Suggestions de saisie rapide - issues des 30 derniers jours, fréquence ≥ 2
     val suggestions: StateFlow<List<TransactionSuggestion>> = ucGetSuggestions()
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    // Mois actuellement affiché en mode "Ce mois" — navigable avec previousMonth()/nextMonth()
+    // Mois initial : depuis les args de navigation si on arrive de BudgetScreen, sinon mois courant
     private val now = LocalDate.now()
-    private val _selectedMonth = MutableStateFlow(now.monthValue)
-    private val _selectedYear  = MutableStateFlow(now.year)
+    private val _selectedMonth = MutableStateFlow(
+        savedStateHandle.get<String>("month")?.toIntOrNull() ?: now.monthValue
+    )
+    private val _selectedYear  = MutableStateFlow(
+        savedStateHandle.get<String>("year")?.toIntOrNull() ?: now.year
+    )
 
     val selectedMonth: StateFlow<Int> = _selectedMonth.asStateFlow()
     val selectedYear:  StateFlow<Int> = _selectedYear.asStateFlow()
@@ -70,10 +87,25 @@ class ExpensesViewModel @Inject constructor(
                 ?.let { runCatching { Category.valueOf(it) }.getOrNull() },
             transactionType = savedStateHandle.get<String>("type")
                 ?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
-                ?: TransactionType.EXPENSE
+                ?: TransactionType.EXPENSE,
+            bankAccountId = savedStateHandle.get<String>("bankAccountId")?.toLongOrNull()
         )
     )
     val filter: StateFlow<ExpensesFilter> = _filter.asStateFlow()
+
+    // Transaction à ouvrir automatiquement si on arrive depuis un lien (ex. "Prochains paiements" du Dashboard)
+    private val _transactionToOpen = MutableStateFlow<Transaction?>(null)
+    val transactionToOpen: StateFlow<Transaction?> = _transactionToOpen.asStateFlow()
+
+    init {
+        savedStateHandle.get<String>("transactionId")?.toLongOrNull()?.let { id ->
+            viewModelScope.launch { _transactionToOpen.value = ucGetTransactionById(id) }
+        }
+    }
+
+    fun clearTransactionToOpen() {
+        _transactionToOpen.value = null
+    }
 
     /**
      * L'UI observe ce flow pour afficher la liste.
@@ -81,7 +113,7 @@ class ExpensesViewModel @Inject constructor(
      * Le filtre de date est poussé au niveau SQL selon la [FilterPeriod] :
      * - CURRENT_MONTH → [GetMonthlyTransactionsUseCase] sur le mois sélectionné
      * - THREE_MONTHS / SIX_MONTHS → [GetTransactionsByDateRangeUseCase]
-     * - ALL → [GetAllTransactionsUseCase] (chargement complet — à utiliser avec parcimonie)
+     * - ALL → [GetAllTransactionsUseCase] (chargement complet - à utiliser avec parcimonie)
      *
      * Les critères restants (catégorie, type, recherche, tri) sont appliqués en mémoire
      * sur le sous-ensemble déjà filtré par la base de données.
@@ -104,9 +136,13 @@ class ExpensesViewModel @Inject constructor(
             FilterPeriod.ALL           -> ucGetAll()
         }
         combine(transactionsFlow, ucGetCustomSubCategories()) { transactions, customSubCats ->
+            // Calculé sur la liste brute, avant filter.apply() : le filtre par défaut ne montre
+            // que les EXPENSE, ce qui exclurait la moitié de chaque paire (le côté TradeRepublic
+            // est un INCOME) et empêcherait l'appariement.
             ExpensesUiState.Success(
-                expenses            = filter.apply(transactions),
-                customSubCategories = customSubCats
+                expenses             = filter.apply(transactions),
+                customSubCategories  = customSubCats,
+                virementsInternesIds = identifierVirementsInternes(transactions)
             ) as ExpensesUiState
         }
     }
@@ -130,7 +166,7 @@ class ExpensesViewModel @Inject constructor(
         _filter.value = filter
     }
 
-    // Navigation mensuelle — uniquement pertinente quand period == CURRENT_MONTH
+    // Navigation mensuelle - uniquement pertinente quand period == CURRENT_MONTH
     fun previousMonth() {
         val current = LocalDate.of(_selectedYear.value, _selectedMonth.value, 1).minusMonths(1)
         _selectedMonth.value = current.monthValue
@@ -162,7 +198,7 @@ class ExpensesViewModel @Inject constructor(
         recurrenceFrequency: RecurrenceFrequency? = null,
         endDate: LocalDate? = null
     ) {
-        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
             return
         }
@@ -185,7 +221,10 @@ class ExpensesViewModel @Inject constructor(
                     endDate = endDate
                 )
             )
-                .onSuccess { _event.emit(ExpensesEvent.Saved) }
+                .onSuccess {
+                    ucUpsertRule(note, type, category, subCategory, customSubCategoryId)
+                    _event.emit(ExpensesEvent.Saved)
+                }
                 .onFailure { _event.emit(ExpensesEvent.Error(it.message ?: "Erreur")) }
         }
     }
@@ -206,7 +245,7 @@ class ExpensesViewModel @Inject constructor(
         recurrenceFrequency: RecurrenceFrequency? = null,
         endDate: LocalDate? = null
     ) {
-        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).toLong() } ?: run {
+        val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
             return
         }
@@ -229,8 +268,29 @@ class ExpensesViewModel @Inject constructor(
                     endDate = endDate
                 )
             )
-                .onSuccess { _event.emit(ExpensesEvent.Saved) }
+                .onSuccess {
+                    ucUpsertRule(note, type, category, subCategory, customSubCategoryId)
+                    _event.emit(ExpensesEvent.Saved)
+                    // Si la catégorie a changé et la note est identifiable, proposer de tout recatégoriser
+                    if (category != original.category && note.isNotBlank()) {
+                        val autres = ucGetAll().first()
+                            .filter { it.id != original.id && it.note.trim() == note.trim() && it.category != category }
+                        if (autres.isNotEmpty()) {
+                            _event.emit(ExpensesEvent.RecategorizationProposee(autres.size, note, category))
+                        }
+                    }
+                }
                 .onFailure { _event.emit(ExpensesEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    /** Applique [newCategory] à toutes les transactions ayant exactement la même note. */
+    fun recategoriserParNote(note: String, newCategory: Category) {
+        viewModelScope.launch {
+            val aModifier = ucGetAll().first()
+                .filter { it.note.trim() == note.trim() && it.category != newCategory }
+            aModifier.forEach { ucUpdate(it.copy(category = newCategory)) }
+            _event.emit(ExpensesEvent.RecategorizationTerminee(aModifier.size))
         }
     }
 
@@ -269,16 +329,27 @@ class ExpensesViewModel @Inject constructor(
  * [apply] ne filtre que la catégorie, le type, la recherche textuelle et le tri.
  */
 data class ExpensesFilter(
-    val query           : String              = "",
-    val category        : Category?           = null,
-    val period          : FilterPeriod        = FilterPeriod.CURRENT_MONTH,
-    val transactionType : TransactionType?    = TransactionType.EXPENSE,
-    val sort            : SortOrder           = SortOrder.DATE_DESC
+    val query             : String              = "",
+    val category          : Category?           = null,
+    val period            : FilterPeriod        = FilterPeriod.CURRENT_MONTH,
+    val transactionType   : TransactionType?    = TransactionType.EXPENSE,
+    val sort              : SortOrder           = SortOrder.DATE_DESC,
+    val bankAccountId     : Long?                = null,
+    // Chip rapide "À catégoriser" : ne garde que les dépenses AUTRE sans sous-catégorie.
+    // Distinct de `category` car category == AUTRE seul inclut aussi les dépenses déjà
+    // affectées à une sous-catégorie (ex. BAR_ET_RESTAURANT) - donc déjà catégorisées.
+    val uncategorizedOnly : Boolean              = false
 ) {
     fun apply(transactions: List<Transaction>): List<Transaction> =
         transactions
             .filter { transactionType == null || it.type == transactionType }
             .filter { category == null || it.category == category }
+            .filter {
+                !uncategorizedOnly ||
+                    (it.category == Category.AUTRE && it.type == TransactionType.EXPENSE &&
+                        it.subCategory == null && it.customSubCategoryId == null)
+            }
+            .filter { bankAccountId == null || it.bankAccountId == bankAccountId }
             .filter { query.isBlank() || it.note.contains(query, ignoreCase = true) }
             .let { list ->
                 when (sort) {
@@ -305,8 +376,9 @@ enum class SortOrder(val label: String) {
 sealed class ExpensesUiState {
     data object Loading : ExpensesUiState()
     data class Success(
-        val expenses            : List<Transaction>,
-        val customSubCategories : List<CustomSubCategory> = emptyList()
+        val expenses             : List<Transaction>,
+        val customSubCategories  : List<CustomSubCategory> = emptyList(),
+        val virementsInternesIds : Set<Long>                = emptySet()
     ) : ExpensesUiState()
     data class Error(val message: String) : ExpensesUiState()
 }
@@ -315,4 +387,12 @@ sealed class ExpensesEvent {
     data object Saved   : ExpensesEvent()
     data object Deleted : ExpensesEvent()
     data class Error(val message: String) : ExpensesEvent()
+    /** Émis après updateExpense quand d'autres transactions partagent la même note. */
+    data class RecategorizationProposee(
+        val count      : Int,
+        val note       : String,
+        val newCategory: Category
+    ) : ExpensesEvent()
+    /** Émis après recategoriserParNote pour afficher un snackbar de confirmation. */
+    data class RecategorizationTerminee(val count: Int) : ExpensesEvent()
 }

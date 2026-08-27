@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.expenses
 
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import org.junit.jupiter.api.Assertions.*
@@ -19,18 +20,22 @@ class ExpensesFilterTest {
     private val today = LocalDate.of(2026, 5, 9)
 
     private fun buildExpense(
-        note        : String           = "",
-        category    : Category         = Category.ALIMENTATION,
-        date        : LocalDate        = today,
-        amountCents : Long             = 1000L,
-        type        : TransactionType  = TransactionType.EXPENSE
+        note                : String           = "",
+        category            : Category         = Category.ALIMENTATION,
+        date                : LocalDate        = today,
+        amountCents         : Long             = 1000L,
+        type                : TransactionType  = TransactionType.EXPENSE,
+        bankAccountId       : Long?             = null,
+        subCategory         : SubCategory?      = null,
+        customSubCategoryId : Long?             = null
     ) = Transaction(
         id = 0, amountCents = amountCents, currency = Currency.EUR,
-        category = category, type = type, date = date, note = note
+        category = category, type = type, date = date, note = note, bankAccountId = bankAccountId,
+        subCategory = subCategory, customSubCategoryId = customSubCategoryId
     )
 
     @Test
-    fun `filtre par note — retourne uniquement les correspondances`() {
+    fun `filtre par note - retourne uniquement les correspondances`() {
         val list = listOf(buildExpense(note = "Courses Lidl"), buildExpense(note = "Loyer"))
         val result = ExpensesFilter(query = "courses").apply(list)
         assertEquals(1, result.size)
@@ -45,7 +50,7 @@ class ExpensesFilterTest {
     }
 
     @Test
-    fun `filtre par catégorie — retourne uniquement la catégorie sélectionnée`() {
+    fun `filtre par catégorie - retourne uniquement la catégorie sélectionnée`() {
         val list = listOf(
             buildExpense(category = Category.ALIMENTATION),
             buildExpense(category = Category.LOGEMENT)
@@ -87,6 +92,25 @@ class ExpensesFilterTest {
     }
 
     @Test
+    fun `filtre par compte bancaire - retourne uniquement les transactions du compte`() {
+        val list = listOf(
+            buildExpense(bankAccountId = 1L),
+            buildExpense(bankAccountId = 2L),
+            buildExpense(bankAccountId = null)
+        )
+        val result = ExpensesFilter(bankAccountId = 1L).apply(list)
+        assertEquals(1, result.size)
+        assertEquals(1L, result.first().bankAccountId)
+    }
+
+    @Test
+    fun `filtre compte bancaire null retourne toutes les transactions`() {
+        val list = listOf(buildExpense(bankAccountId = 1L), buildExpense(bankAccountId = null))
+        val result = ExpensesFilter(bankAccountId = null).apply(list)
+        assertEquals(2, result.size)
+    }
+
+    @Test
     fun `tri par montant décroissant`() {
         val list = listOf(
             buildExpense(amountCents = 500L),
@@ -107,6 +131,37 @@ class ExpensesFilterTest {
         )
         val result = ExpensesFilter(sort = SortOrder.DATE_DESC).apply(list)
         assertEquals(today, result.first().date)
+    }
+
+    @Test
+    fun `uncategorizedOnly exclut les AUTRE déjà affectées à une sous-catégorie`() {
+        val list = listOf(
+            buildExpense(note = "Sans sous-catégorie", category = Category.AUTRE),
+            buildExpense(
+                note = "Déjà catégorisée en sous-catégorie",
+                category = Category.AUTRE,
+                subCategory = SubCategory.BAR_ET_RESTAURANT
+            ),
+            buildExpense(
+                note = "Déjà catégorisée en custom",
+                category = Category.AUTRE,
+                customSubCategoryId = 3L
+            ),
+            buildExpense(note = "Autre catégorie", category = Category.ALIMENTATION)
+        )
+        val result = ExpensesFilter(uncategorizedOnly = true).apply(list)
+        assertEquals(1, result.size)
+        assertEquals("Sans sous-catégorie", result.first().note)
+    }
+
+    @Test
+    fun `uncategorizedOnly false ne filtre rien de plus`() {
+        val list = listOf(
+            buildExpense(category = Category.AUTRE, subCategory = SubCategory.BAR_ET_RESTAURANT),
+            buildExpense(category = Category.AUTRE)
+        )
+        val result = ExpensesFilter(uncategorizedOnly = false).apply(list)
+        assertEquals(2, result.size)
     }
 
     @Test

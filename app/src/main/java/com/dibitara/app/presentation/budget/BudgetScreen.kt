@@ -15,10 +15,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -27,10 +30,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.filled.Add
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Category
+import com.dibitara.app.domain.model.CategoryEnvelope
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.EnveloppeStatus
 import com.dibitara.app.presentation.common.DonutAvecLegende
+import com.dibitara.app.presentation.common.HeroCard
+import com.dibitara.app.presentation.common.chartColor
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.Transaction
@@ -41,13 +49,20 @@ import java.util.Locale
 
 @Composable
 fun BudgetScreen(
-    // category et type sont les noms d'enum (String) pour traverser la couche navigation sans import
-    onNavigateToExpenses: (category: String?, type: String?) -> Unit = { _, _ -> },
+    // category, type, month, year sont passés en String/Int pour traverser la couche navigation sans import
+    onNavigateToExpenses        : (category: String?, type: String?, month: Int, year: Int) -> Unit = { _, _, _, _ -> },
+    onNavigateToTrends          : () -> Unit = {},
+    onNavigateToRecommandations : () -> Unit = {},
+    afficherRecommandations     : Boolean = false,
     viewModel: BudgetViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showEditDialog   by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog        by remember { mutableStateOf(false) }
+    var showDeleteDialog      by remember { mutableStateOf(false) }
+    // null = création d'une nouvelle enveloppe ; non-null = édition d'une enveloppe existante
+    var enveloppeEnEdition    by remember { mutableStateOf<EnveloppeStatus?>(null) }
+    var showEnveloppeDialog   by remember { mutableStateOf(false) }
+    var enveloppeASupprimer   by remember { mutableStateOf<CategoryEnvelope?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -65,12 +80,26 @@ fun BudgetScreen(
                         modifier = Modifier.align(Alignment.Center))
                 is BudgetUiState.Success ->
                     BudgetContent(
-                        state                = state,
-                        onPreviousMonth      = viewModel::previousMonth,
-                        onNextMonth          = viewModel::nextMonth,
-                        onEditBudget         = { showEditDialog = true },
-                        onDeleteBudget       = { showDeleteDialog = true },
-                        onNavigateToExpenses = onNavigateToExpenses
+                        state                       = state,
+                        onPreviousMonth             = viewModel::previousMonth,
+                        onNextMonth                 = viewModel::nextMonth,
+                        onEditBudget                = { showEditDialog = true },
+                        onDeleteBudget              = { showDeleteDialog = true },
+                        onNavigateToExpenses        = onNavigateToExpenses,
+                        onNavigateToTrends          = onNavigateToTrends,
+                        onNavigateToRecommandations = onNavigateToRecommandations,
+                        afficherRecommandations     = afficherRecommandations,
+                        onAjouterEnveloppe          = {
+                            enveloppeEnEdition  = null
+                            showEnveloppeDialog = true
+                        },
+                        onEditerEnveloppe    = { statut ->
+                            enveloppeEnEdition  = statut
+                            showEnveloppeDialog = true
+                        },
+                        onSupprimerEnveloppe = { envelope ->
+                            enveloppeASupprimer = envelope
+                        }
                     )
             }
         }
@@ -108,16 +137,61 @@ fun BudgetScreen(
             }
         )
     }
+
+    if (showEnveloppeDialog) {
+        val currency = (uiState as? BudgetUiState.Success)?.currency ?: Currency.EUR
+        SetEnveloppeDialog(
+            enveloppeExistante = enveloppeEnEdition?.envelope,
+            deviseDefaut       = currency,
+            onConfirm = { amountStr, category, devise ->
+                viewModel.sauvegarderEnveloppe(enveloppeEnEdition?.envelope, amountStr, category, devise)
+                showEnveloppeDialog = false
+                enveloppeEnEdition  = null
+            },
+            onDismiss = {
+                showEnveloppeDialog = false
+                enveloppeEnEdition  = null
+            }
+        )
+    }
+
+    val aSupprimer = enveloppeASupprimer
+    if (aSupprimer != null) {
+        AlertDialog(
+            onDismissRequest = { enveloppeASupprimer = null },
+            title = { Text("Supprimer l'enveloppe") },
+            text  = { Text("Supprimer l'enveloppe « ${aSupprimer.category.displayName} » ? Le plafond ne sera plus suivi.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.supprimerEnveloppe(aSupprimer)
+                        enveloppeASupprimer = null
+                    }
+                ) {
+                    Text("Supprimer", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { enveloppeASupprimer = null }) { Text("Annuler") }
+            }
+        )
+    }
 }
 
 @Composable
 private fun BudgetContent(
-    state: BudgetUiState.Success,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
-    onEditBudget: () -> Unit,
-    onDeleteBudget: () -> Unit,
-    onNavigateToExpenses: (category: String?, type: String?) -> Unit
+    state                       : BudgetUiState.Success,
+    onPreviousMonth             : () -> Unit,
+    onNextMonth                 : () -> Unit,
+    onEditBudget                : () -> Unit,
+    onDeleteBudget              : () -> Unit,
+    onNavigateToExpenses        : (category: String?, type: String?, month: Int, year: Int) -> Unit,
+    onNavigateToTrends          : () -> Unit = {},
+    onNavigateToRecommandations : () -> Unit = {},
+    afficherRecommandations     : Boolean = false,
+    onAjouterEnveloppe          : () -> Unit = {},
+    onEditerEnveloppe           : (EnveloppeStatus) -> Unit = {},
+    onSupprimerEnveloppe        : (CategoryEnvelope) -> Unit = {}
 ) {
     val monthName = Month.of(state.month).getDisplayName(TextStyle.FULL, Locale.FRENCH)
         .replaceFirstChar { it.uppercase() }
@@ -125,7 +199,9 @@ private fun BudgetContent(
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(vertical = 16.dp)
+        // bottom = 160.dp pour ne pas laisser le FAB (Scaffold ne réserve pas d'espace pour lui)
+        // chevaucher le dernier élément (légende du donut) - 96.dp testé insuffisant sur appareil réel
+        contentPadding = PaddingValues(top = 16.dp, bottom = 160.dp)
     ) {
         item {
             // Navigateur de mois
@@ -144,56 +220,35 @@ private fun BudgetContent(
             }
         }
 
-        val currency = state.budget?.currency ?: Currency.EUR
+        val currency = state.currency
+        val revenus  = state.transactions.filter { it.type == TransactionType.INCOME }
 
-        // Bilan réel — toujours affiché (même si tout est à 0)
+        // Carte fusionnée : bilan réel + objectif budget
         item {
-            BilanReelCard(
+            BilanBudgetCard(
                 revenusCents  = state.revenusCents,
                 depensesCents = state.depensesCents,
                 soldeCents    = state.soldeCents,
-                currency      = currency
+                budget        = state.budget,
+                currency      = currency,
+                onDefinirBudget = onEditBudget,
+                onDeleteBudget  = onDeleteBudget
             )
         }
 
-        // Objectif budget (optionnel — défini par l'utilisateur)
-        item {
-            if (state.budget != null) {
-                BudgetObjectifCard(
-                    budget        = state.budget,
-                    revenusCents  = state.revenusCents,
-                    onDelete      = onDeleteBudget
-                )
-            } else {
-                NoBudgetCard(onSetBudget = onEditBudget)
-            }
-        }
-
-        // Section revenus — cliquable → Expenses filtré par INCOME
-        val revenus = state.transactions.filter { it.type == TransactionType.INCOME }
+        // Revenus - une seule ligne compacte cliquable, pas de liste plate
         if (revenus.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Revenus du mois", style = MaterialTheme.typography.titleMedium)
-                    TextButton(onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name) }) {
-                        Text("Voir tout")
-                    }
-                }
-            }
-            items(revenus.sortedByDescending { it.amountCents }) { tx ->
-                RevenuRow(
-                    transaction = tx,
-                    currency = currency,
-                    onClick = { onNavigateToExpenses(null, TransactionType.INCOME.name) }
+                RevenusCompactCard(
+                    count      = revenus.size,
+                    totalCents = state.revenusCents,
+                    currency   = currency,
+                    onClick    = { onNavigateToExpenses(null, TransactionType.INCOME.name, state.month, state.year) }
                 )
             }
         }
 
-        // Section dépenses — donut interactif + répartition par catégorie cliquable
+        // Section dépenses - donut interactif + répartition par catégorie cliquable
         val depenses = state.transactions.filter { it.type == TransactionType.EXPENSE }
         if (depenses.isNotEmpty()) {
             item {
@@ -202,7 +257,7 @@ private fun BudgetContent(
                     customSubCategories = state.customSubCategories,
                     currency            = currency,
                     onCategoryClick     = { cat ->
-                        onNavigateToExpenses(cat.name, TransactionType.EXPENSE.name)
+                        onNavigateToExpenses(cat.name, TransactionType.EXPENSE.name, state.month, state.year)
                     }
                 )
             }
@@ -218,53 +273,241 @@ private fun BudgetContent(
                     category    = category,
                     amountCents = cents,
                     currency    = currency,
-                    onClick     = { onNavigateToExpenses(category.name, TransactionType.EXPENSE.name) }
+                    onClick     = { onNavigateToExpenses(category.name, TransactionType.EXPENSE.name, state.month, state.year) }
                 )
+            }
+        }
+
+        // Section enveloppes budgétaires par catégorie
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Text("Enveloppes par catégorie", style = MaterialTheme.typography.titleMedium)
+                IconButton(onClick = onAjouterEnveloppe) {
+                    Icon(Icons.Filled.Add, contentDescription = "Ajouter une enveloppe")
+                }
+            }
+        }
+        if (state.enveloppeStatuts.isEmpty()) {
+            item {
+                Text(
+                    "Aucune enveloppe définie - appuyez sur + pour en créer une.",
+                    style  = MaterialTheme.typography.bodySmall,
+                    color  = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+        } else {
+            items(state.enveloppeStatuts) { statut ->
+                EnveloppeCard(
+                    statut     = statut,
+                    currency   = currency,
+                    onEditer   = { onEditerEnveloppe(statut) },
+                    onSupprimer = { onSupprimerEnveloppe(statut.envelope) }
+                )
+            }
+        }
+
+        // Boutons de navigation vers les écrans secondaires
+        item {
+            TextButton(
+                onClick = onNavigateToTrends,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Voir les tendances sur 6 mois →")
+            }
+        }
+        // Le bouton recommandations n'apparaît que si l'utilisateur l'a activé dans les Paramètres
+        if (afficherRecommandations) {
+            item {
+                TextButton(
+                    onClick = onNavigateToRecommandations,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Voir les recommandations budgétaires →")
+                }
             }
         }
     }
 }
 
-// ─── Bilan réel ───────────────────────────────────────────────────────────────
+// ─── Carte fusionnée Bilan + Budget ──────────────────────────────────────────
 
 /**
- * Carte toujours visible montrant le bilan réel du mois :
- * revenus (transactions INCOME) − dépenses (transactions EXPENSE) = solde.
- * C'est la réalité financière, indépendante du budget objectif.
+ * Carte unique regroupant le bilan réel du mois (revenus / dépenses / solde)
+ * et l'objectif budget (barre de progression + restant).
+ * Remplace les anciennes cartes BilanReelCard et BudgetObjectifCard.
  */
 @Composable
-private fun BilanReelCard(
-    revenusCents  : Long,
-    depensesCents : Long,
-    soldeCents    : Long,
-    currency      : Currency
+private fun BilanBudgetCard(
+    revenusCents    : Long,
+    depensesCents   : Long,
+    soldeCents      : Long,
+    budget          : Budget?,
+    currency        : Currency,
+    onDefinirBudget : () -> Unit,
+    onDeleteBudget  : () -> Unit
 ) {
     val soldePositif = soldeCents >= 0
-    val couleurSolde = if (soldePositif) MaterialTheme.colorScheme.primary
-                       else MaterialTheme.colorScheme.error
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
+    HeroCard {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                "Bilan du mois",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            )
+            // Ligne bilan : Revenus | Dépenses | Solde, séparés par des filets verticaux
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 BilanColonne("Revenus",  revenusCents,  currency, MaterialTheme.colorScheme.primary)
+                VerticalDivider(
+                    modifier = Modifier.height(32.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
                 BilanColonne("Dépenses", depensesCents, currency, MaterialTheme.colorScheme.error)
+                VerticalDivider(
+                    modifier = Modifier.height(32.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
                 BilanColonne(
                     label      = "Solde",
                     valueCents = soldeCents,
                     currency   = currency,
-                    color      = couleurSolde,
+                    color      = if (soldePositif) MaterialTheme.colorScheme.primary
+                                 else MaterialTheme.colorScheme.error,
                     prefix     = if (soldePositif) "+" else ""
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            if (budget != null) {
+                val progress  = if (budget.allocatedCents > 0)
+                    budget.spentCents.toFloat() / budget.allocatedCents else 0f
+                val isOver    = budget.isOverBudget
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Budget ${budget.allocatedCents.toCurrencyDisplay(currency)} · " +
+                            "${(progress.coerceIn(0f, 1f) * 100).toInt()}% utilisé",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    IconButton(onClick = onDeleteBudget, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Supprimer le budget",
+                            tint   = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                BudgetGauge(
+                    progress   = progress,
+                    color      = if (isOver) MaterialTheme.colorScheme.error
+                                 else MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier   = Modifier.fillMaxWidth()
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        "Dépensé : ${budget.spentCents.toCurrencyDisplay(currency)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        if (isOver) "Dépassé de ${(-budget.remainingCents).toCurrencyDisplay(currency)}"
+                        else "Restant : ${budget.remainingCents.toCurrencyDisplay(currency)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isOver) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Aucun objectif budget ce mois",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(
+                        onClick = onDefinirBudget,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
+                        Text("Définir →", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Jauge de budget custom (11dp, coins entièrement arrondis) - remplace le LinearProgressIndicator M3 par défaut. */
+@Composable
+private fun BudgetGauge(progress: Float, color: Color, trackColor: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.height(11.dp)) {
+        val radius = CornerRadius(size.height / 2)
+        drawRoundRect(color = trackColor, cornerRadius = radius)
+        val fillWidth = size.width * progress.coerceIn(0f, 1f)
+        if (fillWidth > 0f) {
+            drawRoundRect(color = color, size = Size(fillWidth, size.height), cornerRadius = radius)
+        }
+    }
+}
+
+// ─── Revenus compacts ─────────────────────────────────────────────────────────
+
+/** Ligne unique cliquable résumant tous les revenus du mois - remplace la liste plate. */
+@Composable
+private fun RevenusCompactCard(
+    count      : Int,
+    totalCents : Long,
+    currency   : Currency,
+    onClick    : () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp, vertical = 14.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("Revenus", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "$count entrée${if (count > 1) "s" else ""}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    "+${totalCents.toCurrencyDisplay(currency)}",
+                    style      = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = MaterialTheme.colorScheme.primary
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Voir les revenus",
+                    modifier = Modifier.size(16.dp),
+                    tint     = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -283,7 +526,7 @@ private fun BilanColonne(
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             "$prefix${valueCents.toCurrencyDisplay(currency)}",
@@ -295,162 +538,6 @@ private fun BilanColonne(
 }
 
 // ─── Objectif budget ──────────────────────────────────────────────────────────
-
-/** Ligne de la chaîne budgétaire : libellé à gauche, montant coloré à droite. */
-@Composable
-private fun BudgetLigne(
-    label: String,
-    valueCents: Long,
-    currency: Currency,
-    color: Color,
-    gras: Boolean = false
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            valueCents.toCurrencyDisplay(currency),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (gras) FontWeight.Bold else FontWeight.Normal,
-            color = color
-        )
-    }
-}
-
-/**
- * Carte d'objectif budgétaire.
- * Si des revenus ont été saisis, affiche la chaîne complète :
- *   Revenus − Budget alloué = Épargne prévue
- * puis la barre dépensé / alloué.
- */
-@Composable
-private fun BudgetObjectifCard(budget: Budget, revenusCents: Long, onDelete: () -> Unit) {
-    val progress = if (budget.allocatedCents > 0)
-        budget.spentCents.toFloat() / budget.allocatedCents else 0f
-    val isOver = budget.isOverBudget
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Objectif budget",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = "Supprimer le budget",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-
-            if (revenusCents > 0) {
-                // Chaîne : Revenus → Budget alloué → Épargne prévue
-                val epargnePrevueCents = revenusCents - budget.allocatedCents
-                val epargnePositive = epargnePrevueCents >= 0
-                BudgetLigne("Revenus", revenusCents, budget.currency,
-                    MaterialTheme.colorScheme.primary)
-                BudgetLigne("− Budget alloué", budget.allocatedCents, budget.currency,
-                    MaterialTheme.colorScheme.onSurface)
-                HorizontalDivider()
-                BudgetLigne(
-                    label      = "= Épargne prévue",
-                    valueCents = epargnePrevueCents,
-                    currency   = budget.currency,
-                    color      = if (epargnePositive) MaterialTheme.colorScheme.primary
-                                 else MaterialTheme.colorScheme.error,
-                    gras       = true
-                )
-            } else {
-                // Pas encore de revenus saisis — affichage simple de l'enveloppe
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Enveloppe allouée", style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(budget.allocatedCents.toCurrencyDisplay(budget.currency),
-                        style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-
-            // Barre de progression : combien du budget alloué a été dépensé
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth(),
-                color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-            )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("Dépensé", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(budget.spentCents.toCurrencyDisplay(budget.currency),
-                        color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Restant", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(budget.remainingCents.toCurrencyDisplay(budget.currency),
-                        color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-                }
-            }
-            if (isOver) {
-                Text(
-                    "⚠ Budget dépassé de ${(-budget.remainingCents).toCurrencyDisplay(budget.currency)}",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-    }
-}
-
-// ─── Ligne revenu individuelle ────────────────────────────────────────────────
-
-@Composable
-private fun RevenuRow(transaction: Transaction, currency: Currency, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = transaction.note.ifBlank { "Revenu" },
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = "+${transaction.amountCents.toCurrencyDisplay(currency)}",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-@Composable
-private fun NoBudgetCard(onSetBudget: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(20.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Aucun budget défini pour ce mois", style = MaterialTheme.typography.bodyLarge)
-            Button(onClick = onSetBudget) { Text("Définir un budget") }
-        }
-    }
-}
 
 @Composable
 private fun CategoryRow(category: Category, amountCents: Long, currency: Currency, onClick: () -> Unit) {
@@ -508,7 +595,7 @@ private fun SetBudgetDialog(
                                 onClick = { amount = suggestion80 },
                                 contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
                             ) {
-                                Text("Suggérer 80 % — $suggestion80 ${selectedCurrency.symbol}")
+                                Text("Suggérer 80 % - $suggestion80 ${selectedCurrency.symbol}")
                             }
                         }
                     }
@@ -591,7 +678,7 @@ private fun CategoryDonutChart(
                     IconButton(onClick = { drillDown = false }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Retour aux catégories")
                     }
-                    Text("Détail — Autre", style = MaterialTheme.typography.titleMedium)
+                    Text("Détail - Autre", style = MaterialTheme.typography.titleMedium)
                 } else {
                     Text("Répartition des dépenses", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(48.dp)) // équilibre la mise en page quand pas de bouton retour
@@ -622,10 +709,13 @@ private fun CategoryDonutChart(
                 )
             } else {
                 // ── Vue principale : répartition par catégorie ──
+                // Couleurs stables par catégorie (CategoryVisuals) plutôt que positionnelles :
+                // une catégorie garde la même couleur d'un mois à l'autre.
                 DonutAvecLegende(
                     groupes  = groupesPrincipaux.map { (cat, cents) -> cat.displayName to cents },
                     total    = total,
                     currency = currency,
+                    couleurs = groupesPrincipaux.map { (cat, _) -> cat.chartColor() },
                     onItemClick = { label ->
                         val cat = groupesPrincipaux.firstOrNull { it.first.displayName == label }?.first
                         if (cat == Category.AUTRE) {
@@ -644,6 +734,193 @@ private fun CategoryDonutChart(
     }
 }
 
+
+// ─── Enveloppe budgétaire ─────────────────────────────────────────────────────
+
+/**
+ * Carte d'une enveloppe : nom catégorie, barre de progression colorée,
+ * montant dépensé / plafond, boutons éditer / supprimer.
+ *
+ * Couleur de la barre :
+ *  - Vert  (<80 %)  → Primary
+ *  - Orange (80-99 %) → Tertiary (ou Custom color)
+ *  - Rouge  (≥100 %) → Error
+ */
+@Composable
+private fun EnveloppeCard(
+    statut     : EnveloppeStatus,
+    currency   : Currency,
+    onEditer   : () -> Unit,
+    onSupprimer: () -> Unit
+) {
+    val couleurBarre = when {
+        statut.isDepasse -> MaterialTheme.colorScheme.error
+        statut.isAlerte  -> Color(0xFFE68A00)  // orange - pas dans le colorScheme M3 par défaut
+        else             -> MaterialTheme.colorScheme.primary
+    }
+    var showMenu by remember { mutableStateOf(false) }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Text(
+                    statut.envelope.category.displayName,
+                    style      = MaterialTheme.typography.titleSmall,
+                    modifier   = Modifier.weight(1f)
+                )
+                Box {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                            modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Modifier") },
+                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary) },
+                            onClick = { showMenu = false; onEditer() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; onSupprimer() }
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { statut.taux.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color    = couleurBarre
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Dépensé : ${statut.depenseCents.toCurrencyDisplay(currency)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    if (statut.isDepasse)
+                        "Dépassé de ${(statut.depenseCents - statut.envelope.plafondCents).toCurrencyDisplay(currency)}"
+                    else
+                        "Plafond : ${statut.envelope.plafondCents.toCurrencyDisplay(currency)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (statut.isDepasse) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dialog de création / édition d'une enveloppe.
+ * Si [enveloppeExistante] est non-null, le champ catégorie est pré-rempli et verrouillé.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SetEnveloppeDialog(
+    enveloppeExistante: CategoryEnvelope?,
+    deviseDefaut      : Currency,
+    onConfirm         : (amountStr: String, category: Category, currency: Currency) -> Unit,
+    onDismiss         : () -> Unit
+) {
+    // Catégories disponibles - on exclut AUTRE car elle regroupe les "divers" non classés
+    val categoriesDisponibles = Category.entries.filter { it != Category.AUTRE }
+
+    var amount           by remember { mutableStateOf(enveloppeExistante?.let { "%.2f".format(it.plafondCents / 100.0).replace(',', '.') } ?: "") }
+    var selectedCategory by remember { mutableStateOf(enveloppeExistante?.category ?: categoriesDisponibles.first()) }
+    var selectedCurrency by remember { mutableStateOf(enveloppeExistante?.currency ?: deviseDefaut) }
+    var expandedCat      by remember { mutableStateOf(false) }
+    var expandedDev      by remember { mutableStateOf(false) }
+    val focusManager     = LocalFocusManager.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (enveloppeExistante != null) "Modifier l'enveloppe" else "Nouvelle enveloppe") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.imePadding()) {
+                // Sélecteur de catégorie (verrouillé en édition)
+                ExposedDropdownMenuBox(expanded = expandedCat, onExpandedChange = {
+                    if (enveloppeExistante == null) expandedCat = it
+                }) {
+                    OutlinedTextField(
+                        value         = selectedCategory.displayName,
+                        onValueChange = {},
+                        readOnly      = true,
+                        label         = { Text("Catégorie") },
+                        trailingIcon  = {
+                            if (enveloppeExistante == null) ExposedDropdownMenuDefaults.TrailingIcon(expandedCat)
+                        },
+                        modifier      = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+                    if (enveloppeExistante == null) {
+                        ExposedDropdownMenu(expanded = expandedCat, onDismissRequest = { expandedCat = false }) {
+                            categoriesDisponibles.forEach { cat ->
+                                DropdownMenuItem(
+                                    text    = { Text(cat.displayName) },
+                                    onClick = { selectedCategory = cat; expandedCat = false }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Montant
+                OutlinedTextField(
+                    value          = amount,
+                    onValueChange  = { amount = it },
+                    label          = { Text("Plafond mensuel") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    singleLine     = true,
+                    modifier       = Modifier.fillMaxWidth()
+                )
+
+                // Devise
+                ExposedDropdownMenuBox(expanded = expandedDev, onExpandedChange = { expandedDev = it }) {
+                    OutlinedTextField(
+                        value         = "${selectedCurrency.name} (${selectedCurrency.symbol})",
+                        onValueChange = {},
+                        readOnly      = true,
+                        label         = { Text("Devise") },
+                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expandedDev) },
+                        modifier      = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = expandedDev, onDismissRequest = { expandedDev = false }) {
+                        Currency.entries.forEach { currency ->
+                            DropdownMenuItem(
+                                text    = { Text("${currency.name} (${currency.symbol})") },
+                                onClick = { selectedCurrency = currency; expandedDev = false }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(amount, selectedCategory, selectedCurrency) },
+                enabled = amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true
+            ) { Text("Valider") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
+    )
+}
 
 private fun categoryBreakdown(transactions: List<Transaction>): List<Pair<Category, Long>> =
     transactions

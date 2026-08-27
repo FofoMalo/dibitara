@@ -14,13 +14,19 @@ import javax.inject.Inject
  * Si l'app n'a pas été ouverte depuis plusieurs semaines/mois, toutes
  * les occurrences intermédiaires sont créées en rattrapage.
  *
+ * N'anticipe jamais une échéance : une occurrence n'est matérialisée que le jour où
+ * elle est due, jamais avant (voir [generateMonthly]). Les échéances à venir restent
+ * visibles sans polluer les totaux via [GetUpcomingPaymentsUseCase], qui les calcule
+ * virtuellement sans les insérer en base.
+ *
  * À appeler au démarrage (via AppViewModel).
+ *
+ * [today] est injectable pour les tests (même convention que [GetCashflowProjectionUseCase]).
  */
 class GenerateRecurringUseCase @Inject constructor(
     private val repository: TransactionRepository
 ) {
-    suspend operator fun invoke() {
-        val today = LocalDate.now()
+    suspend operator fun invoke(today: LocalDate = LocalDate.now()) {
         val templates = repository.getRecurring().first()
 
         for (template in templates) {
@@ -42,27 +48,36 @@ class GenerateRecurringUseCase @Inject constructor(
     // ─── MENSUEL ──────────────────────────────────────────────────────────────
 
     private suspend fun generateMonthly(template: Transaction, base: LocalDate, until: LocalDate) {
-        val day = template.recurrenceDay ?: base.dayOfMonth.coerceAtMost(28)
+        // Pas de plafond fixe à 28 : un modèle sans recurrenceDay explicite garde le jour de
+        // sa propre date (coercé plus bas à la longueur réelle du mois cible, ligne suivante).
+        // Même correction que GetCashflowProjectionUseCase et GetUpcomingPaymentsUseCase.
+        val day = template.recurrenceDay ?: base.dayOfMonth
 
-        // Le mois du modèle lui-même compte comme première occurrence — on commence le mois suivant
+        // Le mois du modèle lui-même compte comme première occurrence - on commence le mois suivant
         var cursor = base.plusMonths(1).withDayOfMonth(1)
 
         while (!cursor.isAfter(until.withDayOfMonth(1))) {
-            val alreadyExists = repository.hasRecurringOccurrenceInRange(
-                recurringId = template.id,
-                from = cursor,
-                to   = cursor.plusMonths(1).minusDays(1)
-            )
-            if (!alreadyExists) {
-                val safeDay = day.coerceAtMost(cursor.month.length(cursor.isLeapYear))
-                repository.insert(
-                    template.copy(
-                        id = 0,
-                        date = LocalDate.of(cursor.year, cursor.monthValue, safeDay),
-                        isRecurring = false,
-                        sourceRecurringId = template.id
-                    )
+            val safeDay = day.coerceAtMost(cursor.month.length(cursor.isLeapYear))
+            val occurrenceDate = LocalDate.of(cursor.year, cursor.monthValue, safeDay)
+
+            // Ne jamais matérialiser une échéance avant sa date réelle : pour le mois en
+            // cours, le jour de prélèvement peut être encore à venir (ex. today=15, jour=25).
+            if (occurrenceDate <= until) {
+                val alreadyExists = repository.hasRecurringOccurrenceInRange(
+                    recurringId = template.id,
+                    from = cursor,
+                    to   = cursor.plusMonths(1).minusDays(1)
                 )
+                if (!alreadyExists) {
+                    repository.insert(
+                        template.copy(
+                            id = 0,
+                            date = occurrenceDate,
+                            isRecurring = false,
+                            sourceRecurringId = template.id
+                        )
+                    )
+                }
             }
             cursor = cursor.plusMonths(1)
         }
@@ -71,7 +86,7 @@ class GenerateRecurringUseCase @Inject constructor(
     // ─── HEBDOMADAIRE ─────────────────────────────────────────────────────────
 
     private suspend fun generateWeekly(template: Transaction, base: LocalDate, until: LocalDate) {
-        // La semaine du modèle lui-même est la première occurrence — on commence 7 jours après
+        // La semaine du modèle lui-même est la première occurrence - on commence 7 jours après
         var cursor = base.plusWeeks(1)
 
         while (!cursor.isAfter(until)) {

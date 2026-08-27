@@ -17,7 +17,9 @@ data class SavingsAccountEntity(
     val monthlyContributionCents: Long,
     val currency: String,
     val childId: Long?,
-    val updatedAtEpochDay: Long
+    val updatedAtEpochDay: Long,
+    // Plafond en centimes - null si non configuré (colonne ajoutée en migration v14)
+    val plafondCents: Long? = null
 ) {
     fun toDomain() = SavingsAccount(
         id = id,
@@ -27,7 +29,8 @@ data class SavingsAccountEntity(
         monthlyContributionCents = monthlyContributionCents,
         currency = safeValueOf(currency, Currency.EUR),
         childId = childId,
-        updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay)
+        updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay),
+        plafondCents = plafondCents
     )
 
     companion object {
@@ -39,7 +42,8 @@ data class SavingsAccountEntity(
             monthlyContributionCents = s.monthlyContributionCents,
             currency = s.currency.name,
             childId = s.childId,
-            updatedAtEpochDay = s.updatedAt.toEpochDay()
+            updatedAtEpochDay = s.updatedAt.toEpochDay(),
+            plafondCents = s.plafondCents
         )
     }
 }

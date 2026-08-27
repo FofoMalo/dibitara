@@ -23,7 +23,7 @@ class ExportRepositoryImpl @Inject constructor(
 ) : ExportRepository {
 
     override suspend fun exporter(data: ExportData, format: ExportFormat): Uri {
-        // Dossier temporaire dédié aux exports — nettoyé par Android quand le stockage est limité
+        // Dossier temporaire dédié aux exports - nettoyé par Android quand le stockage est limité
         val dossierExport = File(context.cacheDir, "exports").also { it.mkdirs() }
 
         val (nomFichier, contenu) = when (format) {

@@ -82,7 +82,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             val correct = credentialManager.verifyPin(pin)
             _uiState.value = when {
-                !correct                      -> buildIdle(pinError = "PIN incorrect — réessayez")
+                !correct                      -> buildIdle(pinError = "PIN incorrect - réessayez")
                 credentialManager.isTotpSetup() -> AuthUiState.PendingTotp()
                 else                          -> AuthUiState.Authenticated
             }
@@ -111,7 +111,7 @@ class AuthViewModel @Inject constructor(
             // Secret absent = TOTP mal configuré, on laisse passer par sécurité
             _uiState.value = AuthUiState.Authenticated
         } else {
-            _uiState.value = AuthUiState.PendingTotp(codeError = "Code incorrect — réessayez")
+            _uiState.value = AuthUiState.PendingTotp(codeError = "Code incorrect - réessayez")
         }
     }
 
@@ -126,7 +126,7 @@ class AuthViewModel @Inject constructor(
      *
      * Si l'empreinte/visage est reconnu, les hashes PIN et mot de passe sont effacés
      * et l'état passe à [AuthUiState.NeedsSetup] pour rediriger vers SetupAuthScreen.
-     * Les données Room ne sont PAS supprimées — l'utilisateur repart du setup d'accès
+     * Les données Room ne sont PAS supprimées - l'utilisateur repart du setup d'accès
      * sans perdre ses données financières.
      */
     fun reinitialiserAccesViaBiometrie(activity: FragmentActivity) {
@@ -157,10 +157,10 @@ class AuthViewModel @Inject constructor(
 }
 
 sealed class AuthUiState {
-    /** Chargement initial — vérification des secrets en cours. */
+    /** Chargement initial - vérification des secrets en cours. */
     data object Loading : AuthUiState()
 
-    /** Aucune méthode d'auth configurée — premier lancement. */
+    /** Aucune méthode d'auth configurée - premier lancement. */
     data object NeedsSetup : AuthUiState()
 
     /**
@@ -177,7 +177,7 @@ sealed class AuthUiState {
     ) : AuthUiState()
 
     /**
-     * PIN ou mot de passe correct, mais TOTP activé — l'utilisateur doit saisir le code 2FA.
+     * PIN ou mot de passe correct, mais TOTP activé - l'utilisateur doit saisir le code 2FA.
      * [codeError] contient le message d'erreur si le dernier code était invalide.
      */
     data class PendingTotp(val codeError: String? = null) : AuthUiState()

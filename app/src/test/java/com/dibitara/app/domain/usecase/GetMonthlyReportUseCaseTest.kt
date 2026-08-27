@@ -29,7 +29,7 @@ class GetMonthlyReportUseCaseTest {
         every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
         useCase = GetMonthlyReportUseCase(
             getMonthlyTransactions, getMonthlyBudget, getCustomSubCategories,
-            prefsRepo, ratesRepo
+            prefsRepo, ratesRepo, IdentifierVirementsInternesUseCase()
         )
     }
 
@@ -60,6 +60,30 @@ class GetMonthlyReportUseCaseTest {
     }
 
     @Test
+    fun `un virement interne BRED vers TradeRepublic n'est compté ni en revenu ni en dépense`() = runTest {
+        every { getMonthlyTransactions(mois, annee) } returns flowOf(listOf(
+            buildTransaction(TransactionType.INCOME,  200_000L),
+            Transaction(
+                amountCents = 50_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+                type = TransactionType.EXPENSE, date = LocalDate.of(annee, mois, 10),
+                importSource = "bred_csv", id = 1
+            ),
+            Transaction(
+                amountCents = 50_000L, currency = Currency.EUR, category = Category.TRANSFERTS,
+                type = TransactionType.INCOME, date = LocalDate.of(annee, mois, 11),
+                importSource = "trade_republic", id = 2
+            )
+        ))
+        every { getMonthlyTransactions(4, annee) } returns flowOf(emptyList())
+        every { getMonthlyBudget(mois, annee) } returns flowOf(null)
+
+        val rapport = useCase(mois, annee).first()
+
+        assertEquals(200_000L, rapport.revenusCents)
+        assertEquals(0L, rapport.depensesCents)
+    }
+
+    @Test
     fun `les investissements ne sont pas comptés dans les dépenses`() = runTest {
         every { getMonthlyTransactions(mois, annee) } returns flowOf(listOf(
             buildTransaction(TransactionType.EXPENSE,    50_000L),
@@ -86,7 +110,7 @@ class GetMonthlyReportUseCaseTest {
 
         val rapport = useCase(mois, annee).first()
 
-        // Le UseCase limite à take(5) — les 4 catégories doivent toutes apparaître, triées par montant décroissant
+        // Le UseCase limite à take(5) - les 4 catégories doivent toutes apparaître, triées par montant décroissant
         assertEquals(4, rapport.topCategories.size)
         assertEquals(Category.LOGEMENT,      rapport.topCategories[0].category)
         assertEquals(Category.ALIMENTATION,  rapport.topCategories[1].category)
@@ -151,5 +175,24 @@ class GetMonthlyReportUseCaseTest {
         val logement = rapport.topCategories.first { it.category == Category.LOGEMENT }
 
         assertEquals(75f, logement.pourcentage, 0.1f) // 75 000 / 100 000 * 100 = 75%
+    }
+
+    @Test
+    fun `nombreTransactions compte les transactions par catégorie`() = runTest {
+        every { getMonthlyTransactions(mois, annee) } returns flowOf(listOf(
+            buildTransaction(TransactionType.EXPENSE, 1_000L, Category.LOISIRS),
+            buildTransaction(TransactionType.EXPENSE, 1_000L, Category.LOISIRS),
+            buildTransaction(TransactionType.EXPENSE, 1_000L, Category.LOISIRS),
+            buildTransaction(TransactionType.EXPENSE, 50_000L, Category.LOGEMENT)
+        ))
+        every { getMonthlyTransactions(4, annee) } returns flowOf(emptyList())
+        every { getMonthlyBudget(mois, annee) } returns flowOf(null)
+
+        val rapport = useCase(mois, annee).first()
+        val loisirs  = rapport.topCategories.first { it.category == Category.LOISIRS }
+        val logement = rapport.topCategories.first { it.category == Category.LOGEMENT }
+
+        assertEquals(3, loisirs.nombreTransactions)
+        assertEquals(1, logement.nombreTransactions)
     }
 }

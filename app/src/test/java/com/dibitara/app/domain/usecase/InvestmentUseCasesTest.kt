@@ -1,9 +1,13 @@
 package com.dibitara.app.domain.usecase
 
 import com.dibitara.app.domain.model.AirbnbRental
+import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
+import com.dibitara.app.domain.model.VehicleEntryType
+import com.dibitara.app.domain.model.VehicleRentalEntry
+import com.dibitara.app.domain.repository.AssetValuationSnapshotRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
 import io.mockk.*
 import kotlinx.coroutines.flow.flowOf
@@ -15,6 +19,7 @@ import java.time.LocalDate
 class InvestmentUseCasesTest {
 
     private val repository: InvestmentRepository = mockk()
+    private val snapshotRepository: AssetValuationSnapshotRepository = mockk(relaxed = true)
 
     private fun buildRealEstate(label: String = "Appart Lyon", value: Long = 200000L) =
         RealEstateAsset(label = label, currentValueCents = value, currency = Currency.EUR, updatedAt = LocalDate.now())
@@ -25,6 +30,9 @@ class InvestmentUseCasesTest {
 
     private fun buildAirbnb(label: String = "Studio Bordeaux", amount: Long = 90000L) =
         AirbnbRental(propertyLabel = label, amountCents = amount, date = LocalDate.now(), currency = Currency.EUR)
+
+    private fun buildVehicleEntry(label: String = "Location weekend", amount: Long = 15000L, type: VehicleEntryType = VehicleEntryType.REVENU) =
+        VehicleRentalEntry(label = label, entryType = type, amountCents = amount, date = LocalDate.now(), currency = Currency.EUR)
 
     // ─── GetRealEstateUseCase ────────────────────────────────────────────────
 
@@ -108,21 +116,23 @@ class InvestmentUseCasesTest {
     // ─── DeleteRealEstateUseCase ─────────────────────────────────────────────
 
     @Test
-    fun `DeleteRealEstate délègue au repository`() = runTest {
+    fun `DeleteRealEstate délègue au repository et purge l'historique de valorisation`() = runTest {
         val asset = buildRealEstate()
         coJustRun { repository.deleteRealEstate(asset) }
-        DeleteRealEstateUseCase(repository)(asset)
+        DeleteRealEstateUseCase(repository, snapshotRepository)(asset)
         coVerify { repository.deleteRealEstate(asset) }
+        coVerify { snapshotRepository.deleteForAsset(AssetValuationType.REAL_ESTATE, asset.id) }
     }
 
     // ─── DeleteScpiUseCase ───────────────────────────────────────────────────
 
     @Test
-    fun `DeleteScpi délègue au repository`() = runTest {
+    fun `DeleteScpi délègue au repository et purge l'historique de valorisation`() = runTest {
         val scpi = buildScpi()
         coJustRun { repository.deleteScpi(scpi) }
-        DeleteScpiUseCase(repository)(scpi)
+        DeleteScpiUseCase(repository, snapshotRepository)(scpi)
         coVerify { repository.deleteScpi(scpi) }
+        coVerify { snapshotRepository.deleteForAsset(AssetValuationType.SCPI, scpi.id) }
     }
 
     // ─── DeleteAirbnbRentalUseCase ───────────────────────────────────────────
@@ -133,5 +143,71 @@ class InvestmentUseCasesTest {
         coJustRun { repository.deleteAirbnbRental(rental) }
         DeleteAirbnbRentalUseCase(repository)(rental)
         coVerify { repository.deleteAirbnbRental(rental) }
+    }
+
+    // ─── GetVehicleRentalEntriesUseCase ──────────────────────────────────────
+
+    @Test
+    fun `GetVehicleRentalEntries délègue au repository`() {
+        every { repository.getAllVehicleRentalEntries() } returns flowOf(emptyList())
+        assertNotNull(GetVehicleRentalEntriesUseCase(repository)())
+    }
+
+    // ─── GetVehicleRentalEntriesByYearUseCase ────────────────────────────────
+
+    @Test
+    fun `GetVehicleRentalEntriesByYear filtre par année`() {
+        every { repository.getVehicleRentalEntriesByYear(2026) } returns flowOf(emptyList())
+        assertNotNull(GetVehicleRentalEntriesByYearUseCase(repository)(2026))
+    }
+
+    // ─── SaveVehicleRentalEntryUseCase ───────────────────────────────────────
+
+    @Test
+    fun `SaveVehicleRentalEntry retourne succès pour un revenu`() = runTest {
+        val entry = buildVehicleEntry(type = VehicleEntryType.REVENU)
+        coEvery { repository.saveVehicleRentalEntry(entry) } returns Result.success(1L)
+        assertTrue(SaveVehicleRentalEntryUseCase(repository)(entry).isSuccess)
+    }
+
+    @Test
+    fun `SaveVehicleRentalEntry retourne succès pour une charge`() = runTest {
+        val entry = buildVehicleEntry(type = VehicleEntryType.CHARGE)
+        coEvery { repository.saveVehicleRentalEntry(entry) } returns Result.success(1L)
+        assertTrue(SaveVehicleRentalEntryUseCase(repository)(entry).isSuccess)
+    }
+
+    @Test
+    fun `SaveVehicleRentalEntry retourne échec si libellé vide`() = runTest {
+        assertTrue(SaveVehicleRentalEntryUseCase(repository)(buildVehicleEntry(label = "")).isFailure)
+    }
+
+    @Test
+    fun `SaveVehicleRentalEntry retourne échec si montant nul`() = runTest {
+        assertTrue(SaveVehicleRentalEntryUseCase(repository)(buildVehicleEntry(amount = 0L)).isFailure)
+    }
+
+    // ─── UpdateVehicleRentalEntryUseCase ─────────────────────────────────────
+
+    @Test
+    fun `UpdateVehicleRentalEntry retourne succès`() = runTest {
+        val entry = buildVehicleEntry()
+        coJustRun { repository.updateVehicleRentalEntry(entry) }
+        assertTrue(UpdateVehicleRentalEntryUseCase(repository)(entry).isSuccess)
+    }
+
+    @Test
+    fun `UpdateVehicleRentalEntry retourne échec si montant nul`() = runTest {
+        assertTrue(UpdateVehicleRentalEntryUseCase(repository)(buildVehicleEntry(amount = 0L)).isFailure)
+    }
+
+    // ─── DeleteVehicleRentalEntryUseCase ─────────────────────────────────────
+
+    @Test
+    fun `DeleteVehicleRentalEntry délègue au repository`() = runTest {
+        val entry = buildVehicleEntry()
+        coJustRun { repository.deleteVehicleRentalEntry(entry) }
+        DeleteVehicleRentalEntryUseCase(repository)(entry)
+        coVerify { repository.deleteVehicleRentalEntry(entry) }
     }
 }

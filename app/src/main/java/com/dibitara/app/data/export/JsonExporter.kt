@@ -30,14 +30,15 @@ object JsonExporter {
         val enveloppe = linkedMapOf(
             "exportDate"       to LocalDate.now().toString(),
             "version"          to versionApp,
+            "enfants"          to data.enfants,
             "transactions"     to data.transactions,
             "budgets"          to data.budgets,
             "epargne"          to data.epargne,
             "immobilier"       to data.immobilier,
             "scpi"             to data.scpi,
             "airbnb"           to data.airbnb,
+            "vehicule_locatif" to data.vehiculeLocatif,
             "dettes"           to data.dettes,
-            "metaux_precieux"  to data.metaux,
             "actifs_libres"    to data.actifsLibres,
             "epargne_salariale" to data.epargneSalariale
         )

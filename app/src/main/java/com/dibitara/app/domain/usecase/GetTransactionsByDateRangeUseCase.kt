@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import javax.inject.Inject
 
-// Retourne les transactions entre [from] et [to] inclus — délègue le filtre de date à Room.
+// Retourne les transactions entre [from] et [to] inclus - délègue le filtre de date à Room.
 class GetTransactionsByDateRangeUseCase @Inject constructor(
     private val repository: TransactionRepository
 ) {

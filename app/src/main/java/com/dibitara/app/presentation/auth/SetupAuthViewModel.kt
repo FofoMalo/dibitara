@@ -23,7 +23,7 @@ class SetupAuthViewModel @Inject constructor(
 
     /**
      * Enregistre le PIN (4 chiffres).
-     * CredentialManager gère l'IO en interne — on appelle directement depuis Main.
+     * CredentialManager gère l'IO en interne - on appelle directement depuis Main.
      */
     fun setupPin(pin: String) {
         viewModelScope.launch {
@@ -55,8 +55,8 @@ class SetupAuthViewModel @Inject constructor(
 }
 
 sealed class SetupAuthEvent {
-    /** PIN enregistré — passer à l'étape 2 (mot de passe). */
+    /** PIN enregistré - passer à l'étape 2 (mot de passe). */
     data object PinSaved     : SetupAuthEvent()
-    /** Configuration terminée — naviguer vers le tableau de bord. */
+    /** Configuration terminée - naviguer vers le tableau de bord. */
     data object SetupComplete : SetupAuthEvent()
 }

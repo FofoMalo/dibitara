@@ -51,11 +51,25 @@ class DuplicateCleanupViewModel @Inject constructor(
         }
     }
 
-    // Change la transaction à conserver dans un groupe (l'utilisateur peut inverser le choix par défaut)
-    fun changerSelection(groupIndex: Int, keepId: Long) {
+    /**
+     * Bascule l'état "conserver" d'une transaction dans un groupe.
+     * Si la transaction est déjà dans keepIds → on la retire (elle sera supprimée).
+     * Si elle n'y est pas → on l'ajoute (elle sera conservée).
+     *
+     * Règle de sécurité : au moins une transaction doit rester dans keepIds.
+     * Si l'utilisateur décoche la dernière cochée, l'action est ignorée.
+     */
+    fun basculerSelection(groupIndex: Int, transactionId: Long) {
         val state = _uiState.value as? DuplicateCleanupUiState.Success ?: return
+        val groupe = state.groups.getOrNull(groupIndex) ?: return
+        val nouvellesIds = if (transactionId in groupe.keepIds) {
+            // Retire l'id seulement si ce n'est pas le dernier (on garde au moins un)
+            if (groupe.keepIds.size > 1) groupe.keepIds - transactionId else groupe.keepIds
+        } else {
+            groupe.keepIds + transactionId
+        }
         val newGroups = state.groups.toMutableList()
-        newGroups[groupIndex] = newGroups[groupIndex].copy(keepId = keepId)
+        newGroups[groupIndex] = groupe.copy(keepIds = nouvellesIds)
         _uiState.value = state.copy(groups = newGroups)
     }
 
@@ -64,7 +78,7 @@ class DuplicateCleanupViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = state.copy(suppressionEnCours = true)
             val aSupprimer = state.groups.flatMap { group ->
-                group.transactions.filter { it.id != group.keepId }
+                group.transactions.filter { it.id !in group.keepIds }
             }
             var avecErreur = false
             aSupprimer.forEach { transaction ->

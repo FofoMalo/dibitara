@@ -22,15 +22,22 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dibitara.app.domain.model.BankAccount
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomSubCategory
@@ -38,6 +45,10 @@ import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionSuggestion
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.presentation.common.chartColor
+import com.dibitara.app.presentation.common.chartIcon
+import com.dibitara.app.presentation.common.maskIban
+import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.LocalDate
 import java.time.Month
 import java.time.format.DateTimeFormatter
@@ -52,14 +63,25 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     val selectedYear  by viewModel.selectedYear.collectAsState()
     val defaultCurrency by viewModel.defaultCurrency.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
+    val bankAccounts by viewModel.bankAccounts.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
+    var recatProposee by remember { mutableStateOf<ExpensesEvent.RecategorizationProposee?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val transactionToOpen by viewModel.transactionToOpen.collectAsState()
 
-    // Sous-catégories personnalisées — disponibles dès que le state est chargé
+    // Sous-catégories personnalisées - disponibles dès que le state est chargé
     val customSubCategories = (uiState as? ExpensesUiState.Success)?.customSubCategories ?: emptyList()
     val focusManager = LocalFocusManager.current
+
+    // Ouvre automatiquement le sheet d'édition si on arrive avec un id de transaction (ex. lien depuis le Dashboard)
+    LaunchedEffect(transactionToOpen) {
+        transactionToOpen?.let {
+            editingExpense = it
+            viewModel.clearTransactionToOpen()
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
@@ -68,6 +90,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                     snackbarHostState.showSnackbar("Transaction enregistrée") }
                 is ExpensesEvent.Deleted -> snackbarHostState.showSnackbar("Transaction supprimée")
                 is ExpensesEvent.Error   -> snackbarHostState.showSnackbar(event.message)
+                is ExpensesEvent.RecategorizationProposee -> recatProposee = event
+                is ExpensesEvent.RecategorizationTerminee ->
+                    snackbarHostState.showSnackbar("${event.count} transaction(s) recatégorisée(s)")
             }
         }
     }
@@ -121,7 +146,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                 }
             }
 
-            // Navigation mensuelle — visible uniquement en mode "Ce mois"
+            // Navigation mensuelle - visible uniquement en mode "Ce mois"
             if (filter.period == FilterPeriod.CURRENT_MONTH) {
                 MonthNavigationBar(
                     month       = selectedMonth,
@@ -129,6 +154,53 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                     onPrevious  = viewModel::previousMonth,
                     onNext      = viewModel::nextMonth
                 )
+            }
+
+            // Chip rapide "À catégoriser" - visible si des dépenses AUTRE sans sous-catégorie existent
+            val currentExpenses = (uiState as? ExpensesUiState.Success)?.expenses ?: emptyList()
+            val autreCount = currentExpenses.count {
+                // Ne compte que les dépenses sans aucune sous-catégorie (prédéfinie ou custom)
+                // Les revenus sont exclus : ils sont stockés en AUTRE par design mais ne sont pas catégorisables
+                it.category == Category.AUTRE
+                    && it.type == TransactionType.EXPENSE
+                    && it.subCategory == null
+                    && it.customSubCategoryId == null
+            }
+            val isCategoriserSelected = filter.uncategorizedOnly
+            if (autreCount > 0 || isCategoriserSelected) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    FilterChip(
+                        selected = isCategoriserSelected,
+                        onClick = {
+                            if (isCategoriserSelected) {
+                                viewModel.updateFilter(filter.copy(uncategorizedOnly = false))
+                            } else {
+                                viewModel.updateFilter(
+                                    filter.copy(
+                                        uncategorizedOnly = true,
+                                        // category est exclusif avec uncategorizedOnly (voir apply()) :
+                                        // on l'efface pour ne pas hériter d'une sélection contradictoire
+                                        category = null,
+                                        // Forcer EXPENSE pour ne jamais afficher les revenus dans ce filtre
+                                        transactionType = TransactionType.EXPENSE
+                                    )
+                                )
+                            }
+                        },
+                        label = { Text("À catégoriser · $autreCount") },
+                        colors = if (autreCount > 0 && !isCategoriserSelected) {
+                            FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
+                        } else {
+                            FilterChipDefaults.filterChipColors()
+                        }
+                    )
+                }
             }
 
             // Liste des transactions
@@ -146,6 +218,10 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                             ExpensesList(
                                 expenses            = state.expenses,
                                 customSubCategories = state.customSubCategories,
+                                virementsInternesIds = state.virementsInternesIds,
+                                // Le regroupement par jour n'a de sens que si la liste est déjà
+                                // triée par date - sinon les mêmes jours ne seraient pas contigus.
+                                groupByDay          = filter.sort == SortOrder.DATE_DESC,
                                 onEdit              = { editingExpense = it },
                                 onDelete            = viewModel::deleteExpense
                             )
@@ -160,6 +236,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     if (showFilterSheet) {
         FilterSheet(
             filter = filter,
+            bankAccounts = bankAccounts,
             onFilterChange = { viewModel.updateFilter(it) },
             onDismiss = { showFilterSheet = false }
         )
@@ -168,11 +245,12 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     // Feuille d'ajout
     if (showAddSheet) {
         ExpenseSheet(
-            expense                  = null,
-            defaultCurrency          = defaultCurrency,
-            customSubCategories      = customSubCategories,
-            suggestions              = suggestions,
+            expense                   = null,
+            defaultCurrency           = defaultCurrency,
+            customSubCategories       = customSubCategories,
+            suggestions               = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
+            onDeleteCustomSubCategory = viewModel::supprimerCustomSubCategory,
             onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate ->
                 viewModel.addExpense(amount, category, currency, note,
                     date = date,
@@ -190,11 +268,12 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
     // Feuille d'édition
     editingExpense?.let { expense ->
         ExpenseSheet(
-            expense                  = expense,
-            defaultCurrency          = defaultCurrency,
-            customSubCategories      = customSubCategories,
-            suggestions              = suggestions,
+            expense                   = expense,
+            defaultCurrency           = defaultCurrency,
+            customSubCategories       = customSubCategories,
+            suggestions               = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
+            onDeleteCustomSubCategory = viewModel::supprimerCustomSubCategory,
             onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate ->
                 viewModel.updateExpense(expense, amount, category, currency, note,
                     date = date,
@@ -206,6 +285,29 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                     endDate = endDate)
             },
             onDismiss = { editingExpense = null }
+        )
+    }
+
+    // Dialog de recatégorisation en masse
+    recatProposee?.let { proposition ->
+        AlertDialog(
+            onDismissRequest = { recatProposee = null },
+            title = { Text("Recatégoriser") },
+            text  = {
+                Text(
+                    "${proposition.count} autre(s) transaction(s) ont la même note.\n" +
+                    "Appliquer « ${proposition.newCategory.displayName} » à toutes ?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.recategoriserParNote(proposition.note, proposition.newCategory)
+                    recatProposee = null
+                }) { Text("Appliquer à toutes") }
+            },
+            dismissButton = {
+                TextButton(onClick = { recatProposee = null }) { Text("Non") }
+            }
         )
     }
 }
@@ -263,6 +365,7 @@ private fun MonthNavigationBar(
 @Composable
 private fun FilterSheet(
     filter: ExpensesFilter,
+    bankAccounts: List<BankAccount> = emptyList(),
     onFilterChange: (ExpensesFilter) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -325,9 +428,33 @@ private fun FilterSheet(
                 items(Category.entries) { cat ->
                     FilterChip(
                         selected = filter.category == cat,
-                        onClick = { onFilterChange(filter.copy(category = cat)) },
+                        // uncategorizedOnly est exclusif avec category (voir ExpensesFilter.apply) :
+                        // le désactiver évite une combinaison contradictoire qui viderait la liste
+                        onClick = { onFilterChange(filter.copy(category = cat, uncategorizedOnly = false)) },
                         label = { Text(cat.displayName) }
                     )
+                }
+            }
+
+            // Compte bancaire (uniquement si des comptes sont configurés)
+            if (bankAccounts.isNotEmpty()) {
+                Text("Compte", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(
+                            selected = filter.bankAccountId == null,
+                            onClick = { onFilterChange(filter.copy(bankAccountId = null)) },
+                            label = { Text("Tous") }
+                        )
+                    }
+                    items(bankAccounts) { compte ->
+                        FilterChip(
+                            selected = filter.bankAccountId == compte.id,
+                            onClick = { onFilterChange(filter.copy(bankAccountId = compte.id)) },
+                            label = { Text(compte.label) }
+                        )
+                    }
                 }
             }
 
@@ -361,6 +488,8 @@ private fun FilterSheet(
 private fun ExpensesList(
     expenses: List<Transaction>,
     customSubCategories: List<CustomSubCategory>,
+    virementsInternesIds: Set<Long> = emptySet(),
+    groupByDay: Boolean,
     onEdit: (Transaction) -> Unit,
     onDelete: (Transaction) -> Unit
 ) {
@@ -369,16 +498,81 @@ private fun ExpensesList(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        // bottom = 160.dp pour ne pas laisser le FAB (Scaffold ne réserve pas d'espace pour lui)
+        // chevaucher la dernière ligne de transaction - 96.dp testé insuffisant sur appareil réel
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 160.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(expenses, key = { it.id }) { expense ->
-            ExpenseItem(
-                expense                 = expense,
-                customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
-                onEdit                  = { onEdit(expense) },
-                onDelete                = { onDelete(expense) }
+        if (groupByDay) {
+            // La liste est triée par date desc : groupBy préserve l'ordre de première
+            // rencontre des clés, donc les jours restent contigus et dans le bon ordre.
+            val groupes = expenses.groupBy { it.date }
+            groupes.forEach { (date, expensesDuJour) ->
+                item(key = "jour_$date") {
+                    DayHeader(date = date, expenses = expensesDuJour, modifier = Modifier.padding(top = 4.dp))
+                }
+                items(expensesDuJour, key = { it.id }) { expense ->
+                    ExpenseItem(
+                        expense                 = expense,
+                        customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
+                        virementInterne         = expense.id in virementsInternesIds,
+                        onEdit                  = { onEdit(expense) },
+                        onDelete                = { onDelete(expense) }
+                    )
+                }
+            }
+        } else {
+            items(expenses, key = { it.id }) { expense ->
+                ExpenseItem(
+                    expense                 = expense,
+                    customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
+                    virementInterne         = expense.id in virementsInternesIds,
+                    onEdit                  = { onEdit(expense) },
+                    onDelete                = { onDelete(expense) }
+                )
+            }
+        }
+    }
+}
+
+/** En-tête de groupe "Aujourd'hui" / "Hier" / date + total net du jour (si une seule devise). */
+@Composable
+private fun DayHeader(date: LocalDate, expenses: List<Transaction>, modifier: Modifier = Modifier) {
+    val devises = expenses.map { it.currency }.distinct()
+    val totalCents = if (devises.size == 1) {
+        expenses.sumOf { if (it.type == TransactionType.EXPENSE) -it.amountCents else it.amountCents }
+    } else null
+
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = dayLabel(date),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (totalCents != null) {
+            Text(
+                text = (if (totalCents > 0) "+" else "") + totalCents.toCurrencyDisplay(devises.first()),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (totalCents >= 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
             )
+        }
+    }
+}
+
+private fun dayLabel(date: LocalDate): String {
+    val today = LocalDate.now()
+    return when (date) {
+        today               -> "Aujourd'hui"
+        today.minusDays(1)  -> "Hier"
+        else -> {
+            val pattern = if (date.year == today.year) "d MMMM" else "d MMMM yyyy"
+            date.format(DateTimeFormatter.ofPattern(pattern, Locale.FRENCH))
         }
     }
 }
@@ -387,24 +581,41 @@ private fun ExpensesList(
 private fun ExpenseItem(
     expense: Transaction,
     customSubCategoryName: String?,
+    virementInterne: Boolean = false,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val formatter = DateTimeFormatter.ofPattern("dd/MM")
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    val estRevenu = expense.type == TransactionType.INCOME
+    val couleurCategorie = if (estRevenu) MaterialTheme.colorScheme.tertiary else expense.category.chartColor()
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .background(couleurCategorie.copy(alpha = 0.14f), RoundedCornerShape(11.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (estRevenu) Icons.Filled.Payments else expense.category.chartIcon(),
+                    contentDescription = null,
+                    tint = couleurCategorie,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // Pour un revenu, la note est plus significative que la catégorie (stockée AUTRE)
-                    val labelPrincipal = if (expense.type == TransactionType.INCOME)
-                        expense.note.ifBlank { "Revenu" }
+                    val labelPrincipal = if (estRevenu)
+                        expense.note.ifBlank { "Revenu" }.maskIban()
                     else
                         expense.category.displayName
                     Text(labelPrincipal, style = MaterialTheme.typography.bodyLarge)
@@ -414,6 +625,23 @@ private fun ExpenseItem(
                             contentDescription = "Récurrente",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                // Virement interne détecté (voir IdentifierVirementsInternesUseCase) : exclu des
+                // totaux revenus/dépenses mais toujours visible ici, avec l'indication du pourquoi.
+                if (virementInterne) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(
+                            imageVector = Icons.Filled.SwapHoriz,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            "Virement interne",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -431,26 +659,40 @@ private fun ExpenseItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // Pour les revenus, la note est déjà utilisée comme label principal
                 if (expense.type == TransactionType.EXPENSE && expense.note.isNotBlank()) {
-                    Text(expense.note, style = MaterialTheme.typography.bodySmall,
+                    Text(expense.note.maskIban(), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Text(
-                "${if (expense.type == TransactionType.EXPENSE) "-" else "+"} ${"%.2f".format(expense.amountCents / 100.0)} ${expense.currency.symbol}",
+                "${if (expense.type == TransactionType.EXPENSE) "-" else "+"} ${expense.amountCents.toCurrencyDisplay(expense.currency)}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (expense.type == TransactionType.EXPENSE)
                     MaterialTheme.colorScheme.error
                 else
                     MaterialTheme.colorScheme.primary
             )
-            Spacer(Modifier.width(8.dp))
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = "Modifier",
-                    tint = MaterialTheme.colorScheme.primary)
-            }
-            IconButton(onClick = { showDeleteConfirm = true }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Supprimer",
-                    tint = MaterialTheme.colorScheme.error)
+            // Un seul bouton "..." plutôt que deux IconButton (Modifier + Supprimer) : avec la
+            // pastille de catégorie ajoutée par la refonte, les deux boutons laissaient trop peu
+            // de largeur à la colonne de libellé (retour au texte qui passait à la ligne).
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Modifier") },
+                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary) },
+                        onClick = { showMenu = false; onEdit() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error) },
+                        onClick = { showMenu = false; showDeleteConfirm = true }
+                    )
+                }
             }
         }
     }
@@ -490,10 +732,11 @@ private fun ExpenseSheet(
     customSubCategories: List<CustomSubCategory>,
     suggestions: List<TransactionSuggestion> = emptyList(),
     onCreateCustomSubCategory: (String, Category) -> Unit,
+    onDeleteCustomSubCategory: (CustomSubCategory) -> Unit,
     onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?, com.dibitara.app.domain.model.RecurrenceFrequency?, LocalDate?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // Toujours formater avec un point — "%.2f" utilise la locale système (virgule sur FR)
+    // Toujours formater avec un point - "%.2f" utilise la locale système (virgule sur FR)
     var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0).replace(',', '.') } ?: "") }
     var note by remember { mutableStateOf(expense?.note ?: "") }
     var selectedCategory by remember { mutableStateOf(expense?.category ?: Category.ALIMENTATION) }
@@ -517,6 +760,7 @@ private fun ExpenseSheet(
     }
     var subCategoryExpanded by remember { mutableStateOf(false) }
     var showCreateSubCatDialog by remember { mutableStateOf(false) }
+    var customSubCatASupprimer by remember { mutableStateOf<CustomSubCategory?>(null) }
     // Dépense par défaut ; on relit le type si on édite une transaction existante
     var selectedType by remember { mutableStateOf(expense?.type ?: TransactionType.EXPENSE) }
     val focusManager = LocalFocusManager.current
@@ -584,7 +828,7 @@ private fun ExpenseSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Catégorie + sous-catégorie — sans sens pour un revenu, masquées
+            // Catégorie + sous-catégorie - sans sens pour un revenu, masquées
             if (selectedType == TransactionType.EXPENSE) {
                 ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = it }) {
                     OutlinedTextField(
@@ -609,7 +853,7 @@ private fun ExpenseSheet(
                     }
                 }
 
-                // Sous-catégorie — visible pour toute catégorie avec des custom subcats, ou pour AUTRE
+                // Sous-catégorie - visible pour toute catégorie avec des custom subcats, ou pour AUTRE
                 val customSubCatsForCategory = customSubCategories.filter { it.parentCategory == selectedCategory }
                 val hasSubCategories = customSubCatsForCategory.isNotEmpty() || selectedCategory == Category.AUTRE
 
@@ -656,6 +900,18 @@ private fun ExpenseSheet(
                             customSubCatsForCategory.forEach { custom ->
                                 DropdownMenuItem(
                                     text = { Text(custom.name) },
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            subCategoryExpanded = false
+                                            customSubCatASupprimer = custom
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Supprimer ${custom.name}",
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    },
                                     onClick = {
                                         selectedCustomSubCategory = custom
                                         selectedSubCategory = null
@@ -711,7 +967,7 @@ private fun ExpenseSheet(
                 modifier = Modifier.fillMaxWidth().focusRequester(noteFocusRequester)
             )
 
-            // Chips de suggestion — filtrées sur ce que l'utilisateur a tapé dans la note
+            // Chips de suggestion - filtrées sur ce que l'utilisateur a tapé dans la note
             val suggestionsFiltrées = remember(note, suggestions) {
                 if (note.isBlank()) emptyList()
                 else suggestions.filter { it.label.contains(note.trim(), ignoreCase = true) }
@@ -841,7 +1097,7 @@ private fun ExpenseSheet(
 
             Button(
                 onClick = {
-                    // Pour un revenu, la catégorie n'a pas de sens sémantique — on stocke AUTRE en base
+                    // Pour un revenu, la catégorie n'a pas de sens sémantique - on stocke AUTRE en base
                     val catFinale = if (selectedType == TransactionType.INCOME) Category.AUTRE else selectedCategory
                     // subCategory enum : uniquement pour AUTRE, et seulement si aucune custom n'est sélectionnée
                     val subCatFinale = selectedSubCategory.takeIf {
@@ -911,6 +1167,24 @@ private fun ExpenseSheet(
     }
 
     // Dialogue de création de sous-catégorie inline
+    customSubCatASupprimer?.let { subCat ->
+        AlertDialog(
+            onDismissRequest = { customSubCatASupprimer = null },
+            title = { Text("Supprimer la sous-catégorie ?") },
+            text  = { Text("« ${subCat.name} » sera supprimée. Les transactions liées ne sont pas modifiées.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteCustomSubCategory(subCat)
+                    if (selectedCustomSubCategory?.id == subCat.id) selectedCustomSubCategory = null
+                    customSubCatASupprimer = null
+                }) { Text("Supprimer", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { customSubCatASupprimer = null }) { Text("Annuler") }
+            }
+        )
+    }
+
     if (showCreateSubCatDialog) {
         DialogueCreerSousCategorie(
             categoryParente = if (selectedType == TransactionType.INCOME) Category.AUTRE else selectedCategory,
@@ -980,5 +1254,7 @@ private fun ExpensesFilter.activeFilterCount(): Int {
     if (transactionType != TransactionType.EXPENSE) count++
     if (category != null) count++
     if (sort != SortOrder.DATE_DESC) count++
+    if (bankAccountId != null) count++
+    if (uncategorizedOnly) count++
     return count
 }

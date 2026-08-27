@@ -11,10 +11,10 @@ interface CustomSubCategoryRepository {
     /** Émet uniquement les sous-catégories pour une [Category] donnée. */
     fun getByCategory(category: Category): Flow<List<CustomSubCategory>>
 
-    /** Insère ou remplace (UPSERT) — l'id=0 crée, id>0 met à jour. */
+    /** Insère ou remplace (UPSERT) - l'id=0 crée, id>0 met à jour. */
     suspend fun upsert(subCategory: CustomSubCategory)
 
     /** Supprime la sous-catégorie. Les transactions liées conservent leur [customSubCategoryId]
-     *  — le ViewModel affichera "Sous-catégorie supprimée" pour ces transactions. */
+     *  - le ViewModel affichera "Sous-catégorie supprimée" pour ces transactions. */
     suspend fun delete(subCategory: CustomSubCategory)
 }

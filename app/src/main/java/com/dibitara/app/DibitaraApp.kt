@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -24,6 +25,8 @@ class DibitaraApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // Requis par pdfbox-android avant toute extraction PDF
+        PDFBoxResourceLoader.init(applicationContext)
         configurerCrashlytics()
     }
 

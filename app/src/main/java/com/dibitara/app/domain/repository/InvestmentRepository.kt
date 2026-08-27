@@ -3,6 +3,7 @@ package com.dibitara.app.domain.repository
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
+import com.dibitara.app.domain.model.VehicleRentalEntry
 import kotlinx.coroutines.flow.Flow
 
 interface InvestmentRepository {
@@ -21,4 +22,10 @@ interface InvestmentRepository {
     suspend fun saveAirbnbRental(rental: AirbnbRental): Result<Long>
     suspend fun updateAirbnbRental(rental: AirbnbRental)
     suspend fun deleteAirbnbRental(rental: AirbnbRental)
+
+    fun getAllVehicleRentalEntries(): Flow<List<VehicleRentalEntry>>
+    fun getVehicleRentalEntriesByYear(year: Int): Flow<List<VehicleRentalEntry>>
+    suspend fun saveVehicleRentalEntry(entry: VehicleRentalEntry): Result<Long>
+    suspend fun updateVehicleRentalEntry(entry: VehicleRentalEntry)
+    suspend fun deleteVehicleRentalEntry(entry: VehicleRentalEntry)
 }

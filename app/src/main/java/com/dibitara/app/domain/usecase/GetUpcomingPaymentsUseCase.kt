@@ -14,7 +14,7 @@ import javax.inject.Inject
 /**
  * Calcule les prochaines échéances à venir pour tous les modèles récurrents actifs.
  *
- * [limit] — nombre maximum de résultats retournés (défaut 5).
+ * [limit] - nombre maximum de résultats retournés (défaut 5).
  * Les résultats sont triés par date croissante.
  */
 class GetUpcomingPaymentsUseCase @Inject constructor(
@@ -55,7 +55,9 @@ class GetUpcomingPaymentsUseCase @Inject constructor(
 
     private fun nextMonthly(template: Transaction, after: LocalDate): LocalDate {
         val base = template.firstPaymentDate ?: template.date
-        val day = (template.recurrenceDay ?: base.dayOfMonth).coerceAtMost(28)
+        // Pas de plafond fixe à 28 : un prélèvement le 30 reste au 30 dans les mois de
+        // 30/31 jours (même correction que GetCashflowProjectionUseCase, "Correction #8").
+        val day = template.recurrenceDay ?: base.dayOfMonth
 
         // Candidat dans le mois courant
         val thisMonth = LocalDate.of(

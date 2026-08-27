@@ -16,7 +16,7 @@ import java.time.LocalDate
 
 /**
  * Tests unitaires de AddTransactionUseCase.
- * On utilise MockK pour simuler le repository — aucune base de données réelle.
+ * On utilise MockK pour simuler le repository - aucune base de données réelle.
  * runTest = exécuteur de coroutines pour les tests.
  */
 class AddTransactionUseCaseTest {

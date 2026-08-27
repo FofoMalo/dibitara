@@ -2,16 +2,19 @@ package com.dibitara.app.presentation.settings
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.dibitara.app.data.worker.MonthlyReportNotificationWorker
+import com.dibitara.app.data.worker.WeeklyRecapWorker
 import com.dibitara.app.domain.model.Currency
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.ExportFormat
+import com.dibitara.app.domain.model.ThemeMode
 import com.dibitara.app.domain.model.UserPreferences
 import com.dibitara.app.domain.usecase.ExporterDonneesUseCase
 import com.dibitara.app.domain.usecase.GetExchangeRatesUseCase
@@ -21,8 +24,13 @@ import com.dibitara.app.domain.usecase.UpdateAfficherInvestissementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherProchainsPaiementsUseCase
 import com.dibitara.app.domain.usecase.UpdateAfficherRapportUseCase
 import com.dibitara.app.domain.usecase.UpdateDeviseParDefautUseCase
+import com.dibitara.app.domain.usecase.RestaurerDonneesUseCase
+import com.dibitara.app.domain.usecase.SupprimerToutesDonneesUseCase
+import com.dibitara.app.domain.usecase.UpdateAfficherRecommandationsUseCase
 import com.dibitara.app.domain.usecase.UpdateNotificationsMensuellesUseCase
 import com.dibitara.app.domain.usecase.UpdateSeuilFondsUseCase
+import com.dibitara.app.domain.usecase.UpdateSeuilResteAVivreLogementUseCase
+import com.dibitara.app.domain.usecase.UpdateThemeModeUseCase
 import com.dibitara.app.domain.usecase.UpdateTwoFactorEnabledUseCase
 import java.util.concurrent.TimeUnit
 import com.dibitara.app.security.CredentialManager
@@ -44,6 +52,7 @@ class SettingsViewModel @Inject constructor(
     private val ucGetPreferences: GetUserPreferencesUseCase,
     private val ucGetExchangeRates: GetExchangeRatesUseCase,
     private val ucUpdateSeuil: UpdateSeuilFondsUseCase,
+    private val ucUpdateSeuilResteAVivreLogement: UpdateSeuilResteAVivreLogementUseCase,
     private val ucUpdateDevise: UpdateDeviseParDefautUseCase,
     private val ucUpdateAfficherRapport: UpdateAfficherRapportUseCase,
     private val ucUpdateAfficherEpargne: UpdateAfficherEpargneUseCase,
@@ -51,7 +60,11 @@ class SettingsViewModel @Inject constructor(
     private val ucUpdateAfficherProchainsPaiements: UpdateAfficherProchainsPaiementsUseCase,
     private val ucUpdateTwoFactorEnabled: UpdateTwoFactorEnabledUseCase,
     private val ucUpdateNotificationsMensuelles: UpdateNotificationsMensuellesUseCase,
+    private val ucUpdateAfficherRecommandations: UpdateAfficherRecommandationsUseCase,
+    private val ucUpdateThemeMode: UpdateThemeModeUseCase,
+    private val ucSupprimerToutesDonnees: SupprimerToutesDonneesUseCase,
     private val ucExporterDonnees: ExporterDonneesUseCase,
+    private val ucRestaurerDonnees: RestaurerDonneesUseCase,
     private val credentialManager: CredentialManager,
     private val totpManager: TotpManager
 ) : ViewModel() {
@@ -80,6 +93,15 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // ─── Capture live BRED ────────────────────────────────────────────────────
+
+    /**
+     * L'activation se fait via un réglage système (Paramètres Android > Accès aux notifications),
+     * pas via une permission runtime classique - on ne peut donc que vérifier l'état, pas la demander.
+     */
+    fun captureLiveBredActivee(): Boolean =
+        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+
     // ─── État de sécurité ─────────────────────────────────────────────────────
 
     private val _securityState = MutableStateFlow(
@@ -92,7 +114,7 @@ class SettingsViewModel @Inject constructor(
     )
     val securityState: StateFlow<SecurityState> = _securityState.asStateFlow()
 
-    // État de la configuration TOTP en cours — null si aucun setup ouvert
+    // État de la configuration TOTP en cours - null si aucun setup ouvert
     private val _totpSetupState = MutableStateFlow<TotpSetupUiState?>(null)
     val totpSetupState: StateFlow<TotpSetupUiState?> = _totpSetupState.asStateFlow()
 
@@ -107,6 +129,39 @@ class SettingsViewModel @Inject constructor(
 
     private val _exportEvent = MutableSharedFlow<ExportEvent>()
     val exportEvent = _exportEvent.asSharedFlow()
+
+    // ─── Restauration des données ──────────────────────────────────────────────
+
+    /** true pendant la lecture et l'insertion du fichier de sauvegarde. */
+    private val _restoreEnCours = MutableStateFlow(false)
+    val restoreEnCours: StateFlow<Boolean> = _restoreEnCours.asStateFlow()
+
+    private val _restoreEvent = MutableSharedFlow<RestoreEvent>()
+    val restoreEvent = _restoreEvent.asSharedFlow()
+
+    /**
+     * Restaure les données depuis le fichier JSON sélectionné par l'utilisateur.
+     * Émet [RestoreEvent.Succes] avec le nombre d'entités restaurées,
+     * ou [RestoreEvent.Erreur] si le fichier est invalide.
+     */
+    fun restaurerDonnees(uri: Uri) {
+        viewModelScope.launch {
+            _restoreEnCours.value = true
+            try {
+                val result = ucRestaurerDonnees(uri)
+                when (result) {
+                    is com.dibitara.app.domain.repository.RestoreResult.Success ->
+                        _restoreEvent.emit(RestoreEvent.Succes(result.nbElements))
+                    is com.dibitara.app.domain.repository.RestoreResult.Error ->
+                        _restoreEvent.emit(RestoreEvent.Erreur(result.message))
+                }
+            } catch (e: Exception) {
+                _restoreEvent.emit(RestoreEvent.Erreur(e.message ?: "Erreur inconnue"))
+            } finally {
+                _restoreEnCours.value = false
+            }
+        }
+    }
 
     /**
      * Lance la collecte et l'écriture du fichier en arrière-plan.
@@ -130,7 +185,7 @@ class SettingsViewModel @Inject constructor(
 
     /**
      * Met à jour le seuil d'alerte.
-     * [eurosStr] est la valeur saisie par l'utilisateur (en euros) — on convertit en centimes.
+     * [eurosStr] est la valeur saisie par l'utilisateur (en euros) - on convertit en centimes.
      * Ignore la mise à jour si la saisie n'est pas un entier valide.
      */
     fun mettreAJourSeuil(eurosStr: String) {
@@ -138,8 +193,23 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { ucUpdateSeuil(cents) }
     }
 
+    /**
+     * Met à jour le seuil de reste à vivre mensuel minimum du Scénario logement.
+     * [eurosStr] est la valeur saisie par l'utilisateur (en euros) - on convertit en centimes.
+     * Distinct du seuil d'alerte "liquidités insuffisantes" ci-dessus : celui-ci est une marge
+     * mensuelle, pas un plancher de solde.
+     */
+    fun mettreAJourSeuilResteAVivreLogement(eurosStr: String) {
+        val cents = eurosStr.toLongOrNull()?.times(100) ?: return
+        viewModelScope.launch { ucUpdateSeuilResteAVivreLogement(cents) }
+    }
+
     fun mettreAJourDevise(currency: Currency) {
         viewModelScope.launch { ucUpdateDevise(currency) }
+    }
+
+    fun mettreAJourThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { ucUpdateThemeMode(mode) }
     }
 
     fun mettreAJourAfficherRapport(afficher: Boolean) {
@@ -163,6 +233,27 @@ class SettingsViewModel @Inject constructor(
      * Si activé : planifie un [MonthlyReportNotificationWorker] tous les 30 jours.
      * Si désactivé : annule le travail planifié.
      */
+    fun mettreAJourAfficherRecommandations(afficher: Boolean) {
+        viewModelScope.launch { ucUpdateAfficherRecommandations(afficher) }
+    }
+
+    /**
+     * Efface définitivement toutes les données personnelles (RGPD Art. 17).
+     * Après l'appel, l'appelant doit naviguer vers SetupAuth -
+     * les credentials n'existent plus.
+     */
+    fun supprimerToutesDonnees(onTermine: () -> Unit) {
+        viewModelScope.launch {
+            ucSupprimerToutesDonnees()
+            onTermine()
+        }
+    }
+
+    /**
+     * Active ou désactive les notifications mensuelles.
+     * Si activé : planifie un [MonthlyReportNotificationWorker] tous les 30 jours.
+     * Si désactivé : annule le travail planifié.
+     */
     fun mettreAJourNotificationsMensuelles(enabled: Boolean) {
         viewModelScope.launch {
             ucUpdateNotificationsMensuelles(enabled)
@@ -176,8 +267,17 @@ class SettingsViewModel @Inject constructor(
                     ExistingPeriodicWorkPolicy.UPDATE,
                     request
                 )
+                val weeklyRequest = PeriodicWorkRequestBuilder<WeeklyRecapWorker>(
+                    7, TimeUnit.DAYS
+                ).build()
+                workManager.enqueueUniquePeriodicWork(
+                    WeeklyRecapWorker.NOM_TRAVAIL_UNIQUE,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    weeklyRequest
+                )
             } else {
                 workManager.cancelUniqueWork(MonthlyReportNotificationWorker.NOM_TRAVAIL_UNIQUE)
+                workManager.cancelUniqueWork(WeeklyRecapWorker.NOM_TRAVAIL_UNIQUE)
             }
         }
     }
@@ -231,7 +331,7 @@ class SettingsViewModel @Inject constructor(
     fun activerTotp(code: String) {
         val state = _totpSetupState.value ?: return
         if (!totpManager.verify(state.secret, code)) {
-            _totpSetupState.value = state.copy(codeError = "Code incorrect — réessayez")
+            _totpSetupState.value = state.copy(codeError = "Code incorrect - réessayez")
             return
         }
         viewModelScope.launch {
@@ -267,7 +367,7 @@ data class SecurityState(
     val hasTotpConfigured     : Boolean = false
 )
 
-/** État intermédiaire pendant la configuration du TOTP — visible dans le dialogue. */
+/** État intermédiaire pendant la configuration du TOTP - visible dans le dialogue. */
 data class TotpSetupUiState(
     val secret    : String,
     val uri       : String,
@@ -284,7 +384,13 @@ sealed class SettingsEvent {
 
 /** Résultat de l'opération d'export. */
 sealed class ExportEvent {
-    /** Fichier prêt — [uri] à passer à Intent.ACTION_SEND, [format] pour déterminer le mimeType. */
+    /** Fichier prêt - [uri] à passer à Intent.ACTION_SEND, [format] pour déterminer le mimeType. */
     data class Succes(val uri: Uri, val format: ExportFormat) : ExportEvent()
     data object Erreur : ExportEvent()
+}
+
+/** Résultat de l'opération de restauration. */
+sealed class RestoreEvent {
+    data class Succes(val nbElements: Int) : RestoreEvent()
+    data class Erreur(val message: String) : RestoreEvent()
 }

@@ -15,7 +15,10 @@ import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.model.VehicleEntryType
+import com.dibitara.app.domain.model.VehicleRentalEntry
 import com.dibitara.app.domain.repository.BudgetRepository
+import com.dibitara.app.domain.repository.ChildRepository
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.ExportRepository
@@ -40,6 +43,7 @@ class ExporterDonneesUseCaseTest {
     private val investmentRepo     : InvestmentRepository       = mockk()
     private val debtRepo           : DebtRepository             = mockk()
     private val customInvestRepo   : CustomInvestmentRepository = mockk()
+    private val childRepo          : ChildRepository            = mockk()
     private val exportRepo         : ExportRepository           = mockk()
 
     private lateinit var useCase: ExporterDonneesUseCase
@@ -55,18 +59,20 @@ class ExporterDonneesUseCaseTest {
             investmentRepository       = investmentRepo,
             debtRepository             = debtRepo,
             customInvestmentRepository = customInvestRepo,
+            childRepository            = childRepo,
             exportRepository           = exportRepo
         )
 
         // Tous les repos retournent des listes vides par défaut
+        coEvery { childRepo.getAll()                         } returns flowOf(emptyList())
         coEvery { transactionRepo.getAll()                   } returns flowOf(emptyList())
         coEvery { budgetRepo.getAll()                        } returns flowOf(emptyList())
         coEvery { savingsRepo.getAll()                       } returns flowOf(emptyList())
         coEvery { investmentRepo.getAllRealEstate()           } returns flowOf(emptyList())
         coEvery { investmentRepo.getAllScpi()                 } returns flowOf(emptyList())
         coEvery { investmentRepo.getAllAirbnbRentals()        } returns flowOf(emptyList())
+        coEvery { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(emptyList())
         coEvery { debtRepo.getAll()                          } returns flowOf(emptyList())
-        coEvery { customInvestRepo.getAllPreciousMetals()     } returns flowOf(emptyList())
         coEvery { customInvestRepo.getAllCustomAssets()       } returns flowOf(emptyList())
         coEvery { customInvestRepo.getAllEmployeeSavings()    } returns flowOf(emptyList())
         coEvery { exportRepo.exporter(any(), any())          } returns uriMock
@@ -102,6 +108,7 @@ class ExporterDonneesUseCaseTest {
         val immo   = RealEstateAsset(id = 1L, label = "Appart", currentValueCents = 15000000L, currency = Currency.EUR, updatedAt = LocalDate.now())
         val scpi   = ScpiInvestment(id = 1L, label = "SCPI X", sharesCount = 2.5, shareValueCents = 100000L, monthlyContributionCents = 5000L, currency = Currency.EUR, updatedAt = LocalDate.now())
         val airbnb = AirbnbRental(id = 1L, propertyLabel = "Studio", amountCents = 80000L, date = LocalDate.now(), currency = Currency.EUR)
+        val vehicule = VehicleRentalEntry(id = 1L, label = "Location weekend", entryType = VehicleEntryType.REVENU, amountCents = 15000L, date = LocalDate.now(), currency = Currency.EUR)
         val dette  = Debt(id = 1L, label = "Crédit", totalCents = 500000L, monthlyPaymentCents = 50000L, currency = Currency.EUR, type = DebtType.CREDIT_IMMO, updatedAt = LocalDate.now())
 
         coEvery { transactionRepo.getAll()            } returns flowOf(listOf(transaction))
@@ -110,6 +117,7 @@ class ExporterDonneesUseCaseTest {
         coEvery { investmentRepo.getAllRealEstate()   } returns flowOf(listOf(immo))
         coEvery { investmentRepo.getAllScpi()         } returns flowOf(listOf(scpi))
         coEvery { investmentRepo.getAllAirbnbRentals()} returns flowOf(listOf(airbnb))
+        coEvery { investmentRepo.getAllVehicleRentalEntries() } returns flowOf(listOf(vehicule))
         coEvery { debtRepo.getAll()                  } returns flowOf(listOf(dette))
 
         useCase(ExportFormat.JSON)
@@ -124,6 +132,7 @@ class ExporterDonneesUseCaseTest {
                     data.immobilier.size   == 1 &&
                     data.scpi.size         == 1 &&
                     data.airbnb.size       == 1 &&
+                    data.vehiculeLocatif.size == 1 &&
                     data.dettes.size       == 1
                 },
                 ExportFormat.JSON

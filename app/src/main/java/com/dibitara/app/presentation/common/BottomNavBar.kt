@@ -16,7 +16,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dibitara.app.presentation.navigation.Screen
 
 /**
- * Barre de navigation inférieure — présente sur tous les écrans principaux.
+ * Barre de navigation inférieure - présente sur tous les écrans principaux.
  * Pour ajouter un onglet : ajouter une entrée dans [NavItem] + une destination dans Screen.
  */
 @Composable
@@ -58,8 +58,7 @@ fun BottomNavBar(
                         }
                     }
                 },
-                icon = { Icon(item.icon, contentDescription = item.label) },
-                label = { Text(item.label) }
+                icon = { Icon(item.icon, contentDescription = item.label) }
             )
         }
     }

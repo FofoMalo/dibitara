@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
 /**
- * Écran de configuration initiale — affiché une seule fois au premier lancement.
+ * Écran de configuration initiale - affiché une seule fois au premier lancement.
  * Seul le PIN est configuré ici ; l'email/mot de passe n'a pas sa place sans backend.
  *
  * [onSetupComplete] est appelé dès que le PIN est créé.
@@ -96,7 +96,7 @@ private fun EtapePinSetup(onPinConfirmed: (String) -> Unit) {
 
         Spacer(Modifier.height(32.dp))
 
-        // 4 points — pleins si un chiffre est saisi, vides sinon
+        // 4 points - pleins si un chiffre est saisi, vides sinon
         PinDots(longueur = pinCourant.length)
 
         erreur?.let {
@@ -121,7 +121,7 @@ private fun EtapePinSetup(onPinConfirmed: (String) -> Unit) {
                             if (pin == confirm) {
                                 onPinConfirmed(pin)
                             } else {
-                                erreur = "Les PIN ne correspondent pas — recommencez"
+                                erreur = "Les PIN ne correspondent pas - recommencez"
                                 pin = ""; confirm = ""; phase = "saisie"
                             }
                         }
@@ -239,7 +239,7 @@ private fun EtapeMotDePasseSetup(
 
 // ─── Composants partagés ────────────────────────────────────────────────────
 
-/** Cercles indiquant la progression de la saisie — 4 pour un PIN, 6 pour un code TOTP. */
+/** Cercles indiquant la progression de la saisie - 4 pour un PIN, 6 pour un code TOTP. */
 @Composable
 fun PinDots(longueur: Int, total: Int = 4) {
     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {

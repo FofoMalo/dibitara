@@ -19,7 +19,7 @@ data class Transaction(
     val note: String = "",
     val childId: Long? = null,                      // Identifiant de l'enfant associé (null si pas d'enfant)
     val isRecurring: Boolean = false,               // true = cette transaction est un modèle récurrent
-    val recurrenceDay: Int? = null,                 // Jour du mois (1-28) — utilisé pour MONTHLY uniquement
+    val recurrenceDay: Int? = null,                 // Jour du mois (1-28) - utilisé pour MONTHLY uniquement
     val sourceRecurringId: Long? = null,            // ID du modèle qui a généré cette occurrence
     val subCategory: SubCategory? = null,           // Non-null uniquement si category == AUTRE (enum fixe)
     val customSubCategoryId: Long? = null,          // Référence à une CustomSubCategory créée par l'utilisateur
@@ -27,7 +27,8 @@ data class Transaction(
     val firstPaymentDate: LocalDate? = null,        // Date de la première occurrence (détermine le jour pour WEEKLY/YEARLY)
     val endDate: LocalDate? = null,                 // Date de fin de récurrence (null = indéfini)
     val importSource: String? = null,               // Ajouté en v11 : source de l'import ("trade_republic"), null si saisie manuelle
-    val externalId: String? = null                  // Ajouté en v11 : UUID externe pour la déduplication à l'import
+    val externalId: String? = null,                 // Ajouté en v11 : UUID externe pour la déduplication à l'import
+    val bankAccountId: Long? = null                 // Ajouté en v22 : référence au BankAccount rattaché (null si non déterminé)
 )
 
 enum class TransactionType { EXPENSE, INCOME, INVESTMENT }
@@ -48,17 +49,22 @@ enum class Category(val displayName: String) {
     ABONNEMENTS   ("Abonnements"),     // téléphonie, streaming, internet, logiciels
     INVESTISSEMENT("Investissement"),
     EPARGNE       ("Épargne"),
-    ENFANT        ("Enfant"),
-    HABILLEMENT   ("Habillement"),
-    IMPOTS_CHARGES("Impôts & charges"),
-    ASSURANCES    ("Assurances"),
-    TRANSFERTS    ("Transferts"),
-    AUTRE         ("Autre")            // toujours en dernier — fallback de safeValueOf
+    ENFANT             ("Enfant"),
+    EDUCATION          ("Éducation"),       // frais de scolarité, fournitures, formation
+    HABILLEMENT        ("Habillement"),
+    IMPOTS_CHARGES     ("Impôts & charges"),
+    ASSURANCES         ("Assurances"),
+    TRANSFERTS         ("Transferts"),
+    TRANSFERTS_FAMILIAUX("Transferts famille"), // envois famille élargie, tontines, njangi
+    TABAC              ("Tabac"),             // promue depuis une sous-catégorie AUTRE : usage assez
+                                               // fréquent et régulier pour justifier une enveloppe dédiée
+    AUTRE              ("Autre")            // toujours en dernier - fallback de safeValueOf
 }
 
 // Sous-catégories prédéfinies, utilisées uniquement quand category == AUTRE
 enum class SubCategory(val displayName: String) {
-    CADEAUX        ("Cadeaux"),
-    FRAIS_BANCAIRES("Frais bancaires"),
-    DIVERS         ("Divers")          // toujours en dernier — fallback de safeValueOf
+    CADEAUX          ("Cadeaux"),
+    FRAIS_BANCAIRES  ("Frais bancaires"),
+    BAR_ET_RESTAURANT("Bar & restaurant"),
+    DIVERS           ("Divers")          // toujours en dernier - fallback de safeValueOf
 }

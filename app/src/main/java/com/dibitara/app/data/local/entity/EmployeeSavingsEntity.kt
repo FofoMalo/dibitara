@@ -16,7 +16,9 @@ data class EmployeeSavingsEntity(
     val currentBalanceCents       : Long,
     val employerContributionCents : Long,
     val currency                  : String,
-    val updatedAtEpochDay         : Long
+    val updatedAtEpochDay         : Long,
+    val acquisitionValueCents     : Long? = null,
+    val acquisitionDateEpochDay   : Long? = null
 ) {
     fun toDomain() = EmployeeSavings(
         id                        = id,
@@ -25,7 +27,9 @@ data class EmployeeSavingsEntity(
         currentBalanceCents       = currentBalanceCents,
         employerContributionCents = employerContributionCents,
         currency                  = safeValueOf(currency, Currency.EUR),
-        updatedAt                 = LocalDate.ofEpochDay(updatedAtEpochDay)
+        updatedAt                 = LocalDate.ofEpochDay(updatedAtEpochDay),
+        acquisitionValueCents     = acquisitionValueCents,
+        acquisitionDate           = acquisitionDateEpochDay?.let { LocalDate.ofEpochDay(it) }
     )
 
     companion object {
@@ -36,7 +40,9 @@ data class EmployeeSavingsEntity(
             currentBalanceCents       = s.currentBalanceCents,
             employerContributionCents = s.employerContributionCents,
             currency                  = s.currency.name,
-            updatedAtEpochDay         = s.updatedAt.toEpochDay()
+            updatedAtEpochDay         = s.updatedAt.toEpochDay(),
+            acquisitionValueCents     = s.acquisitionValueCents,
+            acquisitionDateEpochDay   = s.acquisitionDate?.toEpochDay()
         )
     }
 }

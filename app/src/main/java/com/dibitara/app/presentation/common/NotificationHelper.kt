@@ -5,10 +5,11 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
 import com.dibitara.app.R
+import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.MonthlyReport
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -28,14 +29,18 @@ class NotificationHelper @Inject constructor(
 ) {
 
     companion object {
-        const val CANAL_BUDGET   = "canal_budget"
-        const val CANAL_DETTES   = "canal_dettes"
-        const val CANAL_FONDS    = "canal_fonds"
-        const val CANAL_MENSUEL  = "canal_mensuel"
+        const val CANAL_BUDGET         = "canal_budget"
+        const val CANAL_DETTES         = "canal_dettes"
+        const val CANAL_FONDS          = "canal_fonds"
+        const val CANAL_MENSUEL        = "canal_mensuel"
+        const val CANAL_CONTRIBUTIONS  = "canal_contributions"
+        const val CANAL_CAPTURE_LIVE   = "canal_capture_live"
 
-        private const val NOTIF_ID_BUDGET  = 1001
-        private const val NOTIF_ID_FONDS   = 3001
-        private const val NOTIF_ID_MENSUEL = 4001
+        private const val NOTIF_ID_BUDGET         = 1001
+        private const val NOTIF_ID_FONDS          = 3001
+        private const val NOTIF_ID_MENSUEL        = 4001
+        const val          NOTIF_ID_CONTRIBUTIONS = 5001
+        private const val NOTIF_ID_CAPTURE_LIVE   = 6001
     }
 
     init {
@@ -63,6 +68,14 @@ class NotificationHelper @Inject constructor(
             NotificationChannel(CANAL_MENSUEL, "Bilan mensuel", NotificationManager.IMPORTANCE_DEFAULT)
                 .apply { description = "Résumé du mois écoulé envoyé en début de mois" }
         )
+        manager.createNotificationChannel(
+            NotificationChannel(CANAL_CONTRIBUTIONS, "Versements à faire", NotificationManager.IMPORTANCE_DEFAULT)
+                .apply { description = "Rappel de versements mensuels épargne/SCPI non effectués" }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CANAL_CAPTURE_LIVE, "Capture live BRED", NotificationManager.IMPORTANCE_LOW)
+                .apply { description = "Confirmation des paiements carte BRED capturés automatiquement" }
+        )
     }
 
     // ─── Méthodes d'envoi ─────────────────────────────────────────────────────
@@ -79,6 +92,7 @@ class NotificationHelper @Inject constructor(
                 "sur ${alloueCents / 100}€ alloués ce mois-ci."
             )
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(deepLinkPendingIntent("dibitara://budget", NOTIF_ID_BUDGET))
             .setAutoCancel(true)
             .build()
 
@@ -91,16 +105,18 @@ class NotificationHelper @Inject constructor(
      * qu'une dette écrase la notification d'une autre.
      */
     fun envoyerRappelDette(idDette: Long, labelDette: String, montantCents: Long) {
+        // 2000 + idDette garantit un ID unique par dette (pas de collision avec les autres types)
+        val notifId = (2000 + idDette).toInt()
         val notification = NotificationCompat.Builder(context, CANAL_DETTES)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Échéance dette aujourd'hui")
             .setContentText("Paiement de ${montantCents / 100}€ prévu : $labelDette")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(deepLinkPendingIntent("dibitara://debts", notifId))
             .setAutoCancel(true)
             .build()
 
-        // 2000 + idDette garantit un ID unique par dette (pas de collision avec les autres types)
-        envoyerSiAutorise((2000 + idDette).toInt(), notification)
+        envoyerSiAutorise(notifId, notification)
     }
 
     /**
@@ -109,16 +125,6 @@ class NotificationHelper @Inject constructor(
      * que l'utilisateur puisse ajuster son seuil d'alerte.
      */
     fun envoyerAvertissementFonds(soldeCents: Long, seuilCents: Long) {
-        val deepLinkIntent = Intent(Intent.ACTION_VIEW, Uri.parse("dibitara://settings")).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            NOTIF_ID_FONDS,
-            deepLinkIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val notification = NotificationCompat.Builder(context, CANAL_FONDS)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Liquidités insuffisantes")
@@ -127,7 +133,7 @@ class NotificationHelper @Inject constructor(
                 "(seuil d'alerte : ${seuilCents / 100}€)"
             )
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(deepLinkPendingIntent("dibitara://settings", NOTIF_ID_FONDS))
             .setAutoCancel(true)
             .build()
 
@@ -150,9 +156,65 @@ class NotificationHelper @Inject constructor(
                 "· Solde : ${rapport.soldeCents / 100}$sym"
             )
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(deepLinkPendingIntent("dibitara://report", NOTIF_ID_MENSUEL))
             .setAutoCancel(true)
             .build()
         envoyerSiAutorise(NOTIF_ID_MENSUEL, notification)
+    }
+
+    /**
+     * Alerte enveloppe par catégorie : dépassement de 80 % ou du plafond.
+     * L'ID est dérivé de l'ordinal de la catégorie (7000+) pour éviter toute collision.
+     */
+    fun envoyerAlerteEnveloppe(category: Category, depenseCents: Long, plafondCents: Long) {
+        val taux     = if (plafondCents > 0) depenseCents.toFloat() / plafondCents else 0f
+        val titre    = if (taux >= 1f) "Enveloppe dépassée" else "Enveloppe à ${(taux * 100).toInt()} %"
+        val texte    = "${category.displayName} : ${depenseCents / 100}€ / ${plafondCents / 100}€"
+        val notifId  = 7000 + category.ordinal
+        val notification = NotificationCompat.Builder(context, CANAL_BUDGET)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(titre)
+            .setContentText(texte)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(deepLinkPendingIntent("dibitara://expenses?category=${category.name}", notifId))
+            .setAutoCancel(true)
+            .build()
+        envoyerSiAutorise(notifId, notification)
+    }
+
+    /**
+     * Rappel de fin de mois : N versements épargne/SCPI non encore effectués.
+     * Affiché uniquement dans les 5 derniers jours du mois (décision du ViewModel).
+     */
+    fun envoyerRappelContributions(count: Int, totalCents: Long) {
+        val notification = NotificationCompat.Builder(context, CANAL_CONTRIBUTIONS)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Versements à faire")
+            .setContentText("$count versement(s) à faire · Total : ${totalCents / 100}€")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(deepLinkPendingIntent("dibitara://savings", NOTIF_ID_CONTRIBUTIONS))
+            .setAutoCancel(true)
+            .build()
+
+        envoyerSiAutorise(NOTIF_ID_CONTRIBUTIONS, notification)
+    }
+
+    /**
+     * Confirmation légère après capture live d'un paiement carte BRED via notification.
+     * Purement informative (pas une demande d'action) - envoyée par
+     * [com.dibitara.app.data.notification.BredNotificationListenerService].
+     */
+    fun envoyerConfirmationCaptureLive(amountCents: Long, marchand: String) {
+        val notification = NotificationCompat.Builder(context, CANAL_CAPTURE_LIVE)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Transaction ajoutée")
+            .setContentText("${amountCents / 100}€ - $marchand")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setContentIntent(deepLinkPendingIntent("dibitara://expenses", NOTIF_ID_CAPTURE_LIVE))
+            .setAutoCancel(true)
+            .build()
+
+        envoyerSiAutorise(NOTIF_ID_CAPTURE_LIVE, notification)
     }
 
     // ─── Helpers privés ───────────────────────────────────────────────────────
@@ -165,6 +227,22 @@ class NotificationHelper @Inject constructor(
         1 -> "janvier"; 2 -> "février"; 3 -> "mars"; 4 -> "avril"
         5 -> "mai"; 6 -> "juin"; 7 -> "juillet"; 8 -> "août"
         9 -> "septembre"; 10 -> "octobre"; 11 -> "novembre"; else -> "décembre"
+    }
+
+    /**
+     * Construit un PendingIntent qui ouvre l'app sur l'écran désigné par [uri] au clic sur la notif.
+     * [requestCode] doit être unique par notification pour éviter qu'un PendingIntent en écrase un autre.
+     */
+    private fun deepLinkPendingIntent(uri: String, requestCode: Int): PendingIntent {
+        val deepLinkIntent = Intent(Intent.ACTION_VIEW, uri.toUri()).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        return PendingIntent.getActivity(
+            context,
+            requestCode,
+            deepLinkIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun envoyerSiAutorise(id: Int, notification: android.app.Notification) {

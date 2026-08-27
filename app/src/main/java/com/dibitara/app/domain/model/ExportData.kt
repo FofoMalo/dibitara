@@ -9,14 +9,15 @@ enum class ExportFormat { CSV, JSON }
  * à partir des différents repositories.
  */
 data class ExportData(
+    val enfants        : List<Child>,           // en premier - clé étrangère childId dans transactions
     val transactions   : List<Transaction>,
     val budgets        : List<Budget>,
     val epargne        : List<SavingsAccount>,
     val immobilier     : List<RealEstateAsset>,
     val scpi           : List<ScpiInvestment>,
     val airbnb         : List<AirbnbRental>,
+    val vehiculeLocatif: List<VehicleRentalEntry>,
     val dettes         : List<Debt>,
-    val metaux         : List<PreciousMetalAsset>,
     val actifsLibres   : List<CustomAsset>,
     val epargneSalariale: List<EmployeeSavings>
 )

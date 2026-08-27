@@ -15,7 +15,9 @@ data class ScpiInvestmentEntity(
     val shareValueCents: Long,
     val monthlyContributionCents: Long,
     val currency: String,
-    val updatedAtEpochDay: Long
+    val updatedAtEpochDay: Long,
+    val acquisitionValueCents: Long? = null,
+    val acquisitionDateEpochDay: Long? = null
 ) {
     fun toDomain() = ScpiInvestment(
         id = id,
@@ -24,7 +26,9 @@ data class ScpiInvestmentEntity(
         shareValueCents = shareValueCents,
         monthlyContributionCents = monthlyContributionCents,
         currency = safeValueOf(currency, Currency.EUR),
-        updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay)
+        updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay),
+        acquisitionValueCents = acquisitionValueCents,
+        acquisitionDate = acquisitionDateEpochDay?.let { LocalDate.ofEpochDay(it) }
     )
 
     companion object {
@@ -35,7 +39,9 @@ data class ScpiInvestmentEntity(
             shareValueCents = s.shareValueCents,
             monthlyContributionCents = s.monthlyContributionCents,
             currency = s.currency.name,
-            updatedAtEpochDay = s.updatedAt.toEpochDay()
+            updatedAtEpochDay = s.updatedAt.toEpochDay(),
+            acquisitionValueCents = s.acquisitionValueCents,
+            acquisitionDateEpochDay = s.acquisitionDate?.toEpochDay()
         )
     }
 }
