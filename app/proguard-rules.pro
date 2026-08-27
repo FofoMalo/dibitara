@@ -36,11 +36,6 @@
 -keep class com.google.zxing.** { *; }
 -dontwarn com.google.zxing.**
 
-# ─── PdfBox-Android (lecture des relevés PDF BRED) ────────────────────────────
-# JPXFilter référence un décodeur JPEG2000 optionnel (Gemalto) non inclus en dépendance -
-# jamais utilisé ici (BredPdfParser n'extrait que du texte, pas des images JPX).
--dontwarn com.gemalto.jp2.**
-
 # ─── Compose ──────────────────────────────────────────────────────────────────
 # Le plugin Compose gère ses propres règles via le compilateur.
 # On conserve les lambdas pour éviter des crashs sur certains appareils.

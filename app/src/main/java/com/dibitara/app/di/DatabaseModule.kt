@@ -17,7 +17,6 @@ import com.dibitara.app.data.repository.CategorizationRuleRepositoryImpl
 import com.dibitara.app.data.repository.CategoryEnvelopeRepositoryImpl
 import com.dibitara.app.data.repository.CustomInvestmentRepositoryImpl
 import com.dibitara.app.data.repository.ExportRepositoryImpl
-import com.dibitara.app.data.repository.ImportRepositoryImpl
 import com.dibitara.app.data.repository.PatrimoineSnapshotRepositoryImpl
 import com.dibitara.app.data.repository.RestoreRepositoryImpl
 import com.dibitara.app.data.repository.VersementRepositoryImpl
@@ -27,7 +26,6 @@ import com.dibitara.app.domain.repository.CategorizationRuleRepository
 import com.dibitara.app.domain.repository.CategoryEnvelopeRepository
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
 import com.dibitara.app.domain.repository.ExportRepository
-import com.dibitara.app.domain.repository.ImportRepository
 import com.dibitara.app.domain.repository.PatrimoineSnapshotRepository
 import com.dibitara.app.domain.repository.RestoreRepository
 import com.dibitara.app.domain.repository.VersementRepository
@@ -108,7 +106,6 @@ abstract class RepositoryModule {
     @Binds abstract fun bindVersementRepository(impl: VersementRepositoryImpl): VersementRepository
     @Binds abstract fun bindExportRepository(impl: ExportRepositoryImpl): ExportRepository
     @Binds abstract fun bindCustomInvestmentRepository(impl: CustomInvestmentRepositoryImpl): CustomInvestmentRepository
-    @Binds abstract fun bindImportRepository(impl: ImportRepositoryImpl): ImportRepository
     @Binds abstract fun bindPatrimoineSnapshotRepository(impl: PatrimoineSnapshotRepositoryImpl): PatrimoineSnapshotRepository
     @Binds abstract fun bindCategorizationRuleRepository(impl: CategorizationRuleRepositoryImpl): CategorizationRuleRepository
     @Binds abstract fun bindCategoryEnvelopeRepository(impl: CategoryEnvelopeRepositoryImpl): CategoryEnvelopeRepository

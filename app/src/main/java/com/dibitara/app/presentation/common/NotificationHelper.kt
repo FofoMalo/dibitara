@@ -34,13 +34,11 @@ class NotificationHelper @Inject constructor(
         const val CANAL_FONDS          = "canal_fonds"
         const val CANAL_MENSUEL        = "canal_mensuel"
         const val CANAL_CONTRIBUTIONS  = "canal_contributions"
-        const val CANAL_CAPTURE_LIVE   = "canal_capture_live"
 
         private const val NOTIF_ID_BUDGET         = 1001
         private const val NOTIF_ID_FONDS          = 3001
         private const val NOTIF_ID_MENSUEL        = 4001
         const val          NOTIF_ID_CONTRIBUTIONS = 5001
-        private const val NOTIF_ID_CAPTURE_LIVE   = 6001
     }
 
     init {
@@ -71,10 +69,6 @@ class NotificationHelper @Inject constructor(
         manager.createNotificationChannel(
             NotificationChannel(CANAL_CONTRIBUTIONS, "Versements à faire", NotificationManager.IMPORTANCE_DEFAULT)
                 .apply { description = "Rappel de versements mensuels épargne/SCPI non effectués" }
-        )
-        manager.createNotificationChannel(
-            NotificationChannel(CANAL_CAPTURE_LIVE, "Capture live BRED", NotificationManager.IMPORTANCE_LOW)
-                .apply { description = "Confirmation des paiements carte BRED capturés automatiquement" }
         )
     }
 
@@ -197,24 +191,6 @@ class NotificationHelper @Inject constructor(
             .build()
 
         envoyerSiAutorise(NOTIF_ID_CONTRIBUTIONS, notification)
-    }
-
-    /**
-     * Confirmation légère après capture live d'un paiement carte BRED via notification.
-     * Purement informative (pas une demande d'action) - envoyée par
-     * [com.dibitara.app.data.notification.BredNotificationListenerService].
-     */
-    fun envoyerConfirmationCaptureLive(amountCents: Long, marchand: String) {
-        val notification = NotificationCompat.Builder(context, CANAL_CAPTURE_LIVE)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Transaction ajoutée")
-            .setContentText("${amountCents / 100}€ - $marchand")
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setContentIntent(deepLinkPendingIntent("dibitara://expenses", NOTIF_ID_CAPTURE_LIVE))
-            .setAutoCancel(true)
-            .build()
-
-        envoyerSiAutorise(NOTIF_ID_CAPTURE_LIVE, notification)
     }
 
     // ─── Helpers privés ───────────────────────────────────────────────────────

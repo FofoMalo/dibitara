@@ -2,7 +2,6 @@ package com.dibitara.app.presentation.settings
 
 import android.content.Context
 import android.net.Uri
-import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -92,15 +91,6 @@ class SettingsViewModel @Inject constructor(
             _tauxDeChange.value = ucGetExchangeRates()
         }
     }
-
-    // ─── Capture live BRED ────────────────────────────────────────────────────
-
-    /**
-     * L'activation se fait via un réglage système (Paramètres Android > Accès aux notifications),
-     * pas via une permission runtime classique - on ne peut donc que vérifier l'état, pas la demander.
-     */
-    fun captureLiveBredActivee(): Boolean =
-        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
     // ─── État de sécurité ─────────────────────────────────────────────────────
 
