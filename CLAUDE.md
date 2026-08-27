@@ -15,6 +15,7 @@ Application bancaire Android à usage personnel, inspirée de **Finary**. L'obje
 - Suivi des investissements (immo, SCPI, Airbnb, métaux précieux, actifs libres, épargne salariale)
 - Réconciliation dettes/biens immobiliers (équité nette par actif)
 - Export des données en CSV et JSON (partage via Intent Android)
+- Import d'un relevé bancaire au format CSV, quelle que soit la banque (auto-détection des colonnes + mapping manuel, aperçu éditable, dédup par empreinte)
 - Rappels et conseils sur les fonds disponibles
 - Devises supportées : Euro (€), Dollar ($), Franc CFA (XOF/XAF) avec conversion multi-devises
 - Projections trésorerie 30 jours et graphiques (courbes, camemberts, histogrammes)
@@ -114,7 +115,7 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 
 ## Modèles métier clés (domain/model/)
 
-`Transaction`, `Budget`, `Debt`, `SavingsAccount`, `RealEstateAsset`, `ScpiInvestment`, `AirbnbRental`, `PatrimonyOverview`, `Currency`, `Category`, `SubCategory`, `CustomSubCategory`, `DebtType`, `SavingsType`, `Child`, `UserPreferences`, `MonthlyReport`, `CategoryExpense`, `MonthlyVersement`, `RecurrenceFrequency`, `UpcomingPayment`, `TransactionSuggestion`, `ExportData`, `ExportFormat`, `PreciousMetalAsset`, `CustomAsset`, `EmployeeSavings`, `MetalType`, `EmployeeSavingsType`, `ExchangeRates`, `CurrencyConverter`, `DuplicateGroup`, `PatrimoineSnapshot`
+`Transaction`, `Budget`, `Debt`, `SavingsAccount`, `RealEstateAsset`, `ScpiInvestment`, `AirbnbRental`, `PatrimonyOverview`, `Currency`, `Category`, `SubCategory`, `CustomSubCategory`, `DebtType`, `SavingsType`, `Child`, `UserPreferences`, `MonthlyReport`, `CategoryExpense`, `MonthlyVersement`, `RecurrenceFrequency`, `UpcomingPayment`, `TransactionSuggestion`, `ExportData`, `ExportFormat`, `PreciousMetalAsset`, `CustomAsset`, `EmployeeSavings`, `MetalType`, `EmployeeSavingsType`, `ExchangeRates`, `CurrencyConverter`, `DuplicateGroup`, `PatrimoineSnapshot`, `ImportedTransaction`, `CsvColumnMapping`, `CsvImportPreview`
 
 ## Conventions de développement
 

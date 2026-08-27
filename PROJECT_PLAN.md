@@ -332,6 +332,7 @@ Pyramide de tests (situation actuelle) :
 | Sprint 41 | ⚠️ Livré avec un périmètre différent du plan initial : plan prévoyait un récapitulatif abonnements, ce qui a réellement été construit sont des recommandations budgétaires mensuelles (règle 50/30/20) | ✅ Terminé (scope changé) | v4.6.0 |
 | Sprint 42 | ⚠️ Livré avec un périmètre différent du plan initial : plan prévoyait Google Drive + chiffrement, ce qui a réellement été construit est une restauration JSON locale via SAF (inverse de l'export Sprint 18) | ✅ Terminé (scope réduit) | v4.7.0 |
 | Sprint 43 | Réconciliation de solde (saisie manuelle + écart calculé) | ❌ Remplacé — non construit tel quel ; le besoin est couvert autrement par le suivi automatique du solde bancaire réel (`BankAccount`, voir ci-dessous) | — |
+| Sprint 44 | Retrait de l'import bancaire perso (BRED/TradeRepublic) sur `develop-catchup` + **import CSV bancaire générique** (auto-détection des colonnes + mapping manuel + aperçu éditable, dédup SHA-256, 0 migration Room, 60 tests) | ✅ Terminé (branche `develop-catchup`) — passe device + numéro de version en attente | — (bump au merge) |
 
 ### 6.1 Travaux post-Sprint 43 (hors plan initial, non numérotés en sprints)
 

@@ -9,6 +9,30 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
+## [Non publié] — branche `develop-catchup`
+
+> ⚠️ Numéro de version à trancher : `develop-catchup` est à 4.4.0 / versionCode 15,
+> `develop` à 4.5.0 / versionCode 16. Le bump se fera au moment du merge, pas ici.
+
+### Retrait de l'import bancaire personnel
+- Suppression de toute la couche d'import BRED (CSV, PDF, capture live par
+  notification) et TradeRepublic — calibrée sur les relevés réels de Florent,
+  inutilisable par un autre utilisateur. Dépendance `pdfbox` retirée.
+- Conservé car générique : comptes bancaires (`bank_accounts`, Room v22),
+  détection des virements internes.
+
+### Import CSV bancaire générique (Sprint 44)
+- Nouvel écran *Paramètres → Importer un relevé CSV* : sélection du fichier,
+  détection automatique des colonnes (délimiteur, format de date, montant signé
+  ou débit/crédit, séparateur décimal, synonymes d'en-tête FR/EN), écran de
+  mapping manuel en secours, aperçu éditable (catégorie par ligne, inclusion,
+  compte de rattachement) avant écriture.
+- Déduplication par empreinte SHA-256 (date + montant + libellé). Catégorie
+  suggérée via les règles apprises puis le dictionnaire générique.
+- Aucune migration Room. 60 tests.
+
+---
+
 ## [4.4.0] - 2026-08-27
 
 > Le `versionCode` n'avait pas été incrémenté depuis Sprint 19 (4.3.0, 2026-05-22)

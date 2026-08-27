@@ -1,6 +1,7 @@
 # Cadrage Sprint 44 — Import CSV bancaire générique
 
-> Statut : **CADRAGE — en attente du go de Florent**
+> Statut : **IMPLÉMENTÉ** (étapes 1-9/11). Reste : passe device (10) + décision de
+> version au merge (11-12). Voir §13 pour le suivi commit par commit.
 > Branche cible : `develop-catchup` (branche générique)
 > Date : 2026-08-27
 > Room : **aucune migration** (colonnes `importSource` / `externalId` / `bankAccountId` déjà présentes, v11 / v22)
@@ -363,3 +364,31 @@ lignée de `develop` (prochain = 4.6.0 / 17), soit on assume une renumérotation
 11. Bump version (après clarification §12) + `CHANGELOG.md` +
     `CLAUDE.md` (schéma inchangé, mais mentionner l'import CSV générique dans
     « Fonctionnalités principales ») + `PROJECT_PLAN.md` (ligne Sprint 44).
+
+---
+
+## 14. Suivi d'implémentation (2026-08-27)
+
+| Commit | Étapes | Contenu |
+|---|---|---|
+| `b629664` | 1 | `CsvParser` (RFC 4180 + détection délimiteur) · `MontantParser` |
+| `179e3d5` | 2 | `CsvColumnDetector` · `TexteNormalisation` · modèle `CsvColumnMapping` |
+| `3e8a0f2` | 3-4 | `AnalyserCsvUseCase` → `CsvImportPreview` · `CsvRowParser` · `ImportedTransaction` · `ExternalIdGenerator` (SHA-256) · `SuggererCategorieImportUseCase` · `ImportRepository(+Impl)` + `@Binds` |
+| `0ebd7d5` | 5 | `ImporterTransactionsCsvUseCase` (2 phases) |
+| `4ca6a88` | 6-8 | `ImportCsvViewModel` · `ImportCsvScreen` · `ImportCsvMappingScreen` · nav + bouton Paramètres · suppression `TransactionDao.findByAmountDateRangeAndSource` |
+| `207a072` | 9 | `ImportCsvViewModelTest` (7 tests JVM, `contentResolver` mocké) |
+
+**60 tests** au total pour la feature. `./gradlew test koverVerify compileDebugAndroidTestKotlin` vert.
+
+**Écarts vs cadrage initial :**
+- `SuggererCategorieImportUseCase` créé en petit UseCase dédié (pas d'extraction
+  de `GetRecategorizationSuggestionsUseCase`, jugée trop invasive une fois le
+  code lu) — mais sans sous-catégorie ni mot-clé, comme prévu.
+- Étape 9 « test instrumenté » remplacée par un test JVM du ViewModel
+  (`contentResolver` mocké) — couvre les mêmes parcours, exécutable sans émulateur.
+- Lecture du fichier : `readBytes()` global (pas la lecture 2 passes streaming),
+  avec garde-fou à 20 000 lignes. Suffisant pour un relevé bancaire réel.
+
+**Reste :**
+- Passe sur téléphone avec 2 relevés de banques réelles (Florent fournit).
+- Décision du numéro de version au merge de `develop-catchup` (§12).
