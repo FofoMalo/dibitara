@@ -123,6 +123,14 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 - **Migrations Room :** chaque modification de schéma incrémente `version` d'exactement 1 et requiert une migration + le fichier `N.json` exporté. Ne jamais utiliser `fallbackToDestructiveMigration` en production.
 - **Promouvoir une sous-catégorie personnalisée en `Category` à part entière :** `Category` est stockée en base comme `String` (colonne `category` sur `transactions`, avec `safeValueOf` en fallback) — ajouter une valeur à l'enum ne nécessite **pas** de migration Room. Seule la donnée doit être réconciliée : un `UseCase` applicatif (pas une migration de schéma) réassigne les transactions liées à l'ancienne `CustomSubCategory` vers la nouvelle `Category` et supprime la sous-catégorie devenue orpheline. Cas réel : `MigrerTabacVersCategorieUseCase` (2026-08), nécessaire car `CategoryEnvelope` ne peut cibler qu'une `Category`, jamais une sous-catégorie personnalisée.
 - **Messages de commit :** sujet verbe complément, en français, sans Co-Authored-By.
+- **Bump de version :** à chaque saut de fonctionnalité ou d'amélioration
+  notable (fin de sprint, feature livrée), incrémenter `versionCode`/
+  `versionName` dans `app/build.gradle.kts` et ajouter une entrée
+  `CHANGELOG.md`. Si je livre un tel saut sans que ce soit fait, je dois le
+  signaler explicitement à Florent avant de considérer la tâche terminée.
+  Constat du 2026-08-27 : ce réflexe avait été perdu entre Sprint 19 (4.3.0)
+  et Sprint 42+ — 20 sprints et 107 commits livrés sans un seul bump,
+  `CLAUDE.md` annonçait même une version qui n'existait pas dans le code.
 
 ## Conventions UI / Design
 
