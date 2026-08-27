@@ -25,6 +25,7 @@ import com.dibitara.app.presentation.savings.SavingsScreen
 import com.dibitara.app.presentation.patrimoine.PatrimoineDetailScreen
 import com.dibitara.app.presentation.projection.ProjectionDetailScreen
 import com.dibitara.app.presentation.report.MonthlyReportScreen
+import com.dibitara.app.presentation.importcsv.ImportCsvScreen
 import com.dibitara.app.presentation.settings.BankAccountsScreen
 import com.dibitara.app.presentation.settings.DuplicateCleanupScreen
 import com.dibitara.app.presentation.settings.SettingsScreen
@@ -68,6 +69,7 @@ sealed class Screen(val route: String) {
     data object Report            : Screen("report")
     data object PatrimoineDetail  : Screen("patrimoine_detail")
     data object DuplicateCleanup  : Screen("duplicate_cleanup")
+    data object ImportCsv         : Screen("import_csv")
     data object BankAccounts      : Screen("bank_accounts")
     data object ProjectionDetail  : Screen("projection_detail")
     data object Trends             : Screen("trends")
@@ -216,6 +218,7 @@ fun DibitaraNavGraph(
                 deepLinks = listOf(navDeepLink { uriPattern = "dibitara://settings" })
             ) {
                 SettingsScreen(
+                    onNavigateToImportCsv        = { navController.navigate(Screen.ImportCsv.route) },
                     onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) },
                     onNavigateToBankAccounts     = { navController.navigate(Screen.BankAccounts.route) },
                     onSupprimerDonnees           = {
@@ -230,6 +233,9 @@ fun DibitaraNavGraph(
                 DuplicateCleanupScreen(
                     onNavigateBack = { navController.navigateUp() }
                 )
+            }
+            composable(Screen.ImportCsv.route) {
+                ImportCsvScreen(onNavigateBack = { navController.navigateUp() })
             }
             composable(Screen.BankAccounts.route) {
                 BankAccountsScreen(

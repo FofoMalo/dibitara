@@ -40,6 +40,7 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun SettingsScreen(
+    onNavigateToImportCsv: () -> Unit = {},
     onNavigateToDuplicateCleanup: () -> Unit = {},
     onNavigateToBankAccounts: () -> Unit = {},
     onSupprimerDonnees: () -> Unit = {},
@@ -437,6 +438,13 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                 }
+                OutlinedButton(
+                    onClick = onNavigateToImportCsv,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Importer un relevé CSV")
+                }
+                Spacer(Modifier.height(4.dp))
                 OutlinedButton(
                     onClick = onNavigateToDuplicateCleanup,
                     modifier = Modifier.fillMaxWidth()
