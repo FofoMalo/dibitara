@@ -151,8 +151,8 @@ private fun EtapeSelection(onChoisir: () -> Unit) {
 @Composable
 private fun EtapeApercu(
     state: ImportCsvUiState.Apercu,
-    onModifierCategorie: (String, Category) -> Unit,
-    onBasculerInclusion: (String) -> Unit,
+    onModifierCategorie: (ligneIndex: Int, Category) -> Unit,
+    onBasculerInclusion: (ligneIndex: Int) -> Unit,
     onChoisirCompte: (Long?) -> Unit,
     onAjusterColonnes: () -> Unit,
     onConfirmer: () -> Unit,
@@ -186,11 +186,11 @@ private fun EtapeApercu(
                     }
                 }
             }
-            items(state.transactions, key = { it.externalId }) { tx ->
+            items(state.transactions, key = { it.ligneIndex }) { tx ->
                 LigneApercu(
                     tx = tx,
-                    onCategorie = { onModifierCategorie(tx.externalId, it) },
-                    onToggle = { onBasculerInclusion(tx.externalId) },
+                    onCategorie = { onModifierCategorie(tx.ligneIndex, it) },
+                    onToggle = { onBasculerInclusion(tx.ligneIndex) },
                 )
                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
             }

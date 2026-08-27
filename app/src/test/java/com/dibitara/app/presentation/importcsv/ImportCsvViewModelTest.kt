@@ -115,7 +115,7 @@ class ImportCsvViewModelTest {
         vm.choisirFichier(uri)
         val tx = (vm.uiState.value as ImportCsvUiState.Apercu).transactions.single()
 
-        vm.modifierCategorie(tx.externalId, Category.LOISIRS)
+        vm.modifierCategorie(tx.ligneIndex, Category.LOISIRS)
 
         assertEquals(
             Category.LOISIRS,
@@ -129,7 +129,7 @@ class ImportCsvViewModelTest {
         vm.choisirFichier(uri)
         val premier = (vm.uiState.value as ImportCsvUiState.Apercu).transactions.first()
 
-        vm.basculerInclusion(premier.externalId)
+        vm.basculerInclusion(premier.ligneIndex)
 
         assertEquals(1, (vm.uiState.value as ImportCsvUiState.Apercu).nouvelles)
     }

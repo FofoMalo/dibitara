@@ -14,6 +14,11 @@ import java.time.LocalDate
  * signalés dans l'aperçu mais jamais réinsérés.
  *
  * [inclure] permet à l'utilisateur de décocher une ligne dans l'aperçu.
+ *
+ * [ligneIndex] est la position de la ligne dans le fichier source. C'est la clé
+ * d'identité côté UI (liste et édition de l'aperçu) : deux transactions vraiment
+ * identiques le même jour partagent le même [externalId] (dédup voulue à
+ * l'insertion) mais restent deux lignes distinctes à l'écran.
  */
 data class ImportedTransaction(
     val date: LocalDate,
@@ -23,6 +28,7 @@ data class ImportedTransaction(
     val note: String,
     val category: Category,
     val externalId: String,
+    val ligneIndex: Int,
     val alreadyImported: Boolean = false,
     val inclure: Boolean = true,
 ) {

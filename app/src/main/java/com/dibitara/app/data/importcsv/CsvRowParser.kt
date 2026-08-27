@@ -33,8 +33,9 @@ object CsvRowParser {
     ): Resultat {
         val formatteur = DateTimeFormatter.ofPattern(mapping.formatDate)
         var ignorees = 0
-        val transactions = donnees.mapNotNull { ligne ->
-            parserLigne(ligne, mapping, deviseParDefaut, formatteur).also { if (it == null) ignorees++ }
+        val transactions = donnees.mapIndexedNotNull { index, ligne ->
+            parserLigne(ligne, mapping, deviseParDefaut, formatteur, index)
+                .also { if (it == null) ignorees++ }
         }
         return Resultat(transactions, ignorees)
     }
@@ -44,6 +45,7 @@ object CsvRowParser {
         mapping: CsvColumnMapping,
         deviseParDefaut: Currency,
         formatteur: DateTimeFormatter,
+        ligneIndex: Int,
     ): ImportedTransaction? {
         val date = champ(ligne, mapping.colonneDate)
             ?.let { runCatching { LocalDate.parse(it, formatteur) }.getOrNull() }
@@ -72,6 +74,7 @@ object CsvRowParser {
             note = note,
             category = Category.AUTRE,
             externalId = ExternalIdGenerator.pour(date, amountCents, note),
+            ligneIndex = ligneIndex,
         )
     }
 

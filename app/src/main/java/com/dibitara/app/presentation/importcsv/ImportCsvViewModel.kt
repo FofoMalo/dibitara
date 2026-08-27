@@ -103,30 +103,36 @@ class ImportCsvViewModel @Inject constructor(
             lignesIgnorees = preview.lignesIgnorees,
             comptes = comptes,
             compteChoisiId = null,
+            mapping = preview.mapping,
         )
     }
 
-    /** Rouvre l'écran de mapping depuis l'aperçu (bouton « Ajuster les colonnes »). */
+    /**
+     * Rouvre l'écran de mapping depuis l'aperçu (bouton « Ajuster les colonnes »)
+     * en repartant du mapping courant plutôt que d'une nouvelle auto-détection —
+     * l'utilisateur ne perd pas les colonnes qu'il vient d'ajuster.
+     */
     fun ouvrirMapping() {
+        val etat = _uiState.value as? ImportCsvUiState.Apercu ?: return
         viewModelScope.launch {
             _uiState.value = ImportCsvUiState.Analyse
-            val preview = analyserCsv(lignesBrutes, deviseParDefaut, mappingImpose = null)
+            val preview = analyserCsv(lignesBrutes, deviseParDefaut, mappingImpose = etat.mapping)
             _uiState.value = ImportCsvUiState.MappingRequis(preview)
         }
     }
 
-    fun modifierCategorie(externalId: String, categorie: Category) {
+    fun modifierCategorie(ligneIndex: Int, categorie: Category) {
         majApercu { transactions ->
             transactions.map {
-                if (it.externalId == externalId && !it.alreadyImported) it.copy(category = categorie) else it
+                if (it.ligneIndex == ligneIndex && !it.alreadyImported) it.copy(category = categorie) else it
             }
         }
     }
 
-    fun basculerInclusion(externalId: String) {
+    fun basculerInclusion(ligneIndex: Int) {
         majApercu { transactions ->
             transactions.map {
-                if (it.externalId == externalId) it.copy(inclure = !it.inclure) else it
+                if (it.ligneIndex == ligneIndex) it.copy(inclure = !it.inclure) else it
             }
         }
     }
@@ -161,6 +167,8 @@ class ImportCsvViewModel @Inject constructor(
     private fun lireLignes(uri: Uri): List<String> {
         val octets = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             ?: throw IllegalStateException("fichier introuvable")
+        // U+FFFD = caractère de remplacement inséré quand des octets ne sont pas de l'UTF-8 valide
+        // (relevés d'anciennes banques encodés en ISO-8859-1 / Latin-1).
         val texte = octets.toString(Charsets.UTF_8)
             .let { if (it.contains('�')) octets.toString(Charsets.ISO_8859_1) else it }
         return texte.split(Regex("\r\n|\r|\n"))
@@ -187,6 +195,7 @@ sealed interface ImportCsvUiState {
         val lignesIgnorees: Int,
         val comptes: List<BankAccount>,
         val compteChoisiId: Long?,
+        val mapping: CsvColumnMapping,
     ) : ImportCsvUiState {
         val nouvelles: Int get() = transactions.count { !it.alreadyImported && it.inclure }
         val doublons: Int get() = transactions.count { it.alreadyImported }

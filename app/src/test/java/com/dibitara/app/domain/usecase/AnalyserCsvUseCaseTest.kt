@@ -82,6 +82,26 @@ class AnalyserCsvUseCaseTest {
         assertEquals(2, preview.lignesIgnorees)
     }
 
+    // ─── Transactions jumelles : deux lignes UI, un seul id de dédup ─────────
+
+    @Test
+    fun `deux lignes identiques le même jour restent distinctes dans l'aperçu`() = runTest {
+        val preview = useCase(
+            lignes(
+                "Date;Libellé;Montant",
+                "01/02/2026;CAFE;-2,00",
+                "01/02/2026;CAFE;-2,00",
+            ),
+            deviseParDefaut = Currency.EUR,
+        )
+
+        assertEquals(2, preview.transactions.size)
+        // clé d'affichage unique par ligne (sinon LazyColumn plante sur clé dupliquée)
+        assertEquals(2, preview.transactions.map { it.ligneIndex }.toSet().size)
+        // mais même externalId : la dédup à l'insertion n'en gardera qu'une
+        assertEquals(1, preview.transactions.map { it.externalId }.toSet().size)
+    }
+
     // ─── mappingImpose court-circuite l'auto-détection ───────────────────────
 
     @Test

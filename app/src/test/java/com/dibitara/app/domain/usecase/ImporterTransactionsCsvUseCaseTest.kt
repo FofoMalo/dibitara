@@ -26,6 +26,8 @@ class ImporterTransactionsCsvUseCaseTest {
     private val prefsRepo: UserPreferencesRepository = mockk(relaxed = true)
     private val useCase = ImporterTransactionsCsvUseCase(importRepo, prefsRepo)
 
+    private var compteurLigne = 0
+
     private fun imported(
         externalId: String,
         note: String = "Achat",
@@ -40,6 +42,7 @@ class ImporterTransactionsCsvUseCaseTest {
         note = note,
         category = Category.AUTRE,
         externalId = externalId,
+        ligneIndex = compteurLigne++,
         inclure = inclure,
         alreadyImported = alreadyImported,
     )
