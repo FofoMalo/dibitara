@@ -1,8 +1,14 @@
 # Dibitara — Plan de Projet
 
 > Application bancaire Android personnelle | Inspirée de Finary  
-> Version du document : 4.1 — 2026-05-31  
-> Statut : **En développement actif** — v4.3.0 sur main — Room v16 (perso/florent)
+> Version du document : 5.0 — 2026-08-27  
+> Statut : **En développement actif** — v4.4.0 sur main — Room v23
+>
+> L'historique détaillé des livraisons vit désormais dans `CHANGELOG.md`
+> (reconstruit depuis git le 2026-08-27). Ce document reste le plan
+> vivant : périmètre, stack réelle, avancement des sprints, backlog,
+> risques et protocoles. Les sections 6-7 n'avaient plus été mises à jour
+> depuis Sprint 38 (2026-05-31) — 20+ sprints de retard comblés ici.
 
 ---
 
@@ -36,14 +42,20 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 | F6 | Rappels et conseils sur fonds disponibles | SHOULD | ✅ Fait (3 canaux de notifications, Sprint 6) |
 | F7 | Authentification sécurisée | SHOULD | ✅ Fait (PIN 4 chiffres + biométrie — email/password retiré UI Sprint 12) |
 | F8 | Export des données (CSV/JSON) | COULD | ✅ Fait (Sprint 18 — CSV + JSON, partage Intent) |
-| F9 | Sauvegarde cloud chiffrée | COULD | ❌ Non implémenté — backlog V5 |
+| F9 | Sauvegarde cloud chiffrée | COULD | ⚠️ Partiel — export/restauration JSON manuelle via SAF (Sprint 18 + 42) ; sync Drive automatique cadrée mais non implémentée (attend le go de Florent) |
 
 ### Fonctionnalités réalisées au-delà du périmètre initial
 - **Rapport mensuel** — Module complet avec bilan, top catégories, variation M/M-1 (Sprint 8)
-- **Transactions récurrentes** — Génération automatique par `AppViewModel` au démarrage (Sprint 4)
+- **Transactions récurrentes** — Génération automatique par `AppViewModel` au démarrage (Sprint 4), enrichies WEEKLY/MONTHLY/YEARLY (Sprint 16)
 - **Préférences utilisateur** — DataStore : devise par défaut, seuil liquidités, toggle rapport (Sprint 7)
 - **Rapport mensuel dashboard** — Carte synthèse compacte activable depuis les paramètres
 - **Politique de confidentialité** — Publiée sur GitHub pour le Play Store
+- **Comptes bancaires réels** — Entité `BankAccount` (BRED, TradeRepublic, Qonto), capture live des retraits/paiements carte BRED par notification push, détection des virements internes ; trésorerie et alertes de liquidités basées sur le solde bancaire réel plutôt que sur le flux du mois
+- **Import bancaire** — CSV TradeRepublic (Sprint 20), CSV + PDF BRED (Sprint 30/32), recatégorisation automatique à l'import
+- **Module Scénarios** — Scénario logement (simulateur de plancher, projection 6 mois) et Conseiller patrimoine (précaution, plafonds, capacité, concentration)
+- **Budget par catégorie** — Enveloppes mensuelles avec alertes de dépassement (Sprint 40), recommandations 50/30/20 (Sprint 41)
+- **Refonte UX/UI complète** (2026-08) — palette noir/or, composants de synthèse réutilisables (`HeroCard`, `TrendChip`, `CategoryVisuals`), thème système/clair/sombre
+- **RGPD** — suppression des données personnelles (Art. 17)
 
 ### Hors périmètre V1 (inchangé)
 - Connexion aux APIs bancaires réelles (Open Banking)
@@ -64,39 +76,44 @@ Centraliser toutes les informations financières personnelles (budget, dépenses
 | Git | 2.x | Contrôle de version |
 | GitHub | — | Hébergement + CI (build debug) |
 
-### 2.2 Stack technique Android — État réel
+### 2.2 Stack technique Android — État réel (2026-08-27)
 ```
 app/src/main/java/com/dibitara/app/
 ├── data/
 │   ├── export/       — CsvExporter, JsonExporter
-│   ├── local/        — Room v10, migrations 1→2→…→10
-│   └── repository/   — *RepositoryImpl.kt + UserPreferencesRepositoryImpl (DataStore)
-│                       + ExportRepositoryImpl + CustomInvestmentRepositoryImpl
+│   ├── importcsv/    — BredCsvParser, BredPdfParser, TradeRepublicCsvParser
+│   ├── local/        — Room v23, migrations 1→2→…→23 (voir CLAUDE.md pour le détail)
+│   └── repository/   — *RepositoryImpl.kt (19 implémentations, dont BankAccountRepositoryImpl,
+│                       CategorizationRuleRepositoryImpl, CategoryEnvelopeRepositoryImpl)
 ├── di/               — DatabaseModule, DataStoreModule, SecurityModule
 ├── domain/
-│   ├── model/        — Transaction, Budget, Debt, SavingsAccount, RealEstateAsset,
-│   │                   ScpiInvestment, AirbnbRental, PatrimonyOverview, Currency,
-│   │                   Category, SubCategory, CustomSubCategory, DebtType, SavingsType,
-│   │                   Child, UserPreferences, MonthlyReport, CategoryExpense,
-│   │                   MonthlyVersement, RecurrenceFrequency, UpcomingPayment,
-│   │                   TransactionSuggestion, ExportData, ExportFormat,
-│   │                   PreciousMetalAsset, CustomAsset, EmployeeSavings,
-│   │                   MetalType, EmployeeSavingsType
-│   ├── repository/   — 11 interfaces (+ ExportRepository, CustomInvestmentRepository)
-│   └── usecase/      — 55+ UseCases (1 responsabilité = 1 UseCase)
+│   ├── model/        — 38 modèles (Transaction, Budget, Debt, SavingsAccount, Investment,
+│   │                   PatrimonyOverview, BankAccount, CategoryEnvelope, CategorizationRule,
+│   │                   VehicleRentalEntry, AssetValuationSnapshot, PatrimoineSnapshot,
+│   │                   CashflowProjection, ScenarioLogement, ConseilPatrimoine,
+│   │                   SpendingRecommendation, RecategorizationSuggestion, ThemeMode, …)
+│   ├── repository/   — 19 interfaces
+│   └── usecase/      — 114 UseCases (1 responsabilité = 1 UseCase)
 └── presentation/
     ├── auth/         — LockScreen, AuthViewModel (PIN + biométrie)
-    ├── dashboard/    — graphique 6 mois OU carte rapport selon toggle
-    ├── budget/       — donut interactif + bilan revenus/dépenses réels
-    ├── expenses/     — liste + recherche + filtres + suggestions + récurrences
-    ├── investments/  — barres + SCPI, immo, Airbnb, métaux, actifs libres, épargne salariale
+    ├── dashboard/    — cartes réordonnables, HeroCard patrimoine, alertes 1x/jour
+    ├── budget/       — donut interactif + enveloppes par catégorie + recommandations 50/30/20
+    ├── expenses/     — liste + recherche + filtres + suggestions + récurrences + import
+    ├── importcsv/    — écrans d'import BRED (CSV/PDF) et TradeRepublic
+    ├── investments/  — SCPI, immo, Airbnb, actifs libres, épargne salariale
     ├── savings/      — SavingsScreen, SavingsViewModel (CRUD complet)
-    ├── debts/        — DebtsScreen, DebtsViewModel
+    ├── debts/        — DebtsScreen, DebtsViewModel, simulateur remboursement anticipé
+    ├── patrimoine/    — détail patrimoine, historique, répartition
+    ├── projection/    — projection de trésorerie 30j (solde bancaire réel)
+    ├── recommandations/ — recommandations budgétaires mensuelles
+    ├── scenarios/     — hub Scénarios : Scénario logement, Conseiller patrimoine
+    ├── trends/        — Tendances 6 mois par catégorie
     ├── report/       — MonthlyReportScreen, MonthlyReportViewModel
-    ├── settings/     — SettingsScreen (seuil, devise, toggles, export)
-    ├── common/       — CurrencyExt.kt, NotificationHelper.kt, BottomNavBar.kt
+    ├── settings/     — SettingsScreen (seuil, devise, thème, toggles, export/restauration)
+    ├── common/       — HeroCard, TrendChip, CategoryVisuals, AcquisitionEvolutionBlock,
+    │                   CurrencyExt.kt, NotificationHelper.kt, BottomNavBar.kt
     ├── AppViewModel  — récurrentes + notifications au démarrage
-    └── navigation/   — DibitaraNavGraph (9 routes), BottomNavBar (6 onglets)
+    └── navigation/   — DibitaraNavGraph
 ```
 
 | Composant | Bibliothèque | Statut |
@@ -104,17 +121,21 @@ app/src/main/java/com/dibitara/app/
 | UI | Jetpack Compose | ✅ En production |
 | Navigation | Navigation Component | ✅ En production |
 | Architecture | ViewModel + StateFlow | ✅ En production |
-| Base de données locale | Room v10 | ✅ En production |
+| Base de données locale | Room v23 | ✅ En production |
 | Injection de dépendances | Hilt | ✅ En production |
 | Async | Coroutines + Flow | ✅ En production |
-| Graphiques | Vico (ou MPAndroidChart) | ✅ En production |
+| Graphiques | Vico + Canvas custom (voir piège Vico dans CLAUDE.md) | ✅ En production |
 | Préférences | DataStore | ✅ En production |
 | Sécurité auth | EncryptedSharedPreferences + PBKDF2 | ✅ En production |
 | Biométrie | BiometricPrompt (récupération accès) | ✅ En production |
 | Taux de change API | Frankfurter | ✅ En production |
+| Import PDF | pdfbox-android | ✅ En production (relevés BRED) |
+| Cartes réordonnables | Reorderable | ✅ En production (Dashboard) |
+| Tâches planifiées | WorkManager | ✅ En production (snapshot mensuel patrimoine, notifications) |
 | Tests UI | Espresso / Compose Test | ❌ Non implémenté |
-| Tests unitaires | JUnit 5 + MockK | ✅ 150+ tests |
-| Couverture | Kover | ✅ Configuré — seuil 80% domain/, CI actif |
+| Tests unitaires | JUnit 5 + MockK | ✅ 516 tests (67 fichiers) |
+| Tests d'intégration | Room In-Memory | ✅ 4 fichiers (TransactionDao, DebtDao, Migration, base commune) |
+| Couverture | Kover | ✅ Configuré — seuil 80% domain/, CI actif (89,88 % au 2026-07-24) |
 | Firebase Crashlytics | — | ✅ En production |
 
 ### 2.3 Cibles Android
@@ -181,21 +202,21 @@ feature/xxx  →  PR  →  develop  →  PR  →  main
 
 ## 4. Environnement de test & Gestion des régressions
 
-### 4.1 Niveaux de test — État réel
+### 4.1 Niveaux de test — État réel (2026-08-27)
 ```
 Pyramide de tests (situation actuelle) :
         [E2E]          ← Non implémenté
-      [Intégration]    ← Non implémenté
-    [Tests Unitaires]  ← 110 tests (JUnit + MockK)
+      [Intégration]    ← 4 fichiers (TransactionDao, DebtDao, Migration, base commune)
+    [Tests Unitaires]  ← 516 tests (JUnit + MockK)
 ```
 
 | Niveau | Outil | Cible | Réel |
 |--------|-------|-------|------|
-| Unitaires | JUnit + MockK | ≥ 80% sur `domain/` | 25 fichiers (123+ tests), Kover actif |
-| Intégration | Room In-Memory | Repositories | ❌ Non implémenté |
+| Unitaires | JUnit + MockK | ≥ 80% sur `domain/` | 67 fichiers (516 tests), Kover actif, 89,88 % couverture |
+| Intégration | Room In-Memory | Repositories | ✅ Livré Sprint 37b (TransactionDao, DebtDao, Migration v14→v15) — pas étendu depuis |
 | UI / E2E | Espresso + Compose Test | Parcours critiques | ❌ Non implémenté |
 
-> **Note :** Kover configuré — seuil 80% domain/ actif en CI (Sprint 13). Priorité aux tests d'intégration Room avant la prochaine migration.
+> **Note :** Kover configuré — seuil 80% domain/ actif en CI (Sprint 13), dette de couverture comblée le 2026-07-24 (73,57 % → 89,88 %).
 
 ### 4.2 Appareils de test
 | Type | Détail | Statut |
@@ -255,6 +276,14 @@ Pyramide de tests (situation actuelle) :
 
 ## 6. Avancement des sprints
 
+> **Note sur la colonne Version (2026-08-27) :** de Sprint 20 à Sprint 43, les
+> versions listées ci-dessous étaient des cibles annoncées dans les messages
+> de commit — le `versionCode` de l'app n'a en réalité plus bougé entre
+> Sprint 19 (4.3.0) et aujourd'hui. Tout ce qui suit Sprint 19 a donc été
+> réellement livré/buildé sous la même version **4.4.0 (versionCode 15)**,
+> bumpée le 2026-08-27. Les valeurs ci-dessous sont conservées telles
+> qu'annoncées à l'époque, à titre de repère chronologique/intention.
+
 | Sprint | Titre | Statut | Version |
 |--------|-------|--------|---------|
 | Sprint 1 | Architecture + Navigation + Auth biométrique basique | ✅ Terminé | — |
@@ -299,10 +328,29 @@ Pyramide de tests (situation actuelle) :
 | Sprint 37b | Tests d'intégration Room : TransactionDao, DebtDao, Migration v14→v15 | ✅ Terminé | v4.5.0 |
 | Sprint 38 | Taux d'intérêt (tauxInteret REAL) + simulateur remboursement anticipé sur les dettes — Room v16 | ✅ Terminé | v4.5.0 |
 | Sprint 39 | Apprentissage catégorisations (categorization_rules, Room v17) + correctifs chip "À catégoriser" + SubCategory.BAR_ET_RESTAURANT | ✅ Terminé | v4.5.0 |
-| Sprint 40 | Budget par catégorie : enveloppes mensuelles + barres de progression + alertes dépassement | ✅ Terminé | v4.5.1 |
-| Sprint 41 | Récapitulatif abonnements : vue dédiée tous abonnements actifs + total mensuel | 🔜 Planifié | v4.6.0 |
-| Sprint 42 | Sauvegarde / restauration Google Drive (export JSON chiffré) | 🔜 Planifié | v4.7.0 |
-| Sprint 43 | Réconciliation de solde : saisie solde réel + écart calculé + transactions manquantes | 🔜 Planifié | v4.7.0 |
+| Sprint 40 | Budget par catégorie : enveloppes mensuelles + barres de progression + alertes dépassement | ✅ Terminé (4 bugs post-test corrigés sur device réel) | v4.5.1 |
+| Sprint 41 | ⚠️ Livré avec un périmètre différent du plan initial : plan prévoyait un récapitulatif abonnements, ce qui a réellement été construit sont des recommandations budgétaires mensuelles (règle 50/30/20) | ✅ Terminé (scope changé) | v4.6.0 |
+| Sprint 42 | ⚠️ Livré avec un périmètre différent du plan initial : plan prévoyait Google Drive + chiffrement, ce qui a réellement été construit est une restauration JSON locale via SAF (inverse de l'export Sprint 18) | ✅ Terminé (scope réduit) | v4.7.0 |
+| Sprint 43 | Réconciliation de solde (saisie manuelle + écart calculé) | ❌ Remplacé — non construit tel quel ; le besoin est couvert autrement par le suivi automatique du solde bancaire réel (`BankAccount`, voir ci-dessous) | — |
+
+### 6.1 Travaux post-Sprint 43 (hors plan initial, non numérotés en sprints)
+
+Ces chantiers ne sont pas passés par le cycle de cadrage habituel
+(pas d'entrée backlog dédiée avant implémentation) — ils sont documentés ici
+a posteriori, groupés par thème, dans l'ordre où ils sont apparus dans
+l'historique git. Détail complet dans `CHANGELOG.md` (entrée `[4.4.0]`).
+
+| Chantier | Contenu | Statut |
+|----------|---------|--------|
+| Suivi véhicule locatif | Table `vehicle_rental_entries`, Room v18→v19 | ✅ Terminé |
+| Retrait métaux précieux | Fonctionnalité retirée (Room v19→v20) | ✅ Terminé |
+| Nettoyage projet | Hilt/Compose BOM, dette de couverture Kover (73,57 %→89,88 %) | ✅ Terminé (2026-07-24) |
+| **Refonte UX/UI** | Palette noir/or, `HeroCard`/`TrendChip`/`CategoryVisuals`, thème système/clair/sombre, snapshot mensuel WorkManager, historique de valorisation par actif (Room v20→v21), bloc Acquisition→Aujourd'hui (Room v22→v23) | ✅ Terminé (2026-08) |
+| **Comptes bancaires** | Entité `BankAccount` (Room v21→v22), capture live BRED (retraits + paiements carte via notification), virements internes, Qonto (solde manuel) | ✅ Terminé |
+| **Module Scénarios** | Scénario logement (simulateur plancher, projection 6 mois), Conseiller patrimoine (précaution/plafonds/capacité/concentration) | ✅ Terminé |
+| **Trésorerie temps réel** | Projection et alertes basées sur le solde bancaire réel plutôt que le flux du mois ; retrait du plafond fixe au 28 ; alertes limitées à 1x/jour | ✅ Terminé |
+| Fix chip « À catégoriser » | `Category.AUTRE` seul ≠ non catégorisé — corrigé dans `ExpensesFilter` et `GetRecategorizationSuggestionsUseCase` | ✅ Terminé (2026-08-27) |
+| Rattrapage documentation | `CHANGELOG.md` reconstruit, `PROJECT_PLAN.md` mis à jour, convention de bump de version ajoutée à `CLAUDE.md` | ✅ Terminé (2026-08-27) |
 
 ---
 
@@ -451,13 +499,13 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 
 **Workflow Sprint 16 :** `feature/sprint-15-feat-recur` → PR #8 → `develop`. ✅ Exécuté.
 
-### 7.6 Backlog V4 (long terme)
-| ID | Fonctionnalité | Effort |
-|----|---------------|--------|
-| F9 | Sauvegarde cloud chiffrée | 15-20h |
-| SEC-01 | SQLCipher — chiffrement Room | 8-12h |
-| IMPORT-01 | Import CSV Bred / TradeRepublic (Sprint 20) | 12-18h |
-| PERF-01 | Tests d'intégration Room (in-memory, avant prochaine migration) | 10-15h |
+### 7.6 Backlog V4 (long terme) — état au 2026-08-27
+| ID | Fonctionnalité | Effort | Statut |
+|----|---------------|--------|--------|
+| F9 | Sauvegarde cloud chiffrée (sync Drive automatique) | 15-20h | 🟡 Cadré (`project_sync_drive_cadrage`), attend le go de Florent |
+| SEC-01 | SQLCipher — chiffrement Room | 8-12h | ❌ Toujours pas implémenté |
+| IMPORT-01 | Import CSV Bred / TradeRepublic (Sprint 20) | 12-18h | ✅ Livré (Sprint 20, 30, 32) |
+| PERF-01 | Tests d'intégration Room (in-memory, avant prochaine migration) | 10-15h | ✅ Livré (Sprint 37b) — 4 fichiers seulement, pas étendu depuis 8 migrations supplémentaires (v15→v23) |
 
 ---
 
@@ -465,8 +513,8 @@ Fonctionnalités notables absentes de Dibitara (inspiration pour backlog v4) :
 
 | Risque | Probabilité | Impact | Mitigation | Statut |
 |--------|------------|--------|------------|--------|
-| Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 8 migrations faites, tests d'intégration Room absents |
-| Régression lors d'une 9e migration | Moyen | Élevé | Configurer tests Room In-Memory (backlog PERF-01) | 🟡 Room v8 stable — migration v7→v8 livrée Sprint 16 |
+| Complexité des migrations Room | Moyen | Élevé | Tests de migration avant chaque sprint | ⚠️ 23 migrations faites (v1→v23), tests d'intégration Room limités à `MigrationTest` (v14→v15 seulement) |
+| Régression lors d'une migration future | Moyen | Élevé | Étendre les tests Room In-Memory aux migrations récentes (backlog PERF-01) | 🟡 Room v23 stable en production, couverture de tests de migration incomplète |
 | Taux de change indisponible | Faible | Moyen | Cache local des derniers taux | 🟡 API pas encore intégrée |
 | Fuite de données sensibles | Faible | Très élevé | Room non chiffrée (SQLCipher absent) | 🟡 Acceptable V1, à traiter V3 |
 | Rejet Play Store | Moyen | Élevé | Politique de confidentialité publiée, assets conformes | ✅ Mitigé |
@@ -527,6 +575,7 @@ Avant de proposer ou d'implémenter une migration, je dois vérifier et signaler
 | 3.9 | 2026-05-20 | Florent | Sprint 16 FEAT-RECUR livré — Room v7→v8, récurrences enrichies, vue prochains paiements, v4.0.0 |
 | 4.0 | 2026-05-22 | Florent | Sprints 17-19 ajoutés — Room v10, export CSV/JSON, investissements personnalisés, v4.3.0 |
 | 4.1 | 2026-05-31 | Florent | Sprints 36-38 ajoutés — recatégorisation import, Tendances 6 mois, notifications contributions, tests intégration Room, taux d'intérêt dettes (Room v16) |
+| 5.0 | 2026-08-27 | Claude (à la demande de Florent) | Rattrapage complet — Sprints 40-43 corrigés (scope réel ≠ plan initial pour 41/42, Sprint 43 remplacé), travaux post-43 documentés (refonte UX/UI, comptes bancaires, module Scénarios, trésorerie temps réel), stack technique (Room v23, 114 UseCases, 38 modèles, 516 tests), historique détaillé délégué à `CHANGELOG.md` (nouvellement reconstruit), version app rattrapée à 4.4.0 |
 
 ---
 
