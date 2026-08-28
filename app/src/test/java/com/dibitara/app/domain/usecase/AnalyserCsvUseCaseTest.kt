@@ -102,6 +102,33 @@ class AnalyserCsvUseCaseTest {
         assertEquals(1, preview.transactions.map { it.externalId }.toSet().size)
     }
 
+    // ─── Sous-catégorie apprise propagée aux transactions importées ──────────
+
+    @Test
+    fun `une règle apprise « AUTRE + sous-catégorie perso » est portée par la transaction importée`() = runTest {
+        val repoAvecRegle = mockk<CategorizationRuleRepository>().also {
+            coEvery { it.getRuleForNote(any()) } returns com.dibitara.app.domain.model.CategorizationRule(
+                noteExact = "retrait dab",
+                category = Category.AUTRE,
+                customSubCategoryId = 3L,
+            )
+        }
+        val useCaseAvecRegle = AnalyserCsvUseCase(SuggererCategorieImportUseCase(repoAvecRegle))
+
+        val preview = useCaseAvecRegle(
+            lignes(
+                "Date;Libellé;Montant",
+                "01/02/2026;RETRAIT DAB;-50,00",
+            ),
+            deviseParDefaut = Currency.EUR,
+        )
+
+        val tx = preview.transactions.single()
+        assertEquals(Category.AUTRE, tx.category)
+        assertEquals(3L, tx.customSubCategoryId)
+        assertEquals(3L, tx.toTransaction().customSubCategoryId)
+    }
+
     // ─── mappingImpose court-circuite l'auto-détection ───────────────────────
 
     @Test

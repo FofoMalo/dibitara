@@ -2,6 +2,7 @@ package com.dibitara.app.presentation.importcsv
 
 import android.content.Context
 import android.net.Uri
+import com.dibitara.app.domain.model.CategorizationRule
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.UserPreferences
@@ -121,6 +122,26 @@ class ImportCsvViewModelTest {
             Category.LOISIRS,
             (vm.uiState.value as ImportCsvUiState.Apercu).transactions.single().category,
         )
+    }
+
+    @Test
+    fun `modifierCategorie efface la sous-catégorie suggérée`() = runTest {
+        coEvery { ruleRepo.getRuleForNote(any()) } returns CategorizationRule(
+            noteExact = "frais bancaires",
+            category = Category.AUTRE,
+            customSubCategoryId = 5L,
+        )
+        fichier("Date;Libellé;Montant\n01/02/2026;Frais bancaires;-10,00")
+        vm.choisirFichier(uri)
+        val avant = (vm.uiState.value as ImportCsvUiState.Apercu).transactions.single()
+        assertEquals(5L, avant.customSubCategoryId)
+
+        vm.modifierCategorie(avant.ligneIndex, Category.LOISIRS)
+
+        val apres = (vm.uiState.value as ImportCsvUiState.Apercu).transactions.single()
+        assertEquals(Category.LOISIRS, apres.category)
+        assertEquals(null, apres.customSubCategoryId)
+        assertEquals(null, apres.subCategory)
     }
 
     @Test

@@ -52,7 +52,14 @@ class AnalyserCsvUseCase @Inject constructor(
         }
 
         val resultat = CsvRowParser.parser(donnees, mapping, deviseParDefaut)
-        val transactions = resultat.transactions.map { it.copy(category = suggererCategorie(it.note)) }
+        val transactions = resultat.transactions.map {
+            val suggestion = suggererCategorie(it.note)
+            it.copy(
+                category = suggestion.category,
+                subCategory = suggestion.subCategory,
+                customSubCategoryId = suggestion.customSubCategoryId,
+            )
+        }
 
         return CsvImportPreview(mapping, enTetes, echantillon, transactions, resultat.lignesIgnorees)
     }

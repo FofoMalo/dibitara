@@ -29,6 +29,11 @@ data class ImportedTransaction(
     val category: Category,
     val externalId: String,
     val ligneIndex: Int,
+    // Sous-catégorie suggérée (fixe ou personnalisée) quand [category] == AUTRE.
+    // Renseignée par la cascade de catégorisation à partir des règles apprises ;
+    // effacée si l'utilisateur change la catégorie principale dans l'aperçu.
+    val subCategory: SubCategory? = null,
+    val customSubCategoryId: Long? = null,
     val alreadyImported: Boolean = false,
     val inclure: Boolean = true,
 ) {
@@ -44,6 +49,8 @@ data class ImportedTransaction(
         type = type,
         date = date,
         note = note,
+        subCategory = subCategory,
+        customSubCategoryId = customSubCategoryId,
         importSource = SOURCE_CSV,
         externalId = externalId,
         bankAccountId = bankAccountId,

@@ -124,7 +124,14 @@ class ImportCsvViewModel @Inject constructor(
     fun modifierCategorie(ligneIndex: Int, categorie: Category) {
         majApercu { transactions ->
             transactions.map {
-                if (it.ligneIndex == ligneIndex && !it.alreadyImported) it.copy(category = categorie) else it
+                if (it.ligneIndex == ligneIndex && !it.alreadyImported) {
+                    // Choisir explicitement une catégorie principale annule la
+                    // sous-catégorie suggérée (même logique que la recatégorisation
+                    // du Dashboard : changer de catégorie efface la sous-catégorie).
+                    it.copy(category = categorie, subCategory = null, customSubCategoryId = null)
+                } else {
+                    it
+                }
             }
         }
     }
