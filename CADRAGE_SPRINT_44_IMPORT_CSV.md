@@ -389,6 +389,40 @@ lignée de `develop` (prochain = 4.6.0 / 17), soit on assume une renumérotation
 - Lecture du fichier : `readBytes()` global (pas la lecture 2 passes streaming),
   avec garde-fou à 20 000 lignes. Suffisant pour un relevé bancaire réel.
 
-**Reste :**
-- Passe sur téléphone avec 2 relevés de banques réelles (Florent fournit).
-- Décision du numéro de version au merge de `develop-catchup` (§12).
+## 15. Passe device 1 — 2026-08-28 (Samsung SM-A236B)
+
+Fichier `modele_releve_bancaire_bceao.csv` (relevé BCEAO générique, 8 lignes,
+header `Date;Libellé;Montant_Débit_FCFA;Montant_Crédit_FCFA;Solde_FCFA;Référence;Catégorie`).
+
+**Validé à l'écran :**
+- auto-détection complète (délimiteur `;`, mode DÉBIT/CRÉDIT, date `yyyy-MM-dd`),
+  pas de passage par l'écran de mapping ;
+- 8/8 lignes : types, dates, montants exacts ; devise = défaut utilisateur (EUR
+  sur profil neuf, XOF quand réglé) ;
+- déduplication : ré-import du même fichier → « 0 nouvelles / 8 doublons », toutes
+  marquées « déjà importée », bouton « Rien à importer » désactivé, 0 insertion ;
+- `Dernier import` mis à jour dans Paramètres.
+
+**2 correctifs post-passe :**
+
+| Commit | Correctif |
+|---|---|
+| `2e885e0` | **F1** — `SuggererCategorieImportUseCase` : la garde « règle AUTRE ignorée » oubliait `customSubCategoryId` (piège `CLAUDE.md`). Une règle apprise « AUTRE + sous-catégorie perso » voyait sa catégorie principale redevinée. + `SuggererCategorieImportUseCaseTest` (7 cas). |
+| `5f8cb03` | **F2** — `CsvColumnDetector.SYN_LIBELLE` contenait `"reference"` → la colonne *Référence* (id technique `DAB-20260801-001`) était concaténée dans la note. Retiré. Effet de bord : la note change → l'`externalId` change ; un ré-import après MAJ peut recréer les lignes importées avant. |
+
+`./gradlew test koverVerify` vert. Notes après F2 : `Retrait DAB`, `Virement reçu - Client A`… (plus de suffixe Référence).
+
+**Différés (go de Florent) :**
+- **F3** — propager la sous-catégorie / `customSubCategoryId` apprise dans les
+  transactions importées (touche `ImportedTransaction` + UI aperçu).
+- **F4** — lire la colonne `Catégorie` du CSV quand la banque la fournit.
+
+## 16. Reste
+
+- 2ᵉ relevé de banque réelle (Florent fournit).
+- **Décision de version — TRANCHÉE : `4.6.0` / versionCode 17.** `develop-catchup`
+  descend en droite ligne de `develop` (tag `v4.5.0` / vc16, fast-forward) ; le
+  `4.4.0 / vc15` actuel est un accident du merge `a3e1fb5`. À appliquer **au
+  merge** : bump `build.gradle` + `CHANGELOG [Non publié]` → `[4.6.0]`. Écart
+  séparé : le `CHANGELOG` n'a aucune entrée `[4.5.0]` (reconstruit sur la lignée
+  `florent/prive`) — ajouter `[4.5.0]` (Sprint 29) au-dessus de `[4.4.0]`.
