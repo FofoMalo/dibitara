@@ -86,6 +86,10 @@ android {
         arg("room.schemaLocation", "$projectDir/schemas")
     }
 
+    // Les schémas exportés doivent être empaquetés comme assets de test pour que
+    // MigrationTestHelper puisse recréer une base dans une ancienne version.
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+
     // Répertoires de tests
     testOptions {
         unitTests.isReturnDefaultValues = true

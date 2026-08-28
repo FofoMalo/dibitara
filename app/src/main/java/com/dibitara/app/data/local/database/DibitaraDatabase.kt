@@ -345,6 +345,12 @@ abstract class DibitaraDatabase : RoomDatabase() {
         // Migration v5 → v6 : nouvelle table monthly_versements pour les versements mensuels
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                // La table doit correspondre EXACTEMENT à ce que Room génère pour
+                // l'entité : pas de contrainte `UNIQUE(...)` en ligne mais un index
+                // unique séparé `index_monthly_versements_...`. Un `UNIQUE(...)` en
+                // ligne enforce la même règle mais produit une structure différente
+                // dans sqlite_master, ce que `runMigrationsAndValidate` rejette
+                // (base créée en v2-v5 puis migrée). Voir schemas/6.json.
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS monthly_versements (
                         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -353,10 +359,14 @@ abstract class DibitaraDatabase : RoomDatabase() {
                         year INTEGER NOT NULL,
                         month INTEGER NOT NULL,
                         montant_cents INTEGER NOT NULL,
-                        currency TEXT NOT NULL,
-                        UNIQUE(account_id, account_type, year, month)
+                        currency TEXT NOT NULL
                     )
                 """.trimIndent())
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                        "`index_monthly_versements_account_id_account_type_year_month` " +
+                        "ON monthly_versements (`account_id`, `account_type`, `year`, `month`)"
+                )
             }
         }
 

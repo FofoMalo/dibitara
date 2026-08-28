@@ -39,7 +39,20 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
   technique sur les relevés BCEAO). ⚠️ Comme le libellé change, l'empreinte de
   déduplication change aussi : un ré-import après cette mise à jour peut recréer
   les transactions CSV importées avant.
-- Aucune migration Room.
+- Aucune migration de schéma Room ajoutée (v23 inchangée).
+
+### Plateforme et publication
+
+- Cible l'API 36 (Android 16), requis par le Play Store pour toute mise à jour
+  à partir du 31 août 2026 (`compileSdk`/`targetSdk` 35 → 36).
+- **`MIGRATION_5_6` corrigée** : la table `monthly_versements` était créée avec
+  une contrainte `UNIQUE(...)` en ligne au lieu de l'index unique séparé attendu
+  par l'entité. Sans effet visible (même règle d'unicité) mais faisait échouer la
+  validation de schéma pour une base créée en v2-v5. Chaîne de migration v6→v23
+  (plus ancienne version publiée = v3.0.0) validée bout-en-bout sur appareil.
+- Le module `androidTest` recompile de nouveau (noms de tests avec espaces qui
+  cassaient le dexing pour `minSdk 26` ; schémas Room empaquetés en assets de
+  test).
 
 ---
 

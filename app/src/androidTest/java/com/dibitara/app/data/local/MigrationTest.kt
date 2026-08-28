@@ -147,6 +147,14 @@ class MigrationTest {
         helper.runMigrationsAndValidate(TEST_DB, 23, true, *TOUTES_MIGRATIONS).close()
     }
 
+    /** v6 = première version publiée sur le Play Store (tag v3.0.0) : plancher réel. */
+    @Test
+    @Throws(IOException::class)
+    fun migration_chaine_complete_v6_vers_v23() {
+        helper.createDatabase(TEST_DB, 6).close()
+        helper.runMigrationsAndValidate(TEST_DB, 23, true, *TOUTES_MIGRATIONS).close()
+    }
+
     @Test
     @Throws(IOException::class)
     fun migration_chaine_complete_v2_vers_v23() {
