@@ -412,9 +412,34 @@ header `Date;Libellé;Montant_Débit_FCFA;Montant_Crédit_FCFA;Solde_FCFA;Réfé
 
 `./gradlew test koverVerify` vert. Notes après F2 : `Retrait DAB`, `Virement reçu - Client A`… (plus de suffixe Référence).
 
-**Différés (go de Florent) :**
-- **F3** — propager la sous-catégorie / `customSubCategoryId` apprise dans les
-  transactions importées (touche `ImportedTransaction` + UI aperçu).
+## 17. Passe device 2 + F3 — 2026-08-28
+
+Fichier `modele_releve_bancaire_3mois.csv` (92 lignes, 01/08 → 31/10/2026, dates
+`dd/MM/yyyy`, montants FCFA avec `,` séparateur de milliers `470,761`).
+
+**Validé à l'écran :**
+- 92/92 parsées, mode DÉBIT/CRÉDIT, `dd/MM/yyyy` détecté, tous les `amountCents`
+  multiples de 100 (heuristique « virgule + 1-2 chiffres = décimale » rejette bien
+  les groupes de 3) ;
+- dédup : 0 doublon sur base neuve ;
+- **F3** : 4 lignes « Frais bancaires » classées `AUTRE / FRAIS_BANCAIRES` en base
+  (dictionnaire `REGLES_SOUS_CATEGORIES` appliqué à l'import) ;
+- chip « À catégoriser · 11 » d'août = exactement le filtre triple
+  (`AUTRE + EXPENSE + subCategory NULL + customSubCategoryId NULL`) : la ligne
+  « Frais bancaires » du 18/08 (EXPENSE, sous-catégorisée par F3) est bien exclue.
+
+**F3 — commits `381c80c` + `54b29c0` :**
+- `CascadeCategorisation` (nouveau) : cascade partagée règle apprise →
+  `CategoriseurLibelle` → sous-catégorie d'`AUTRE`. Extraite de
+  `GetRecategorizationSuggestionsUseCase` (fin de la duplication qui a causé F1).
+- `SuggererCategorieImportUseCase` renvoie `(category, subCategory, customSubCategoryId)`.
+- `ImportedTransaction` + `subCategory` / `customSubCategoryId` ; `toTransaction()` propage.
+- `ImportCsvViewModel.modifierCategorie` efface la sous-catégorie sur choix manuel.
+- **Changement de comportement Dashboard** (figé par test) : une règle apprise
+  « AUTRE + sous-catégorie perso » ne produit plus de suggestion de
+  recatégorisation (elle en produisait une via le fallback mot-clé, à tort).
+
+**Différé (go de Florent) :**
 - **F4** — lire la colonne `Catégorie` du CSV quand la banque la fournit.
 
 ## 16. Reste
