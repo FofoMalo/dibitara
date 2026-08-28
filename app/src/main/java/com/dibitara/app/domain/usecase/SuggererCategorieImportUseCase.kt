@@ -26,7 +26,17 @@ class SuggererCategorieImportUseCase @Inject constructor(
         if (note.isBlank()) return Category.AUTRE
 
         val regle = ruleRepository.getRuleForNote(note)
-        if (regle != null && !(regle.category == Category.AUTRE && regle.subCategory == null)) {
+        // Une règle « AUTRE » n'est ignorée que si elle ne porte AUCUNE sous-catégorisation :
+        // ni [SubCategory] fixe, ni sous-catégorie personnalisée ([customSubCategoryId]).
+        // Oublier `customSubCategoryId` ici, c'est le piège documenté dans CLAUDE.md
+        // (« Category.AUTRE seul ≠ non catégorisé ») : une règle « AUTRE + sous-catégorie
+        // perso » est un vrai choix de l'utilisateur, sa catégorie principale doit être
+        // respectée plutôt que redevinée par le dictionnaire de mots-clés.
+        val regleSansCategorisation = regle != null &&
+            regle.category == Category.AUTRE &&
+            regle.subCategory == null &&
+            regle.customSubCategoryId == null
+        if (regle != null && !regleSansCategorisation) {
             return regle.category
         }
 
