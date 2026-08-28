@@ -37,7 +37,7 @@ class DebtDaoIntegrationTest : RoomIntegrationTestBase() {
     )
 
     @Test
-    fun `insère et récupère une dette avec originalAmountCents et paymentDay`() = runTest {
+    fun `insère_et_récupère_une_dette_avec_originalAmountCents_et_paymentDay`() = runTest {
         val dao = db.debtDao()
         dao.insert(
             buildDebtEntity(
@@ -57,7 +57,7 @@ class DebtDaoIntegrationTest : RoomIntegrationTestBase() {
     }
 
     @Test
-    fun `les dettes migrées ont originalAmountCents à 0 par défaut`() {
+    fun `les_dettes_migrées_ont_originalAmountCents_à_0_par_défaut`() {
         // La valeur par défaut de originalAmountCents dans DebtEntity est 0L.
         // Ce test vérifie directement la valeur par défaut de l'entité (sans insertion),
         // ce qui correspond au comportement d'une ligne migrée depuis la v14.
@@ -67,7 +67,7 @@ class DebtDaoIntegrationTest : RoomIntegrationTestBase() {
     }
 
     @Test
-    fun `supprime une dette`() = runTest {
+    fun `supprime_une_dette`() = runTest {
         val dao = db.debtDao()
         dao.insert(buildDebtEntity(label = "Dette à supprimer"))
         val inserted = dao.getAll().first().first()
