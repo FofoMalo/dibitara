@@ -131,7 +131,44 @@ class MigrationTest {
         }
     }
 
+    /**
+     * Chaîne complète : une base créée dans une vieille version du Play Store
+     * (v7 = tag `v3.1.0`, v2 = tout début) doit migrer sans erreur jusqu'à la
+     * version courante, et le schéma final doit correspondre à `23.json`.
+     *
+     * Garde-fou pour les mises à jour des utilisateurs existants : `MIGRATION_14_15`
+     * et `MIGRATION_21_22` sont testées isolément, mais rien ne validait le
+     * chaînage bout-en-bout.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migration_chaine_complete_v7_vers_v23() {
+        helper.createDatabase(TEST_DB, 7).close()
+        helper.runMigrationsAndValidate(TEST_DB, 23, true, *TOUTES_MIGRATIONS).close()
+    }
+
+    @Test
+    @Throws(IOException::class)
+    fun migration_chaine_complete_v2_vers_v23() {
+        helper.createDatabase(TEST_DB, 2).close()
+        helper.runMigrationsAndValidate(TEST_DB, 23, true, *TOUTES_MIGRATIONS).close()
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
+
+        private val TOUTES_MIGRATIONS = arrayOf(
+            DibitaraDatabase.MIGRATION_1_2, DibitaraDatabase.MIGRATION_2_3,
+            DibitaraDatabase.MIGRATION_3_4, DibitaraDatabase.MIGRATION_4_5,
+            DibitaraDatabase.MIGRATION_5_6, DibitaraDatabase.MIGRATION_6_7,
+            DibitaraDatabase.MIGRATION_7_8, DibitaraDatabase.MIGRATION_8_9,
+            DibitaraDatabase.MIGRATION_9_10, DibitaraDatabase.MIGRATION_10_11,
+            DibitaraDatabase.MIGRATION_11_12, DibitaraDatabase.MIGRATION_12_13,
+            DibitaraDatabase.MIGRATION_13_14, DibitaraDatabase.MIGRATION_14_15,
+            DibitaraDatabase.MIGRATION_15_16, DibitaraDatabase.MIGRATION_16_17,
+            DibitaraDatabase.MIGRATION_17_18, DibitaraDatabase.MIGRATION_18_19,
+            DibitaraDatabase.MIGRATION_19_20, DibitaraDatabase.MIGRATION_20_21,
+            DibitaraDatabase.MIGRATION_21_22, DibitaraDatabase.MIGRATION_22_23,
+        )
     }
 }
