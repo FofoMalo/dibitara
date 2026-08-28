@@ -11,8 +11,9 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ## [Non publié] — branche `develop-catchup`
 
-> ⚠️ Numéro de version à trancher : `develop-catchup` est à 4.4.0 / versionCode 15,
-> `develop` à 4.5.0 / versionCode 16. Le bump se fera au moment du merge, pas ici.
+> ⚠️ Numéro de version tranchée : **4.6.0 / versionCode 17** au merge vers `develop`
+> (le `4.4.0` actuel de `develop-catchup` est un accident du merge `a3e1fb5`,
+> la lignée publiée est `v4.5.0`). Bump + entrée `[4.5.0]` à ajouter au merge.
 
 ### Retrait de l'import bancaire personnel
 - Suppression de toute la couche d'import BRED (CSV, PDF, capture live par
@@ -28,8 +29,15 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
   mapping manuel en secours, aperçu éditable (catégorie par ligne, inclusion,
   compte de rattachement) avant écriture.
 - Déduplication par empreinte SHA-256 (date + montant + libellé). Catégorie
-  suggérée via les règles apprises puis le dictionnaire générique.
-- Aucune migration Room. 60 tests.
+  **et sous-catégorie** suggérées via les règles apprises puis les dictionnaires
+  génériques (cascade partagée avec la recatégorisation du Dashboard) : une
+  sous-catégorie personnalisée enseignée sur un libellé est ré-appliquée aux
+  imports suivants.
+- La colonne « Référence » n'est plus fusionnée dans le libellé (identifiant
+  technique sur les relevés BCEAO). ⚠️ Comme le libellé change, l'empreinte de
+  déduplication change aussi : un ré-import après cette mise à jour peut recréer
+  les transactions CSV importées avant.
+- Aucune migration Room.
 
 ---
 

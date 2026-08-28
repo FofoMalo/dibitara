@@ -62,6 +62,46 @@ class GetRecategorizationSuggestionsUseCaseTest {
         assertTrue(result.isEmpty())
     }
 
+    // ─── Règles apprises (cascade partagée avec l'import) ────────────────────
+
+    @Test
+    fun `une règle apprise avec une vraie catégorie donne la suggestion`() = runTest {
+        coEvery { ruleRepo.getRuleForNote(any()) } returns com.dibitara.app.domain.model.CategorizationRule(
+            noteExact = "abo salle de sport",
+            category = Category.LOISIRS,
+        )
+        every { transactionRepo.getByDateRange(any(), any()) } returns flowOf(
+            listOf(buildTransaction(note = "ABO SALLE DE SPORT", category = Category.AUTRE))
+        )
+
+        val result = useCase(today).first()
+
+        assertEquals(1, result.size)
+        assertEquals(Category.LOISIRS, result.first().suggestedCategory)
+        assertEquals("ABO SALLE DE SPORT", result.first().matchedKeyword)
+    }
+
+    @Test
+    fun `une règle « AUTRE + sous-catégorie perso » ne produit aucune suggestion Dashboard`() = runTest {
+        // RecategorizationSuggestion ne porte pas customSubCategoryId : la seule
+        // suggestion possible serait « AUTRE » (no-op). On préfère ne rien proposer,
+        // même si le libellé matcherait un mot-clé ("loyer" -> LOGEMENT) — la règle
+        // apprise reste prioritaire. (L'import, lui, applique le customSubCategoryId.)
+        coEvery { ruleRepo.getRuleForNote(any()) } returns com.dibitara.app.domain.model.CategorizationRule(
+            noteExact = "retrait loyer",
+            category = Category.AUTRE,
+            subCategory = null,
+            customSubCategoryId = 5L,
+        )
+        every { transactionRepo.getByDateRange(any(), any()) } returns flowOf(
+            listOf(buildTransaction(note = "RETRAIT LOYER", category = Category.AUTRE))
+        )
+
+        val result = useCase(today).first()
+
+        assertTrue(result.isEmpty())
+    }
+
     // ─── Détection par mot-clé ────────────────────────────────────────────────
 
     @Test
