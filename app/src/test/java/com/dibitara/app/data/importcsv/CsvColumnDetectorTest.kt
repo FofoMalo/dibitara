@@ -143,6 +143,29 @@ class CsvColumnDetectorTest {
 
     // ─── Synonymes d'en-tête ─────────────────────────────────────────────────
 
+    // ─── Colonne « Référence » exclue du libellé ─────────────────────────────
+
+    @Test
+    fun `relevé BCEAO - la colonne Référence ne pollue pas le libellé`() {
+        val mapping = CsvColumnDetector.detecter(
+            rows(
+                listOf("Date", "Libellé", "Montant_Débit_FCFA", "Montant_Crédit_FCFA",
+                    "Solde_FCFA", "Référence", "Catégorie"),
+                listOf("2026-08-01", "Retrait DAB", "50000", "", "500000", "DAB-20260801-001", "Retrait"),
+                listOf("2026-08-02", "Virement reçu - Client A", "", "200000", "700000",
+                    "VIR-20260802-002", "Virement"),
+            ),
+            delimiteur = ';'
+        )
+
+        assertEquals(ModeMontant.DEBIT_CREDIT, mapping.modeMontant)
+        assertEquals(2, mapping.colonneDebit)
+        assertEquals(3, mapping.colonneCredit)
+        // Seule la colonne « Libellé » : ni « Référence » (id technique) ni « Catégorie ».
+        assertEquals(listOf(1), mapping.colonnesLibelle)
+        assertTrue(mapping.estComplet)
+    }
+
     @Test
     fun `reconnaît des en-têtes synonymes`() {
         val mapping = CsvColumnDetector.detecter(

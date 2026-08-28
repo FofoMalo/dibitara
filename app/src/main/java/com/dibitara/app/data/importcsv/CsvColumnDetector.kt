@@ -35,9 +35,14 @@ object CsvColumnDetector {
     )
     private val SYN_DEBIT = setOf("debit", "retrait", "sortie", "depense", "debits", "withdrawal")
     private val SYN_CREDIT = setOf("credit", "versement", "entree", "recette", "credits", "deposit")
+    // "reference" est volontairement absent : sur beaucoup de relevés (ex. banques
+    // BCEAO) c'est une colonne d'identifiant technique (« DAB-20260801-001 ») qui
+    // pollue la note et fausse le matching de catégorie. "communication" reste, car
+    // c'est le message porteur de sens d'un virement SEPA. L'utilisateur peut
+    // toujours ajouter la colonne référence à la main depuis l'écran de mapping.
     private val SYN_LIBELLE = setOf(
         "libelle", "libelle operation", "description", "nom de l operation", "detail", "details",
-        "motif", "nature", "operation", "intitule", "communication", "reference", "memo", "payee",
+        "motif", "nature", "operation", "intitule", "communication", "memo", "payee",
         "transaction", "objet"
     )
     private val SYN_DEVISE = setOf("devise", "currency", "monnaie", "devise operation")
