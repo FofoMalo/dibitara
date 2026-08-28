@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Application bancaire Android à usage personnel, inspirée de **Finary**. L'objectif est de centraliser budget mensuel, suivi des dépenses, investissements et projections financières.
 
 **Stack cible :** Android natif (Kotlin), architecture MVVM + Clean Architecture.
-**Version courante :** v4.4.0 (versionCode 15) — Room v23.
+**Version courante :** v4.6.0 (versionCode 17) — Room v23.
 
 ## Fonctionnalités principales
 

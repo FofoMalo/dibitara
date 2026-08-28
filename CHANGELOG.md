@@ -9,11 +9,13 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
-## [Non publié] — branche `develop-catchup`
+## [4.6.0] - 2026-08-28 — Sprint 44
 
-> ⚠️ Numéro de version tranchée : **4.6.0 / versionCode 17** au merge vers `develop`
-> (le `4.4.0` actuel de `develop-catchup` est un accident du merge `a3e1fb5`,
-> la lignée publiée est `v4.5.0`). Bump + entrée `[4.5.0]` à ajouter au merge.
+> Fusion de `develop-catchup` dans `develop`. La branche `develop-catchup` était
+> repassée à `4.4.0 / versionCode 15` par accident lors du merge `a3e1fb5`
+> (le `build.gradle.kts` périmé de `florent/prive` a écrasé celui de `develop`) ;
+> la lignée publiée de `develop` étant `v4.5.0 / versionCode 16`, cette version
+> reprend la numérotation : **4.6.0 / versionCode 17**.
 
 ### Retrait de l'import bancaire personnel
 - Suppression de toute la couche d'import BRED (CSV, PDF, capture live par
@@ -130,6 +132,14 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 - Génération anticipée des occurrences mensuelles récurrentes
 - Chevauchement du FAB avec le contenu ; généralisation de `HeroCard` aux cartes de synthèse
 - Filtre « À catégoriser » des Transactions : affichait toutes les dépenses `AUTRE` (34 ce mois) au lieu des transactions réellement non catégorisées (5) — incluait celles déjà classées en sous-catégorie. Même défaut corrigé dans les suggestions de recatégorisation du Dashboard (`GetRecategorizationSuggestionsUseCase`)
+
+## [4.5.0] - 2026-05-25 — Sprint 29
+
+> Tag `v4.5.0` (branche `release/v4.5.0`). Retrait de l'import TradeRepublic sur
+> `develop`, portage des Sprints 23-28. Le détail thématique de tout ce qui a été
+> construit entre Sprint 19 et Sprint 43 est regroupé dans l'entrée `[4.4.0]`
+> ci-dessus (CHANGELOG reconstruit depuis git sur la lignée `florent/prive`, où
+> la numérotation s'était arrêtée à 4.4.0).
 
 ## [4.3.0] - 2026-05-22 — Sprint 19
 
