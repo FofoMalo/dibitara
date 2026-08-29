@@ -80,6 +80,13 @@ class RestoreRoundTripTest : RoomIntegrationTestBase() {
                 MonthlyVersement(1L, 1L, CompteType.EPARGNE, 2026, 8, 20000L, Currency.EUR)
             )
         )
+        // Versement de type OBJECTIF : même table, doit survivre au round-trip comme OBJECTIF
+        // (pas de repli silencieux sur EPARGNE via safeValueOf).
+        db.monthlyVersementDao().insert(
+            MonthlyVersementEntity.fromDomain(
+                MonthlyVersement(2L, 1L, CompteType.OBJECTIF, 2026, 8, 40000L, Currency.EUR)
+            )
+        )
         db.savingsGoalDao().upsert(
             SavingsGoalEntity.fromDomain(
                 SavingsGoal(
@@ -108,7 +115,10 @@ class RestoreRoundTripTest : RoomIntegrationTestBase() {
             comptesBancaires = listOf(BankAccount(1L, BankProvider.BRED, "BRED", 120000L, Currency.EUR, LocalDate.of(2026, 8, 1))),
             enveloppesBudget = listOf(CategoryEnvelope(1L, Category.ALIMENTATION, 40000L, Currency.EUR)),
             reglesCategorisation = listOf(CategorizationRule(1L, "boulangerie x", Category.ALIMENTATION)),
-            versementsMensuels = listOf(MonthlyVersement(1L, 1L, CompteType.EPARGNE, 2026, 8, 20000L, Currency.EUR)),
+            versementsMensuels = listOf(
+                MonthlyVersement(1L, 1L, CompteType.EPARGNE, 2026, 8, 20000L, Currency.EUR),
+                MonthlyVersement(2L, 1L, CompteType.OBJECTIF, 2026, 8, 40000L, Currency.EUR)
+            ),
             objectifsEpargne = listOf(
                 SavingsGoal(
                     id = 1L, name = "Voiture", targetAmountCents = 1_500_000L,
@@ -129,17 +139,22 @@ class RestoreRoundTripTest : RoomIntegrationTestBase() {
 
         // ── 4. Vérifs ──
         assertTrue("restauration en échec : $result", result is RestoreResult.Success)
-        assertEquals(1, db.monthlyVersementDao().getAll().size)
+        assertEquals(2, db.monthlyVersementDao().getAll().size)
         assertEquals(1, db.bankAccountDao().getAll().first().size)
         assertEquals(1, db.categorizationRuleDao().getAll().size)
         assertEquals(1, db.customSubCategoryDao().getAll().first().size)
         assertEquals(1, db.categoryEnvelopeDao().getAll().first().size)
         assertEquals(1, db.savingsGoalDao().getAll().first().size)
 
-        val versement = db.monthlyVersementDao().getAll().first()
+        val versement = db.monthlyVersementDao().getAll().first { it.account_type == "EPARGNE" }
         assertEquals(20000L, versement.montant_cents)
         assertEquals(2026, versement.year)
         assertEquals(8, versement.month)
+        // Le versement OBJECTIF a survécu comme OBJECTIF
+        assertEquals(
+            CompteType.OBJECTIF,
+            db.monthlyVersementDao().getAll().first { it.montant_cents == 40000L }.toDomain().compteType
+        )
 
         fichier.delete()
     }

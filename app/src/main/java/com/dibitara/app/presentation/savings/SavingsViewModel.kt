@@ -14,7 +14,9 @@ import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsGoal
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.domain.usecase.AnalyserPatrimoineUseCase
+import com.dibitara.app.domain.usecase.AppliquerVersementsObjectifUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsGoalUseCase
+import com.dibitara.app.domain.usecase.GetObjectifsVersementEnAttenteUseCase
 import com.dibitara.app.domain.usecase.GetSavingsGoalsUseCase
 import com.dibitara.app.domain.usecase.ProjectionObjectif
 import com.dibitara.app.domain.usecase.ProjeterObjectifUseCase
@@ -64,7 +66,9 @@ class SavingsViewModel @Inject constructor(
     private val upsertSavingsGoal: UpsertSavingsGoalUseCase,
     private val deleteSavingsGoal: DeleteSavingsGoalUseCase,
     private val ucProjeterObjectif: ProjeterObjectifUseCase,
-    private val ucGetVersementsEnAttente: GetVersementsEnAttenteUseCase
+    private val ucGetVersementsEnAttente: GetVersementsEnAttenteUseCase,
+    private val ucGetObjectifsVersementEnAttente: GetObjectifsVersementEnAttenteUseCase,
+    private val ucAppliquerVersementsObjectif: AppliquerVersementsObjectifUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -155,11 +159,28 @@ class SavingsViewModel @Inject constructor(
      * Objectifs d'épargne (§3), exposés hors du `combine` de [uiState] : celui-ci est
      * déjà à 5 flows (limite des surcharges typées de `combine`). Chaque objectif est
      * accompagné de sa projection de date (calcul pur, pas de devise convertie - un
-     * objectif s'affiche dans sa propre devise).
+     * objectif s'affiche dans sa propre devise) et d'un flag « versement du mois pas
+     * encore enregistré » (rappel in-app).
+     *
+     * Réactivité : aucun flux du combine n'observe `monthly_versements`. Ce bloc se
+     * recalcule quand `getSavingsGoals()` ré-émet, ce qui arrive après un
+     * `appliquerVersementsObjectif` (upsert de l'objectif) comme après une
+     * restauration (réécriture de `savings_goals`).
      */
     val objectifs: StateFlow<List<ObjectifUi>> =
         getSavingsGoals()
-            .map { goals -> goals.map { ObjectifUi(it, ucProjeterObjectif(it)) } }
+            .map { goals ->
+                val now = LocalDate.now()
+                val versesCeMois = getVersementsMois(CompteType.OBJECTIF, now.year, now.monthValue)
+                val enAttente = ucGetObjectifsVersementEnAttente(goals, versesCeMois).toSet()
+                goals.map { goal ->
+                    ObjectifUi(
+                        goal = goal,
+                        projection = ucProjeterObjectif(goal),
+                        versementEnAttente = goal.id in enAttente
+                    )
+                }
+            }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
@@ -294,6 +315,26 @@ class SavingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Enregistre [nbMensualites] versements sur [goal] (mois courant + rattrapage des
+     * mois manqués), avance sa progression, puis émet un événement pour le retour visuel.
+     */
+    fun appliquerVersementsObjectif(goal: SavingsGoal, nbMensualites: Int) {
+        viewModelScope.launch {
+            ucAppliquerVersementsObjectif(goal, nbMensualites)
+                .onSuccess { res ->
+                    _event.emit(
+                        SavingsEvent.VersementObjectifApplique(
+                            mensualites = res.mensualitesEnregistrees,
+                            montantCents = res.centimesCredites,
+                            currency = goal.currency
+                        )
+                    )
+                }
+                .onFailure { _event.emit(SavingsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
     fun deleteAccount(account: SavingsAccount) {
         viewModelScope.launch {
             deleteSavingsAccount(account)
@@ -403,10 +444,14 @@ sealed class SavingsUiState {
     data class Error(val message: String) : SavingsUiState()
 }
 
-/** Un objectif d'épargne + sa projection de date, pour l'affichage. */
+/**
+ * Un objectif d'épargne + sa projection de date + le rappel « versement du mois pas
+ * encore enregistré », pour l'affichage.
+ */
 data class ObjectifUi(
     val goal: SavingsGoal,
-    val projection: ProjectionObjectif
+    val projection: ProjectionObjectif,
+    val versementEnAttente: Boolean = false
 )
 
 sealed class SavingsEvent {
@@ -418,5 +463,11 @@ sealed class SavingsEvent {
     data object ObjectifSupprime : SavingsEvent()
     // Versement appliqué mais le nouveau solde dépasse le plafond configuré
     data class AvertissementPlafond(val compteLabel: String) : SavingsEvent()
+    // Versement(s) enregistré(s) sur un objectif ; mensualites == 0 => objectif déjà à jour ce mois-ci
+    data class VersementObjectifApplique(
+        val mensualites: Int,
+        val montantCents: Long,
+        val currency: Currency
+    ) : SavingsEvent()
     data class Error(val message: String) : SavingsEvent()
 }

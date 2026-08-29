@@ -19,12 +19,15 @@ import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAssetValuationHistoryUseCase
+import com.dibitara.app.domain.usecase.AppliquerVersementsObjectifUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsGoalUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
+import com.dibitara.app.domain.usecase.GetObjectifsVersementEnAttenteUseCase
 import com.dibitara.app.domain.usecase.GetSavingsGoalsUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
 import com.dibitara.app.domain.usecase.GetVersementsEnAttenteUseCase
 import com.dibitara.app.domain.usecase.ProjeterObjectifUseCase
+import com.dibitara.app.domain.usecase.VersementsObjectifResult
 import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAssetValuationSnapshotUseCase
@@ -71,6 +74,8 @@ class SavingsViewModelTest {
     private val deleteSavingsGoal: DeleteSavingsGoalUseCase = mockk(relaxed = true)
     private val ucProjeterObjectif = ProjeterObjectifUseCase()
     private val ucGetVersementsEnAttente = GetVersementsEnAttenteUseCase()
+    private val ucGetObjectifsVersementEnAttente = GetObjectifsVersementEnAttenteUseCase()
+    private val ucAppliquerVersementsObjectif: AppliquerVersementsObjectifUseCase = mockk()
     private lateinit var viewModel: SavingsViewModel
 
     @BeforeEach
@@ -89,7 +94,7 @@ class SavingsViewModelTest {
             saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
             ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
             getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif,
-            ucGetVersementsEnAttente
+            ucGetVersementsEnAttente, ucGetObjectifsVersementEnAttente, ucAppliquerVersementsObjectif
         )
     }
 
@@ -123,7 +128,7 @@ class SavingsViewModelTest {
             saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
             ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
             getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif,
-            ucGetVersementsEnAttente
+            ucGetVersementsEnAttente, ucGetObjectifsVersementEnAttente, ucAppliquerVersementsObjectif
         )
     }
 
@@ -278,6 +283,53 @@ class SavingsViewModelTest {
         assertEquals(1, objectifs.size)
         // reste 800 000 / 100 000 par mois = 8 mois
         assertEquals(8, objectifs.first().projection.moisRestants)
+    }
+
+    @Test
+    fun `objectifs porte le flag versementEnAttente selon les versements OBJECTIF du mois`() = runTest {
+        val goal = SavingsGoal(
+            id = 1L, name = "Voiture", targetAmountCents = 1_000_000L, currentAmountCents = 0L,
+            targetDate = LocalDate.now().plusMonths(12), monthlyContributionCents = 40_000L,
+            currency = Currency.EUR, colorKey = GoalColor.TEAL, iconKey = GoalIcon.VOITURE
+        )
+        every { getSavingsGoals() } returns flowOf(listOf(goal))
+        val now = LocalDate.now()
+
+        // Aucun versement ce mois-ci → en attente
+        coEvery { getVersementsMois(CompteType.OBJECTIF, now.year, now.monthValue) } returns emptyList()
+        rebuild()
+        assertTrue(viewModel.objectifs.first { it.isNotEmpty() }.first().versementEnAttente)
+
+        // Versement enregistré ce mois-ci → plus en attente
+        coEvery { getVersementsMois(CompteType.OBJECTIF, now.year, now.monthValue) } returns listOf(
+            MonthlyVersement(
+                id = 1L, accountId = 1L, compteType = CompteType.OBJECTIF,
+                year = now.year, month = now.monthValue, montantCents = 40_000L, currency = Currency.EUR
+            )
+        )
+        rebuild()
+        assertFalse(viewModel.objectifs.first { it.isNotEmpty() }.first().versementEnAttente)
+    }
+
+    @Test
+    fun `appliquerVersementsObjectif émet VersementObjectifApplique avec le résultat`() = runTest {
+        val goal = SavingsGoal(
+            id = 7L, name = "Voiture", targetAmountCents = 1_500_000L, currentAmountCents = 420_000L,
+            targetDate = LocalDate.now().plusMonths(12), monthlyContributionCents = 40_000L,
+            currency = Currency.EUR, colorKey = GoalColor.TEAL, iconKey = GoalIcon.VOITURE
+        )
+        coEvery { ucAppliquerVersementsObjectif(goal, 3) } returns
+            Result.success(VersementsObjectifResult(mensualitesEnregistrees = 3, centimesCredites = 120_000L))
+        val events = mutableListOf<SavingsEvent>()
+        val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
+
+        viewModel.appliquerVersementsObjectif(goal, 3)
+        testScheduler.advanceUntilIdle()
+
+        val evt = events.filterIsInstance<SavingsEvent.VersementObjectifApplique>().single()
+        assertEquals(3, evt.mensualites)
+        assertEquals(120_000L, evt.montantCents)
+        job.cancel()
     }
 
     @Test

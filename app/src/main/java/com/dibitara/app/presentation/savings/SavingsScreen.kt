@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.foundation.shape.CircleShape
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -52,6 +53,7 @@ import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.TrendChip
 import com.dibitara.app.presentation.common.accent
 import com.dibitara.app.presentation.common.chartIcon
+import com.dibitara.app.presentation.common.formatCurrency
 import com.dibitara.app.presentation.common.icon
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
@@ -86,6 +88,13 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                     snackbarHostState.showSnackbar("Objectif enregistré")
                 }
                 is SavingsEvent.ObjectifSupprime  -> snackbarHostState.showSnackbar("Objectif supprimé")
+                is SavingsEvent.VersementObjectifApplique -> snackbarHostState.showSnackbar(
+                    when (event.mensualites) {
+                        0    -> "Objectif déjà à jour ce mois-ci"
+                        1    -> "Versement enregistré · +${event.montantCents.formatCurrency(event.currency)}"
+                        else -> "${event.mensualites} mensualités enregistrées · +${event.montantCents.formatCurrency(event.currency)}"
+                    }
+                )
                 is SavingsEvent.AvertissementPlafond ->
                     snackbarHostState.showSnackbar("Versement appliqué - plafond dépassé sur « ${event.compteLabel} »")
                 is SavingsEvent.Error             -> snackbarHostState.showSnackbar(event.message)
@@ -120,6 +129,7 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                         onAddObjectif = { showAddObjectif = true },
                         onEditObjectif = { objectifToEdit = it },
                         onDeleteObjectif = viewModel::deleteObjectif,
+                        onVerserObjectif = viewModel::appliquerVersementsObjectif,
                         onAssocierComptes = { child, selectionnes ->
                             viewModel.associerComptesEnfant(
                                 child,
@@ -200,6 +210,7 @@ private fun SavingsContent(
     onAddObjectif: () -> Unit,
     onEditObjectif: (SavingsGoal) -> Unit,
     onDeleteObjectif: (SavingsGoal) -> Unit,
+    onVerserObjectif: (SavingsGoal, Int) -> Unit,
     onAssocierComptes: (Child, Set<Long>) -> Unit,
     getTrend: suspend (Long) -> Float?
 ) {
@@ -248,7 +259,8 @@ private fun SavingsContent(
                 ObjectifCard(
                     objectif = objectif,
                     onEdit = { onEditObjectif(objectif.goal) },
-                    onDelete = { onDeleteObjectif(objectif.goal) }
+                    onDelete = { onDeleteObjectif(objectif.goal) },
+                    onVerser = { n -> onVerserObjectif(objectif.goal, n) }
                 )
             }
         }
@@ -412,13 +424,15 @@ private fun FondsUrgenceCard(state: SavingsUiState.Success) {
  * Carte d'un objectif d'épargne (§3). En-tête : icône teintée par l'accent + nom +
  * menu ⋮. Barre de progression colorée par l'accent, puis montants (masquables),
  * ratio en % (toujours visible, c'est un ratio), effort mensuel, ligne de projection
- * de date et échéance cible.
+ * de date, échéance cible, et bouton « Verser ce mois » (mis en avant tant que le
+ * versement du mois n'est pas enregistré - même code couleur que les comptes).
  */
 @Composable
 private fun ObjectifCard(
     objectif: ObjectifUi,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onVerser: (Int) -> Unit
 ) {
     val goal = objectif.goal
     val projection = objectif.projection
@@ -426,6 +440,7 @@ private fun ObjectifCard(
     val moisFormatter = remember { DateTimeFormatter.ofPattern("MMM yyyy", Locale.FRENCH) }
     var showMenu by remember { mutableStateOf(false) }
     var showConfirm by remember { mutableStateOf(false) }
+    var showVersement by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -521,6 +536,31 @@ private fun ObjectifCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            // Bouton versement : visible si une mensualité est définie. Mis en avant
+            // (puce + bordure or) tant que le versement du mois n'est pas enregistré.
+            if (goal.monthlyContributionCents > 0) {
+                val enAttente = objectif.versementEnAttente
+                OutlinedButton(
+                    onClick = { showVersement = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = if (enAttente)
+                        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                    else ButtonDefaults.outlinedButtonBorder
+                ) {
+                    if (enAttente) {
+                        Box(
+                            Modifier.size(8.dp).clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        if (enAttente) "Versement du mois à enregistrer"
+                        else "Verser sur cet objectif"
+                    )
+                }
+            }
         }
     }
 
@@ -532,6 +572,68 @@ private fun ObjectifCard(
             dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } }
         )
     }
+
+    if (showVersement) {
+        VersementObjectifDialog(
+            goal = goal,
+            onConfirm = { n -> onVerser(n); showVersement = false },
+            onDismiss = { showVersement = false }
+        )
+    }
+}
+
+/**
+ * Feuille « Verser sur un objectif » avec **rattrapage** : l'utilisateur choisit
+ * combien de mensualités enregistrer (mois courant + mois manqués). Le total affiché
+ * est indicatif - `AppliquerVersementsObjectifUseCase` saute les mois déjà couverts,
+ * donc le crédit réel peut être inférieur (retour dans le Snackbar).
+ */
+@Composable
+private fun VersementObjectifDialog(
+    goal: SavingsGoal,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var nb by remember { mutableStateOf(1) }
+    val total = goal.monthlyContributionCents * nb
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Verser sur « ${goal.name} »") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Combien de mensualités enregistrer ? (mois courant + rattrapage des mois manqués)",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { if (nb > 1) nb-- }, enabled = nb > 1) {
+                        Icon(Icons.Filled.Remove, contentDescription = "Moins")
+                    }
+                    Text("$nb", style = MaterialTheme.typography.titleLarge)
+                    IconButton(onClick = { if (nb < 12) nb++ }, enabled = nb < 12) {
+                        Icon(Icons.Filled.Add, contentDescription = "Plus")
+                    }
+                }
+                Text(
+                    "Jusqu'à + ${total.formatCurrency(goal.currency)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Les mois déjà enregistrés sont ignorés.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(nb) }) { Text("Enregistrer") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
+    )
 }
 
 @Composable

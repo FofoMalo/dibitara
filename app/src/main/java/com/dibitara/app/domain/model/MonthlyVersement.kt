@@ -17,5 +17,13 @@ data class MonthlyVersement(
     val currency: Currency
 )
 
-/** Distingue les versements épargne (SavingsAccount), SCPI (ScpiInvestment) et épargne salariale (EmployeeSavings). */
-enum class CompteType { EPARGNE, SCPI, EMPLOYEE_SAVINGS }
+/**
+ * Distingue les versements épargne (SavingsAccount), SCPI (ScpiInvestment), épargne
+ * salariale (EmployeeSavings) et objectif d'épargne (SavingsGoal).
+ *
+ * Stockée en base comme `String` dans `monthly_versements.account_type` (lue en
+ * `safeValueOf`) : ajouter une valeur ne nécessite **aucune migration Room**.
+ * Pour un versement `OBJECTIF`, [MonthlyVersement.accountId] porte l'id du
+ * `SavingsGoal` (comme pour SCPI/EMPLOYEE_SAVINGS qui pointent leurs propres tables).
+ */
+enum class CompteType { EPARGNE, SCPI, EMPLOYEE_SAVINGS, OBJECTIF }

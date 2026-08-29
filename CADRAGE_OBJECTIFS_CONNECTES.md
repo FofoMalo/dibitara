@@ -1,6 +1,7 @@
 # Cadrage — Objectifs d'épargne connectés au flux d'argent
 
-> Statut : **CADRAGE** (rien d'implémenté). En attente d'arbitrage priorité + go.
+> Statut : **CADRAGE** du sprint (rien d'implémenté). En attente d'arbitrage
+> priorité + go. Le lot prérequis « capture du versement » (§6) est **livré**.
 > Branche cible : `florent/prive` (les objectifs vivent ici, Room v25).
 > Date : 2026-08-29
 > Room : **une seule** migration v25 → v26 pour tout le sprint (pas une par feature).
@@ -95,27 +96,34 @@ Socle = **F1 + F2**. Les autres sont indépendantes et activables séparément.
   (redondant avec le versement du compte) ou **reste** pour un apport exceptionnel ?
 - **F7** : quel retard déclenche l'alerte (dès 1 mois ? seulement si le retard
   s'aggrave ?) et à quelle fréquence (mensuelle, comme fonds/budget/dettes) ?
-- **Rattrapage** des mois manqués sur le versement d'objectif : 1 tap = 1 mois
-  (comme `appliquerVersement` pour les comptes) ou option « rattraper N mois » ?
-  *(question déjà posée pour le lot §6, réponse commune)*
+- **F7** : quel retard déclenche l'alerte (dès 1 mois ? seulement si le retard
+  s'aggrave ?) et à quelle fréquence.
 
-## 6. Lot « capture du versement » — prérequis, à faire avant ce sprint
+## 6. Lot « capture du versement » — **LIVRÉ** (prérequis du sprint)
 
-Petit lot (~0,5 j), **Approche A** retenue :
+**Approche A** retenue, **rattrapage N mois** (décision Florent 2026-08-29) :
 
 - `CompteType` gagne `OBJECTIF`. **Aucune migration** (`account_type` est un TEXT
   libre lu en `safeValueOf`, même principe que `Category`).
-- Bouton « Verser ce mois (+X) » sur l'`ObjectifCard` → `existeVersementMois(goal.id,
-  OBJECTIF, y, m)` → `saveVersement(...)` + `upsertSavingsGoal(currentAmountCents += …)`.
-- Rappel in-app doré sur l'`ObjectifCard` (jumeau de `GetVersementsEnAttenteUseCase`
-  livré pour les comptes).
-- Historique gratuit via `MonthlyVersementDao.getForAccount(goalId, OBJECTIF)`.
-- `versements_mensuels` déjà dans la sauvegarde JSON → rien à ajouter.
+- `AppliquerVersementsObjectifUseCase(goal, nbMensualites, aujourdhui)` : parcourt
+  la fenêtre `[mois courant − N + 1 … mois courant]`, insère une ligne
+  `monthly_versements` (`OBJECTIF`) pour chaque mois de la fenêtre sans versement,
+  avance `currentAmountCents` du total effectivement inséré (0 si tout couvert).
+  Chaque versement = mensualité **courante**.
+- `ObjectifCard` : bouton « Verser sur cet objectif » (puce + bordure or +
+  « à enregistrer » tant que le mois courant n'est pas versé) → dialogue avec
+  stepper 1–12 mensualités + total indicatif.
+- Rappel : `GetObjectifsVersementEnAttenteUseCase` (pur, jumeau de
+  `GetVersementsEnAttenteUseCase`), flag `versementEnAttente` porté par `ObjectifUi`.
+- Historique : gratuit via `MonthlyVersementDao.getForAccount(goalId, OBJECTIF)`
+  (pas encore exposé à l'écran — candidat pour le sprint). Le même flux
+  permettrait d'afficher le **vrai** total dans le dialogue de rattrapage (pour
+  l'instant « Jusqu'à + X », les mois déjà couverts étant ignorés côté UseCase).
+- Sauvegarde JSON : `versements_mensuels` déjà couvert, round-trip `OBJECTIF` testé.
 
-Ce lot **n'est pas un cul-de-sac** : il devient le mode `fundingMode = VERSEMENTS`
-du sprint. Le piège double-comptage sur restauration (backup sans
-`versements_mensuels` → table vide → rappels tous allumés) s'applique aussi ici,
-même parade à cadrer.
+Ce lot **devient le mode `fundingMode = VERSEMENTS`** du sprint. Le piège
+double-comptage sur restauration (backup sans `versements_mensuels` → table vide →
+rappels tous allumés) s'applique aussi ici, même parade à cadrer (F-parade).
 
 ## 7. Hors scope
 
