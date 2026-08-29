@@ -12,4 +12,7 @@ interface CategorizationRuleRepository {
      * (comparaison insensible à la casse, espaces tronqués), ou null.
      */
     suspend fun getRuleForNote(note: String): CategorizationRule?
+
+    /** Toutes les règles apprises - pour l'export/sauvegarde JSON. */
+    suspend fun getAll(): List<CategorizationRule>
 }

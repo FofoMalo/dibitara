@@ -40,7 +40,12 @@ object JsonExporter {
             "vehicule_locatif" to data.vehiculeLocatif,
             "dettes"           to data.dettes,
             "actifs_libres"    to data.actifsLibres,
-            "epargne_salariale" to data.epargneSalariale
+            "epargne_salariale" to data.epargneSalariale,
+            "sous_categories_perso"  to data.sousCategoriesPerso,
+            "comptes_bancaires"      to data.comptesBancaires,
+            "enveloppes_budget"      to data.enveloppesBudget,
+            "regles_categorisation"  to data.reglesCategorisation,
+            "versements_mensuels"    to data.versementsMensuels
         )
         return gson.toJson(enveloppe)
     }

@@ -19,4 +19,8 @@ interface CategorizationRuleDao {
     /** Cherche une règle par libellé exact (stocké en minuscules). */
     @Query("SELECT * FROM categorization_rules WHERE noteExact = :noteExact LIMIT 1")
     suspend fun getByNote(noteExact: String): CategorizationRuleEntity?
+
+    /** Toutes les règles apprises - utilisé par l'export/sauvegarde JSON. */
+    @Query("SELECT * FROM categorization_rules")
+    suspend fun getAll(): List<CategorizationRuleEntity>
 }

@@ -15,4 +15,7 @@ class CategorizationRuleRepositoryImpl @Inject constructor(
 
     override suspend fun getRuleForNote(note: String): CategorizationRule? =
         dao.getByNote(note.trim().lowercase())?.toDomain()
+
+    override suspend fun getAll(): List<CategorizationRule> =
+        dao.getAll().map { it.toDomain() }
 }

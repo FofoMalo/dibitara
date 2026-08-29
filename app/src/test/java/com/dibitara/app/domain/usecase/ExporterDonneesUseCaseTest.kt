@@ -4,8 +4,11 @@ import android.net.Uri
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Budget
 import com.dibitara.app.domain.model.Category
+import com.dibitara.app.domain.model.CategoryEnvelope
+import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Debt
+import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.DebtType
 import com.dibitara.app.domain.model.ExportData
 import com.dibitara.app.domain.model.ExportFormat
@@ -17,14 +20,19 @@ import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
 import com.dibitara.app.domain.model.VehicleEntryType
 import com.dibitara.app.domain.model.VehicleRentalEntry
+import com.dibitara.app.domain.repository.BankAccountRepository
 import com.dibitara.app.domain.repository.BudgetRepository
+import com.dibitara.app.domain.repository.CategorizationRuleRepository
+import com.dibitara.app.domain.repository.CategoryEnvelopeRepository
 import com.dibitara.app.domain.repository.ChildRepository
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
+import com.dibitara.app.domain.repository.CustomSubCategoryRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.ExportRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
 import com.dibitara.app.domain.repository.SavingsRepository
 import com.dibitara.app.domain.repository.TransactionRepository
+import com.dibitara.app.domain.repository.VersementRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -44,6 +52,11 @@ class ExporterDonneesUseCaseTest {
     private val debtRepo           : DebtRepository             = mockk()
     private val customInvestRepo   : CustomInvestmentRepository = mockk()
     private val childRepo          : ChildRepository            = mockk()
+    private val subCategoryRepo    : CustomSubCategoryRepository = mockk()
+    private val bankAccountRepo    : BankAccountRepository       = mockk()
+    private val envelopeRepo       : CategoryEnvelopeRepository  = mockk()
+    private val ruleRepo           : CategorizationRuleRepository = mockk()
+    private val versementRepo      : VersementRepository         = mockk()
     private val exportRepo         : ExportRepository           = mockk()
 
     private lateinit var useCase: ExporterDonneesUseCase
@@ -60,10 +73,20 @@ class ExporterDonneesUseCaseTest {
             debtRepository             = debtRepo,
             customInvestmentRepository = customInvestRepo,
             childRepository            = childRepo,
+            customSubCategoryRepository = subCategoryRepo,
+            bankAccountRepository      = bankAccountRepo,
+            categoryEnvelopeRepository = envelopeRepo,
+            categorizationRuleRepository = ruleRepo,
+            versementRepository        = versementRepo,
             exportRepository           = exportRepo
         )
 
         // Tous les repos retournent des listes vides par défaut
+        coEvery { subCategoryRepo.getAll()                   } returns flowOf(emptyList())
+        coEvery { bankAccountRepo.getAll()                   } returns flowOf(emptyList())
+        coEvery { envelopeRepo.getAll()                      } returns flowOf(emptyList())
+        coEvery { ruleRepo.getAll()                          } returns emptyList()
+        coEvery { versementRepo.getAll()                     } returns emptyList()
         coEvery { childRepo.getAll()                         } returns flowOf(emptyList())
         coEvery { transactionRepo.getAll()                   } returns flowOf(emptyList())
         coEvery { budgetRepo.getAll()                        } returns flowOf(emptyList())
@@ -135,6 +158,26 @@ class ExporterDonneesUseCaseTest {
                     data.vehiculeLocatif.size == 1 &&
                     data.dettes.size       == 1
                 },
+                ExportFormat.JSON
+            )
+        }
+    }
+
+    @Test
+    fun `agrège aussi les versements mensuels et les enveloppes (régression sauvegarde incomplète)`() = runTest {
+        val versement = MonthlyVersement(
+            id = 1L, accountId = 1L, compteType = CompteType.EPARGNE,
+            year = 2026, month = 8, montantCents = 20000L, currency = Currency.EUR
+        )
+        val enveloppe = CategoryEnvelope(id = 1L, category = Category.ALIMENTATION, plafondCents = 40000L, currency = Currency.EUR)
+        coEvery { versementRepo.getAll() } returns listOf(versement)
+        coEvery { envelopeRepo.getAll()  } returns flowOf(listOf(enveloppe))
+
+        useCase(ExportFormat.JSON)
+
+        coVerify {
+            exportRepo.exporter(
+                match { data -> data.versementsMensuels.size == 1 && data.enveloppesBudget.size == 1 },
                 ExportFormat.JSON
             )
         }

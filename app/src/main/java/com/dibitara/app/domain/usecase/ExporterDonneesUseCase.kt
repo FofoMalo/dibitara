@@ -3,14 +3,19 @@ package com.dibitara.app.domain.usecase
 import android.net.Uri
 import com.dibitara.app.domain.model.ExportData
 import com.dibitara.app.domain.model.ExportFormat
+import com.dibitara.app.domain.repository.BankAccountRepository
 import com.dibitara.app.domain.repository.BudgetRepository
+import com.dibitara.app.domain.repository.CategorizationRuleRepository
+import com.dibitara.app.domain.repository.CategoryEnvelopeRepository
 import com.dibitara.app.domain.repository.ChildRepository
 import com.dibitara.app.domain.repository.CustomInvestmentRepository
+import com.dibitara.app.domain.repository.CustomSubCategoryRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.ExportRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
 import com.dibitara.app.domain.repository.SavingsRepository
 import com.dibitara.app.domain.repository.TransactionRepository
+import com.dibitara.app.domain.repository.VersementRepository
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
@@ -28,6 +33,11 @@ class ExporterDonneesUseCase @Inject constructor(
     private val debtRepository             : DebtRepository,
     private val customInvestmentRepository : CustomInvestmentRepository,
     private val childRepository            : ChildRepository,
+    private val customSubCategoryRepository: CustomSubCategoryRepository,
+    private val bankAccountRepository      : BankAccountRepository,
+    private val categoryEnvelopeRepository : CategoryEnvelopeRepository,
+    private val categorizationRuleRepository: CategorizationRuleRepository,
+    private val versementRepository        : VersementRepository,
     private val exportRepository           : ExportRepository
 ) {
     suspend operator fun invoke(format: ExportFormat): Uri {
@@ -43,7 +53,12 @@ class ExporterDonneesUseCase @Inject constructor(
             vehiculeLocatif = investmentRepository.getAllVehicleRentalEntries().first(),
             dettes          = debtRepository.getAll().first(),
             actifsLibres    = customInvestmentRepository.getAllCustomAssets().first(),
-            epargneSalariale = customInvestmentRepository.getAllEmployeeSavings().first()
+            epargneSalariale = customInvestmentRepository.getAllEmployeeSavings().first(),
+            sousCategoriesPerso  = customSubCategoryRepository.getAll().first(),
+            comptesBancaires     = bankAccountRepository.getAll().first(),
+            enveloppesBudget     = categoryEnvelopeRepository.getAll().first(),
+            reglesCategorisation = categorizationRuleRepository.getAll(),
+            versementsMensuels   = versementRepository.getAll()
         )
         return exportRepository.exporter(data, format)
     }

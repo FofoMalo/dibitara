@@ -2,9 +2,7 @@ package com.dibitara.app.data.repository
 
 import com.dibitara.app.data.local.dao.CategoryEnvelopeDao
 import com.dibitara.app.data.local.entity.CategoryEnvelopeEntity
-import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.CategoryEnvelope
-import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.repository.CategoryEnvelopeRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,18 +22,7 @@ class CategoryEnvelopeRepositoryImpl @Inject constructor(
         dao.delete(envelope.toEntity())
 
     // ─── Mapping entité ↔ domaine ─────────────────────────────────────────────
+    // La conversion vit sur CategoryEnvelopeEntity (réutilisée par la restauration JSON).
 
-    private fun CategoryEnvelopeEntity.toDomain() = CategoryEnvelope(
-        id           = id,
-        category     = Category.valueOf(category),
-        plafondCents = plafondCents,
-        currency     = Currency.valueOf(currency)
-    )
-
-    private fun CategoryEnvelope.toEntity() = CategoryEnvelopeEntity(
-        id           = id,
-        category     = category.name,
-        plafondCents = plafondCents,
-        currency     = currency.name
-    )
+    private fun CategoryEnvelope.toEntity() = CategoryEnvelopeEntity.fromDomain(this)
 }

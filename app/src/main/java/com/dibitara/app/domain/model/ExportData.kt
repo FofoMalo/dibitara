@@ -19,5 +19,12 @@ data class ExportData(
     val vehiculeLocatif: List<VehicleRentalEntry>,
     val dettes         : List<Debt>,
     val actifsLibres   : List<CustomAsset>,
-    val epargneSalariale: List<EmployeeSavings>
+    val epargneSalariale: List<EmployeeSavings>,
+    // Ajoutées 2026-08 : ces collections manquaient à la sauvegarde JSON et étaient donc
+    // perdues à la restauration (versements du mois recompté, sous-catégories orphelines...).
+    val sousCategoriesPerso : List<CustomSubCategory>,
+    val comptesBancaires    : List<BankAccount>,
+    val enveloppesBudget    : List<CategoryEnvelope>,
+    val reglesCategorisation: List<CategorizationRule>,
+    val versementsMensuels  : List<MonthlyVersement>
 )

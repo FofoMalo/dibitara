@@ -33,7 +33,12 @@ class CsvExporterTest {
         vehiculeLocatif = emptyList(),
         dettes          = emptyList(),
         actifsLibres    = emptyList(),
-        epargneSalariale = emptyList()
+        epargneSalariale = emptyList(),
+        sousCategoriesPerso  = emptyList(),
+        comptesBancaires     = emptyList(),
+        enveloppesBudget     = emptyList(),
+        reglesCategorisation = emptyList(),
+        versementsMensuels   = emptyList()
     )
 
     @Test

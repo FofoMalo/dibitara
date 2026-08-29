@@ -30,4 +30,8 @@ interface MonthlyVersementDao {
         WHERE account_type = :accountType AND year = :year AND month = :month
     """)
     suspend fun getAllPourMois(accountType: String, year: Int, month: Int): List<MonthlyVersementEntity>
+
+    /** Tous les versements enregistrés - utilisé par l'export/sauvegarde JSON. */
+    @Query("SELECT * FROM monthly_versements ORDER BY year DESC, month DESC")
+    suspend fun getAll(): List<MonthlyVersementEntity>
 }
