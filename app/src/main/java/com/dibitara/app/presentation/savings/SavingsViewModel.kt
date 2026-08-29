@@ -26,6 +26,7 @@ import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAssetValuationHistoryUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
+import com.dibitara.app.domain.usecase.GetVersementsEnAttenteUseCase
 import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
 import com.dibitara.app.domain.usecase.SaveAssetValuationSnapshotUseCase
 import com.dibitara.app.domain.usecase.SaveChildUseCase
@@ -62,7 +63,8 @@ class SavingsViewModel @Inject constructor(
     private val getSavingsGoals: GetSavingsGoalsUseCase,
     private val upsertSavingsGoal: UpsertSavingsGoalUseCase,
     private val deleteSavingsGoal: DeleteSavingsGoalUseCase,
-    private val ucProjeterObjectif: ProjeterObjectifUseCase
+    private val ucProjeterObjectif: ProjeterObjectifUseCase,
+    private val ucGetVersementsEnAttente: GetVersementsEnAttenteUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -81,8 +83,17 @@ class SavingsViewModel @Inject constructor(
         val totalBalance = accounts.sumOf { CurrencyConverter.convertCents(it.currentBalanceCents, it.currency, target, rates) }
         val totalMonthly = accounts.sumOf { CurrencyConverter.convertCents(it.monthlyContributionCents, it.currency, target, rates) }
         val now = LocalDate.now()
-        val totalVerse = getVersementsMois(CompteType.EPARGNE, now.year, now.monthValue)
+        val versementsDuMois = getVersementsMois(CompteType.EPARGNE, now.year, now.monthValue)
+        val totalVerse = versementsDuMois
             .sumOf { CurrencyConverter.convertCents(it.montantCents, it.currency, target, rates) }
+
+        // Rappel in-app : comptes avec un versement mensuel prévu mais pas encore enregistré
+        // ce mois-ci. Purement dérivé, rien de persisté. Aucun flux du combine n'observe
+        // `monthly_versements` : ce bloc ne se recalcule que quand `savings_accounts` change
+        // (getSavings() ré-émet). C'est suffisant car les deux écritures qui touchent les
+        // versements touchent aussi les comptes - `appliquerVersement` (updateSavingsAccount)
+        // et la restauration JSON (réécrit savings_accounts dans la même transaction).
+        val comptesEnAttente = ucGetVersementsEnAttente(accounts, versementsDuMois)
 
         // Intérêts annuels estimés : Σ (solde × taux/100) de chaque compte, converti dans la devise cible.
         val interetsAnnuels = accounts.sumOf { compte ->
@@ -126,7 +137,8 @@ class SavingsViewModel @Inject constructor(
             tauxEpargneCiblePct    = prefs.tauxEpargneCiblePct,
             conversionSecondaireCents    = conversionSecondaire,
             conversionSecondaireCurrency = deviseSecondaire,
-            totauxParEnfantCents         = totauxParEnfant
+            totauxParEnfantCents         = totauxParEnfant,
+            comptesVersementEnAttente    = comptesEnAttente
         ) as SavingsUiState
     }
         .catch { emit(SavingsUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -383,7 +395,10 @@ sealed class SavingsUiState {
         val conversionSecondaireCents    : Long     = 0L,
         val conversionSecondaireCurrency : Currency = Currency.XOF,
         // Total épargné par enfant (devise cible), pour l'en-tête repliable de chaque enfant.
-        val totauxParEnfantCents         : Map<Long, Long> = emptyMap()
+        val totauxParEnfantCents         : Map<Long, Long> = emptyMap(),
+        // Rappel in-app (§ versement mensuel) : ids des comptes dont le versement du mois
+        // n'est pas encore enregistré. Dérivé, non persisté.
+        val comptesVersementEnAttente    : List<Long> = emptyList()
     ) : SavingsUiState()
     data class Error(val message: String) : SavingsUiState()
 }

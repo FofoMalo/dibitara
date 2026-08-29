@@ -23,6 +23,7 @@ import com.dibitara.app.domain.usecase.DeleteSavingsGoalUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
 import com.dibitara.app.domain.usecase.GetSavingsGoalsUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
+import com.dibitara.app.domain.usecase.GetVersementsEnAttenteUseCase
 import com.dibitara.app.domain.usecase.ProjeterObjectifUseCase
 import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
@@ -69,6 +70,7 @@ class SavingsViewModelTest {
     private val upsertSavingsGoal: UpsertSavingsGoalUseCase = mockk(relaxed = true)
     private val deleteSavingsGoal: DeleteSavingsGoalUseCase = mockk(relaxed = true)
     private val ucProjeterObjectif = ProjeterObjectifUseCase()
+    private val ucGetVersementsEnAttente = GetVersementsEnAttenteUseCase()
     private lateinit var viewModel: SavingsViewModel
 
     @BeforeEach
@@ -86,7 +88,8 @@ class SavingsViewModelTest {
             deleteSavingsAccount, getChildren, saveChild, deleteChild,
             saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
             ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
-            getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif
+            getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif,
+            ucGetVersementsEnAttente
         )
     }
 
@@ -119,7 +122,8 @@ class SavingsViewModelTest {
             deleteSavingsAccount, getChildren, saveChild, deleteChild,
             saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
             ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
-            getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif
+            getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif,
+            ucGetVersementsEnAttente
         )
     }
 
@@ -328,6 +332,36 @@ class SavingsViewModelTest {
         assertTrue(events.any { it is SavingsEvent.Error })
         coVerify(exactly = 0) { upsertSavingsGoal(any()) }
         job.cancel()
+    }
+
+    @Test
+    fun `comptesVersementEnAttente liste les comptes avec versement mensuel non encore enregistré`() = runTest {
+        every { getSavings() } returns flowOf(listOf(
+            buildAccount(contribution = 20_000L).copy(id = 1L),
+            buildAccount(contribution = 0L).copy(id = 2L)   // pas de versement mensuel → jamais en attente
+        ))
+        rebuild()
+
+        val state = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
+
+        assertEquals(listOf(1L), state.comptesVersementEnAttente)
+    }
+
+    @Test
+    fun `comptesVersementEnAttente exclut un compte déjà versé ce mois-ci`() = runTest {
+        val now = LocalDate.now()
+        every { getSavings() } returns flowOf(listOf(buildAccount(contribution = 20_000L).copy(id = 1L)))
+        coEvery { getVersementsMois(CompteType.EPARGNE, now.year, now.monthValue) } returns listOf(
+            MonthlyVersement(
+                id = 1L, accountId = 1L, compteType = CompteType.EPARGNE,
+                year = now.year, month = now.monthValue, montantCents = 20_000L, currency = Currency.EUR
+            )
+        )
+        rebuild()
+
+        val state = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
+
+        assertEquals(emptyList<Long>(), state.comptesVersementEnAttente)
     }
 
     private fun buildAccount(balance: Long = 500000L, contribution: Long = 20000L) = SavingsAccount(

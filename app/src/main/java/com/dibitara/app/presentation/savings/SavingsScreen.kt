@@ -1,5 +1,6 @@
 package com.dibitara.app.presentation.savings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -259,6 +260,7 @@ private fun SavingsContent(
                 SavingsAccountCard(
                     account = account,
                     childName = state.children.find { it.id == account.childId }?.name,
+                    versementEnAttente = account.id in state.comptesVersementEnAttente,
                     onEdit = { onEditAccount(account) },
                     onDelete = { onDeleteAccount(account) },
                     onVersement = { onAppliquerVersement(account) },
@@ -536,6 +538,7 @@ private fun ObjectifCard(
 private fun SavingsAccountCard(
     account: SavingsAccount,
     childName: String?,
+    versementEnAttente: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onVersement: () -> Unit,
@@ -645,13 +648,30 @@ private fun SavingsAccountCard(
                 }
             }
 
-            // Bouton versement : visible uniquement si un montant mensuel est configuré
+            // Bouton versement : visible uniquement si un montant mensuel est configuré.
+            // Rappel in-app (§ versement mensuel) : quand le versement du mois n'est pas
+            // encore enregistré, on met le bouton en avant - puce dorée + libellé explicite.
+            // L'or (primary) en accent, pas le rouge (error) : c'est un rappel, pas une alerte.
             if (account.monthlyContributionCents > 0) {
+                val montant = account.monthlyContributionCents.toCurrencyDisplay(account.currency)
                 OutlinedButton(
                     onClick = { showVersementConfirm = true },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    border = if (versementEnAttente)
+                        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                    else ButtonDefaults.outlinedButtonBorder
                 ) {
-                    Text("Versement du mois (+${account.monthlyContributionCents.toCurrencyDisplay(account.currency)})")
+                    if (versementEnAttente) {
+                        Box(
+                            Modifier.size(8.dp).clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        if (versementEnAttente) "Versement du mois à enregistrer (+$montant)"
+                        else "Versement du mois (+$montant)"
+                    )
                 }
             }
         }
