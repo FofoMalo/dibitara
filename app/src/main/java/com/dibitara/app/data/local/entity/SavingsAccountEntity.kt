@@ -19,7 +19,9 @@ data class SavingsAccountEntity(
     val childId: Long?,
     val updatedAtEpochDay: Long,
     // Plafond en centimes - null si non configuré (colonne ajoutée en migration v14)
-    val plafondCents: Long? = null
+    val plafondCents: Long? = null,
+    // Taux d'intérêt annuel en % - null si non renseigné (colonne ajoutée en migration v24)
+    val tauxAnnuelPct: Double? = null
 ) {
     fun toDomain() = SavingsAccount(
         id = id,
@@ -30,7 +32,8 @@ data class SavingsAccountEntity(
         currency = safeValueOf(currency, Currency.EUR),
         childId = childId,
         updatedAt = LocalDate.ofEpochDay(updatedAtEpochDay),
-        plafondCents = plafondCents
+        plafondCents = plafondCents,
+        tauxAnnuelPct = tauxAnnuelPct
     )
 
     companion object {
@@ -43,7 +46,8 @@ data class SavingsAccountEntity(
             currency = s.currency.name,
             childId = s.childId,
             updatedAtEpochDay = s.updatedAt.toEpochDay(),
-            plafondCents = s.plafondCents
+            plafondCents = s.plafondCents,
+            tauxAnnuelPct = s.tauxAnnuelPct
         )
     }
 }

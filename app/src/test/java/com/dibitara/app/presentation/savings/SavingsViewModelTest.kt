@@ -8,7 +8,9 @@ import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.model.ConseilPatrimoineResult
 import com.dibitara.app.domain.repository.ExchangeRateRepository
+import com.dibitara.app.domain.usecase.AnalyserPatrimoineUseCase
 import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
@@ -52,6 +54,7 @@ class SavingsViewModelTest {
     private val getVersementsMois: GetVersementsMoisUseCase = mockk()
     private val ucGetPreferences: GetUserPreferencesUseCase = mockk()
     private val ratesRepo: ExchangeRateRepository = mockk()
+    private val ucAnalyserPatrimoine: AnalyserPatrimoineUseCase = mockk()
     private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase = mockk(relaxed = true)
     private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase = mockk(relaxed = true)
     private val ucCalculerTendanceActif: CalculerTendanceActifUseCase = mockk(relaxed = true)
@@ -64,12 +67,45 @@ class SavingsViewModelTest {
         every { getChildren() } returns flowOf(emptyList())
         every { ucGetPreferences() } returns flowOf(UserPreferences())
         every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
+        every { ucAnalyserPatrimoine(any(), any()) } returns flowOf(conseil())
         coEvery { getVersementsMois(any(), any(), any()) } returns emptyList()
         viewModel = SavingsViewModel(
             getSavings, saveSavingsAccount, updateSavingsAccount,
             deleteSavingsAccount, getChildren, saveChild, deleteChild,
             saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
-            ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
+            ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
+        )
+    }
+
+    private fun conseil(
+        revenuMoyenCents: Long = 0L,
+        chargesMensuellesCents: Long = 0L,
+        liquiditesSuresCents: Long = 0L
+    ) = ConseilPatrimoineResult(
+        currency = Currency.EUR,
+        liquiditesSuresCents = liquiditesSuresCents,
+        objectifPrecautionCents = chargesMensuellesCents * 6,
+        precautionSuffisante = liquiditesSuresCents >= chargesMensuellesCents * 6,
+        revenuMoyenCents = revenuMoyenCents,
+        chargesMensuellesCents = chargesMensuellesCents,
+        pochesAvecMarge = emptyList(),
+        objectifEpargneMensuelCents = 0L,
+        resteAVivreReelCents = 0L,
+        versementsProgrammesCents = 0L,
+        capaciteNonAffecteeCents = 0L,
+        objectifPlafonneParResteAVivre = false,
+        repartitionParCategorie = emptyList(),
+        categorieSurConcentree = null
+    )
+
+    /** Les flows (getSavings, prefs, analyse...) sont capturés à la construction du VM :
+     *  toute stub qui les change doit être suivie d'un rebuild(). */
+    private fun rebuild() {
+        viewModel = SavingsViewModel(
+            getSavings, saveSavingsAccount, updateSavingsAccount,
+            deleteSavingsAccount, getChildren, saveChild, deleteChild,
+            saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
+            ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
         )
     }
 
@@ -144,12 +180,75 @@ class SavingsViewModelTest {
         assertEquals(20000L, state.totalVerseMoisCents)
     }
 
-    private fun buildAccount() = SavingsAccount(
+    @Test
+    fun `fonds d'urgence expose liquidites et charges du Conseiller patrimoine`() = runTest {
+        every { ucAnalyserPatrimoine(any(), any()) } returns flowOf(
+            conseil(liquiditesSuresCents = 900_000L, chargesMensuellesCents = 150_000L)
+        )
+        rebuild()
+
+        val state = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
+
+        assertEquals(900_000L, state.liquiditesSuresCents)
+        assertEquals(150_000L, state.chargesMensuellesCents)
+    }
+
+    @Test
+    fun `taux d'epargne reel est versements sur revenu moyen`() = runTest {
+        every { getSavings() } returns flowOf(listOf(buildAccount(contribution = 30_000L)))
+        every { ucAnalyserPatrimoine(any(), any()) } returns flowOf(conseil(revenuMoyenCents = 300_000L))
+        rebuild()
+
+        val state = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
+
+        assertEquals(0.10f, state.tauxEpargneReel!!, 0.001f)
+    }
+
+    @Test
+    fun `taux d'epargne reel est null si revenu moyen inconnu`() = runTest {
+        every { getSavings() } returns flowOf(listOf(buildAccount(contribution = 30_000L)))
+        every { ucAnalyserPatrimoine(any(), any()) } returns flowOf(conseil(revenuMoyenCents = 0L))
+        rebuild()
+
+        val state = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
+
+        assertNull(state.tauxEpargneReel)
+    }
+
+    @Test
+    fun `interets annuels estimes = somme solde fois taux, 0 si taux absent`() = runTest {
+        every { getSavings() } returns flowOf(listOf(
+            buildAccount(balance = 1_000_000L).copy(tauxAnnuelPct = 3.0),   // 30 000
+            buildAccount(balance = 500_000L).copy(tauxAnnuelPct = null)     // 0
+        ))
+        rebuild()
+
+        val state = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
+
+        assertEquals(30_000L, state.interetsAnnuelsCents)
+    }
+
+    @Test
+    fun `conversion secondaire = FCFA quand devise cible EUR, EUR quand devise cible FCFA`() = runTest {
+        every { getSavings() } returns flowOf(listOf(buildAccount(balance = 100_00L)))
+        rebuild()
+
+        val enEuro = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
+        assertEquals(Currency.XOF, enEuro.conversionSecondaireCurrency)
+
+        every { ucGetPreferences() } returns flowOf(UserPreferences(deviseParDefaut = Currency.XOF))
+        rebuild()
+
+        val enFcfa = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
+        assertEquals(Currency.EUR, enFcfa.conversionSecondaireCurrency)
+    }
+
+    private fun buildAccount(balance: Long = 500000L, contribution: Long = 20000L) = SavingsAccount(
         id = 1L,
         type = SavingsType.LIVRET_A,
         label = "Livret A",
-        currentBalanceCents = 500000L,
-        monthlyContributionCents = 20000L,
+        currentBalanceCents = balance,
+        monthlyContributionCents = contribution,
         currency = Currency.EUR,
         childId = null,
         updatedAt = LocalDate.now()

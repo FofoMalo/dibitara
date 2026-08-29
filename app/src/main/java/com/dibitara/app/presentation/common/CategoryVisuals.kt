@@ -20,10 +20,14 @@ import androidx.compose.material.icons.filled.SmokingRooms
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.dibitara.app.domain.model.BankProvider
 import com.dibitara.app.domain.model.Category
+import com.dibitara.app.domain.model.SavingsType
 
 /**
  * Couleur et icône STABLES par catégorie de dépense (refonte UX/UI 2026-08).
@@ -90,4 +94,21 @@ fun BankProvider.chartIcon(): ImageVector = when (this) {
     BankProvider.QONTO          -> Icons.Filled.Business
     BankProvider.ESPECES        -> Icons.Filled.Payments
     BankProvider.AUTRE          -> Icons.Filled.MoreHoriz
+}
+
+/**
+ * Icône stable par type de produit d'épargne (écran Épargne, refonte §8).
+ * Même règle que [Category.chartIcon] : jamais positionnel, une icône = un sens.
+ */
+fun SavingsType.chartIcon(): ImageVector = when (this) {
+    SavingsType.LIVRET_A,
+    SavingsType.LDDS              -> Icons.Filled.Savings
+    SavingsType.PEL,
+    SavingsType.PER,
+    SavingsType.ASSURANCE_VIE     -> Icons.Filled.AccountBalance
+    SavingsType.PEA,
+    SavingsType.COURTIER_EN_LIGNE -> Icons.AutoMirrored.Filled.TrendingUp
+    SavingsType.ORANGE_MONEY      -> Icons.Filled.Smartphone
+    SavingsType.COMPTE_COURANT    -> Icons.Filled.CreditCard
+    SavingsType.AUTRE             -> Icons.Filled.AccountBalanceWallet
 }

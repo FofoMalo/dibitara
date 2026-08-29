@@ -131,6 +131,43 @@ class MigrationTest {
         }
     }
 
+    /**
+     * Vérifie que [DibitaraDatabase.MIGRATION_23_24] ajoute la colonne [tauxAnnuelPct]
+     * (REAL nullable) sur [savings_accounts] sans détruire les lignes existantes ni
+     * altérer leur solde.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migration_23_vers_24_ajoute_tauxAnnuelPct_sur_savings_accounts() {
+        helper.createDatabase(TEST_DB, 23).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO savings_accounts
+                    (type, label, currentBalanceCents, monthlyContributionCents, currency, childId, updatedAtEpochDay)
+                VALUES
+                    ('LIVRET_A', 'Livret A', 500000, 20000, 'EUR', NULL, 19845)
+                """.trimIndent()
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            24,
+            true,
+            DibitaraDatabase.MIGRATION_23_24
+        ).use { db ->
+            db.query("SELECT currentBalanceCents, tauxAnnuelPct FROM savings_accounts WHERE label = 'Livret A'").use { cursor ->
+                assertEquals(1, cursor.count)
+                cursor.moveToFirst()
+                assertEquals(500000L, cursor.getLong(cursor.getColumnIndex("currentBalanceCents")))
+                assertTrue(
+                    "tauxAnnuelPct doit être NULL après migration",
+                    cursor.isNull(cursor.getColumnIndex("tauxAnnuelPct"))
+                )
+            }
+        }
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
     }

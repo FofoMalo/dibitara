@@ -12,7 +12,10 @@ data class SavingsAccount(
     val childId: Long? = null,
     val updatedAt: LocalDate,
     // Plafond légal ou personnalisé en centimes (null = pas de plafond configuré)
-    val plafondCents: Long? = null
+    val plafondCents: Long? = null,
+    // Taux d'intérêt annuel en % (ex. 3.0 pour un Livret A à 3 %) - null si non renseigné.
+    // Sert à estimer les intérêts annuels (hero Épargne) et le gain annuel par compte.
+    val tauxAnnuelPct: Double? = null
 )
 
 enum class SavingsType(val displayName: String) {

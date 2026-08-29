@@ -109,6 +109,19 @@ class AnalyserPatrimoineUseCaseTest {
 
         // 6 mois × (500€ besoins + 300€ dette conso) = 4800€
         assertEquals(4_800_00L, result.objectifPrecautionCents)
+        // chargesMensuellesCents = objectifPrecaution / 6, exposé pour l'écran Épargne
+        assertEquals(800_00L, result.chargesMensuellesCents)
+    }
+
+    @Test
+    fun `revenuMoyenCents est la moyenne des revenus sur les 3 mois analyses`() = runTest {
+        every { transactionRepo.getByMonth(7, 2026) } returns flowOf(listOf(income(3_000_00L)))
+        every { transactionRepo.getByMonth(6, 2026) } returns flowOf(listOf(income(3_000_00L)))
+        every { transactionRepo.getByMonth(5, 2026) } returns flowOf(listOf(income(3_000_00L)))
+
+        val result = useCase(refMonth = 8, refYear = 2026).first()
+
+        assertEquals(3_000_00L, result.revenuMoyenCents)
     }
 
     @Test

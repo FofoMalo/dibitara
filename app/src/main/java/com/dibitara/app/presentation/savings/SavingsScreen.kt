@@ -20,10 +20,12 @@ import androidx.compose.material.icons.filled.Person
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,6 +36,7 @@ import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.TrendChip
+import com.dibitara.app.presentation.common.chartIcon
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @Composable
@@ -105,8 +108,8 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
         AddSavingsSheet(
             children = children,
             defaultCurrency = defaultCurrency,
-            onSave = { type, label, balance, contribution, currency, childId, plafond ->
-                viewModel.saveAccount(type, label, balance, contribution, currency, childId, plafond)
+            onSave = { type, label, balance, contribution, currency, childId, plafond, taux ->
+                viewModel.saveAccount(type, label, balance, contribution, currency, childId, plafond, taux)
             },
             onDismiss = { showAddSheet = false }
         )
@@ -118,8 +121,8 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
         EditSavingsSheet(
             account = compte,
             children = children,
-            onSave = { type, label, balance, contribution, currency, childId, plafond ->
-                viewModel.updateAccount(compte, type, label, balance, contribution, currency, childId, plafond)
+            onSave = { type, label, balance, contribution, currency, childId, plafond, taux ->
+                viewModel.updateAccount(compte, type, label, balance, contribution, currency, childId, plafond, taux)
             },
             onDismiss = { accountToEdit = null }
         )
@@ -154,41 +157,12 @@ private fun SavingsContent(
         }
 
         // Résumé global
-        item {
-            HeroCard {
-                Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("Total épargne", style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(state.totalEpargneCents.toCurrencyDisplay(state.summaryCurrency),
-                                style = MaterialTheme.typography.titleLarge)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Versements/mois", style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(state.totalMensuelCents.toCurrencyDisplay(state.summaryCurrency),
-                                style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Versé ce mois-ci", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(state.totalVerseMoisCents.toCurrencyDisplay(state.summaryCurrency),
-                            style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-            }
+        item { SavingsHeroCard(state) }
+
+        // Fonds d'urgence (§2) : mois de charges courantes couverts par l'épargne liquide.
+        // Repris tel quel du Conseiller patrimoine - masqué s'il n'y a pas de données de charges.
+        if (state.chargesMensuellesCents > 0) {
+            item { FondsUrgenceCard(state) }
         }
 
         // Comptes par type
@@ -241,6 +215,108 @@ private fun SavingsContent(
     }
 }
 
+/**
+ * Hero de l'écran Épargne (§8) : total + versements/mois en tête, puis un filet de
+ * détails - versé ce mois, taux d'épargne réel vs cible, intérêts annuels estimés -
+ * et une conversion secondaire sous le total. Fond neutre (HeroCard), pas d'aplat.
+ */
+@Composable
+private fun SavingsHeroCard(state: SavingsUiState.Success) {
+    HeroCard {
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Total épargne", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(state.totalEpargneCents.toCurrencyDisplay(state.summaryCurrency),
+                        style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "≈ ${state.conversionSecondaireCents.toCurrencyDisplay(state.conversionSecondaireCurrency)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Versements/mois", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(state.totalMensuelCents.toCurrencyDisplay(state.summaryCurrency),
+                        style = MaterialTheme.typography.titleMedium)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(8.dp))
+
+            HeroDetailRow("Versé ce mois-ci", state.totalVerseMoisCents.toCurrencyDisplay(state.summaryCurrency))
+
+            val tauxLabel = state.tauxEpargneReel
+                ?.let { "${"%.1f".format(it * 100)} %  (cible ${state.tauxEpargneCiblePct} %)" }
+                ?: "— (cible ${state.tauxEpargneCiblePct} %)"
+            HeroDetailRow("Taux d'épargne", tauxLabel)
+
+            if (state.interetsAnnuelsCents > 0) {
+                HeroDetailRow(
+                    "Intérêts / an",
+                    "≈ ${state.interetsAnnuelsCents.toCurrencyDisplay(state.summaryCurrency)}",
+                    valueColor = MaterialTheme.colorScheme.tertiary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroDetailRow(label: String, value: String, valueColor: Color = Color.Unspecified) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleSmall, color = valueColor)
+    }
+}
+
+/**
+ * Carte "Fonds d'urgence" (§8) : combien de mois de charges courantes l'épargne liquide
+ * couvre, cible 6 mois. Valeurs reprises telles quelles du Conseiller patrimoine
+ * (liquidités sûres = comptes courants + Livret A/LDDS/Compte courant ; charges =
+ * besoins incompressibles + mensualités de dettes hors crédit immobilier).
+ */
+@Composable
+private fun FondsUrgenceCard(state: SavingsUiState.Success) {
+    val vertSage = Color(0xFFA8C7A0)
+    val moisCouverts = state.liquiditesSuresCents.toFloat() / state.chargesMensuellesCents.toFloat()
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Fonds d'urgence", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "${"%.1f".format(moisCouverts)} mois de charges couverts",
+                style = MaterialTheme.typography.titleMedium
+            )
+            LinearProgressIndicator(
+                progress = { (moisCouverts / 6f).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color = vertSage,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Text(
+                "cible 6 mois · ${state.liquiditesSuresCents.toCurrencyDisplay(state.summaryCurrency)} disponibles",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 @Composable
 private fun SavingsAccountCard(
     account: SavingsAccount,
@@ -268,6 +344,11 @@ private fun SavingsAccountCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(
+                            account.type.chartIcon(), contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         SavingsTypeChip(
                             type       = account.type,
                             customName = if (account.type == SavingsType.AUTRE) account.label else null
@@ -293,6 +374,16 @@ private fun SavingsAccountCard(
                             "+ ${account.monthlyContributionCents.toCurrencyDisplay(account.currency)}/mois",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    // Taux annuel + gain estimé (§4) : visible seulement si le taux est renseigné.
+                    account.tauxAnnuelPct?.let { taux ->
+                        val gainAnnuel = (account.currentBalanceCents * taux / 100.0).roundToLong()
+                        Text(
+                            "Taux ${"%.2f".format(taux)} %/an · gain estimé ≈ " +
+                                "${gainAnnuel.toCurrencyDisplay(account.currency)}/an",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
                         )
                     }
                 }
@@ -526,13 +617,14 @@ private fun AssocierComptesDialog(
 private fun AddSavingsSheet(
     children: List<Child>,
     defaultCurrency: Currency = Currency.EUR,
-    onSave: (SavingsType, String, String, String, Currency, Long?, String) -> Unit,
+    onSave: (SavingsType, String, String, String, Currency, Long?, String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var selectedType by remember { mutableStateOf(SavingsType.LIVRET_A) }
     var label by remember { mutableStateOf("") }
     var balance by remember { mutableStateOf("") }
     var contribution by remember { mutableStateOf("") }
+    var taux by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(defaultCurrency) }
     var selectedChild by remember { mutableStateOf<Child?>(null) }
     var typeExpanded by remember { mutableStateOf(false) }
@@ -615,6 +707,13 @@ private fun AddSavingsSheet(
                 keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
+            OutlinedTextField(value = taux, onValueChange = { taux = it },
+                label = { Text("Taux annuel % (optionnel)") },
+                supportingText = { Text("Sert à estimer les intérêts annuels") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
                 OutlinedTextField(
                     value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
@@ -671,7 +770,7 @@ private fun AddSavingsSheet(
             }
 
             Button(
-                onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id, plafond) },
+                onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id, plafond, taux) },
                 enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ajouter le compte") }
@@ -684,7 +783,7 @@ private fun AddSavingsSheet(
 private fun EditSavingsSheet(
     account: SavingsAccount,
     children: List<Child>,
-    onSave: (SavingsType, String, String, String, Currency, Long?, String) -> Unit,
+    onSave: (SavingsType, String, String, String, Currency, Long?, String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
     // Pré-remplissage avec les valeurs actuelles du compte
@@ -695,6 +794,9 @@ private fun EditSavingsSheet(
         mutableStateOf(
             if (account.monthlyContributionCents > 0) "%.2f".format(account.monthlyContributionCents / 100.0).replace(',', '.') else ""
         )
+    }
+    var taux by remember {
+        mutableStateOf(account.tauxAnnuelPct?.let { "%.2f".format(it).replace(',', '.') } ?: "")
     }
     var selectedCurrency by remember { mutableStateOf(account.currency) }
     var selectedChild by remember { mutableStateOf(children.find { it.id == account.childId }) }
@@ -775,6 +877,13 @@ private fun EditSavingsSheet(
                 keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
+            OutlinedTextField(value = taux, onValueChange = { taux = it },
+                label = { Text("Taux annuel % (optionnel)") },
+                supportingText = { Text("Sert à estimer les intérêts annuels") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
             ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
                 OutlinedTextField(
                     value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
@@ -830,7 +939,7 @@ private fun EditSavingsSheet(
             }
 
             Button(
-                onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id, plafond) },
+                onClick = { onSave(selectedType, label, balance, contribution, selectedCurrency, selectedChild?.id, plafond, taux) },
                 enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }

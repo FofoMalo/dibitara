@@ -100,7 +100,8 @@ class AnalyserPatrimoineUseCase @Inject constructor(
             val resteAVivreReelCents = revenuMoyenCents - besoinsIncompressiblesCents - autresDettesCents
 
             // ─── Axe 1 : épargne de précaution ───────────────────────────────────────
-            val objectifPrecautionCents = 6 * (besoinsIncompressiblesCents + autresDettesCents)
+            val chargesMensuellesCents = besoinsIncompressiblesCents + autresDettesCents
+            val objectifPrecautionCents = 6 * chargesMensuellesCents
             // Compte pro (Qonto) exclu : même raisonnement que la trésorerie 30 jours,
             // ce n'est pas une liquidité personnelle mobilisable pour la précaution.
             val liquiditesSuresCents =
@@ -164,6 +165,8 @@ class AnalyserPatrimoineUseCase @Inject constructor(
                 liquiditesSuresCents           = liquiditesSuresCents,
                 objectifPrecautionCents        = objectifPrecautionCents,
                 precautionSuffisante           = precautionSuffisante,
+                revenuMoyenCents               = revenuMoyenCents,
+                chargesMensuellesCents         = chargesMensuellesCents,
                 pochesAvecMarge                = pochesAvecMarge,
                 objectifEpargneMensuelCents    = objectifEpargneMensuelCents,
                 resteAVivreReelCents           = resteAVivreReelCents,

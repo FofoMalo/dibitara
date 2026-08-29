@@ -20,6 +20,12 @@ package com.dibitara.app.domain.model
  *                                 de l'atteindre - purement informatif, sans ordre de priorité
  *                                 imposé (l'app ne connaît pas l'horizon/les objectifs personnels).
  *
+ * [revenuMoyenCents]            : revenu mensuel moyen sur les 3 derniers mois (virements internes
+ *                                 exclus). Exposé aussi pour l'écran Épargne (taux d'épargne réel).
+ * [chargesMensuellesCents]      : besoins réels moyens + mensualités des dettes non liées à un bien
+ *                                 immobilier - le dénominateur de [objectifPrecautionCents]
+ *                                 (= 6 × cette valeur). Exposé pour l'écran Épargne (mois de charges
+ *                                 couverts) afin de ne pas ré-dériver la valeur en divisant par 6.
  * [objectifEpargneMensuelCents] : objectif 20% du revenu moyen (UserPreferences.tauxEpargneCiblePct).
  * [resteAVivreReelCents]        : revenu moyen - besoins réels - autres dettes (ce qui est
  *                                 réellement disponible chaque mois, cf. [objectifPlafonneParResteAVivre]).
@@ -42,6 +48,8 @@ data class ConseilPatrimoineResult(
     val liquiditesSuresCents           : Long,
     val objectifPrecautionCents        : Long,
     val precautionSuffisante           : Boolean,
+    val revenuMoyenCents               : Long,
+    val chargesMensuellesCents         : Long,
     val pochesAvecMarge                : List<PocheAvecMarge>,
     val objectifEpargneMensuelCents    : Long,
     val resteAVivreReelCents           : Long,

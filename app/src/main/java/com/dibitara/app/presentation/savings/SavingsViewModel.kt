@@ -10,6 +10,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.SavingsAccount
 import com.dibitara.app.domain.model.SavingsType
+import com.dibitara.app.domain.usecase.AnalyserPatrimoineUseCase
 import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
@@ -46,6 +47,7 @@ class SavingsViewModel @Inject constructor(
     private val getVersementsMois: GetVersementsMoisUseCase,
     private val ucGetPreferences: GetUserPreferencesUseCase,
     private val exchangeRateRepository: ExchangeRateRepository,
+    private val ucAnalyserPatrimoine: AnalyserPatrimoineUseCase,
     private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase,
     private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase,
     private val ucCalculerTendanceActif: CalculerTendanceActifUseCase
@@ -59,8 +61,9 @@ class SavingsViewModel @Inject constructor(
         getSavings(),
         getChildren(),
         ucGetPreferences(),
-        exchangeRateRepository.getRatesFlow()
-    ) { accounts, children, prefs, rates ->
+        exchangeRateRepository.getRatesFlow(),
+        ucAnalyserPatrimoine()
+    ) { accounts, children, prefs, rates, conseil ->
         // Conversion de chaque compte vers la devise par défaut avant sommation
         val target = prefs.deviseParDefaut
         val totalBalance = accounts.sumOf { CurrencyConverter.convertCents(it.currentBalanceCents, it.currency, target, rates) }
@@ -68,13 +71,43 @@ class SavingsViewModel @Inject constructor(
         val now = LocalDate.now()
         val totalVerse = getVersementsMois(CompteType.EPARGNE, now.year, now.monthValue)
             .sumOf { CurrencyConverter.convertCents(it.montantCents, it.currency, target, rates) }
+
+        // Intérêts annuels estimés : Σ (solde × taux/100) de chaque compte, converti dans la devise cible.
+        val interetsAnnuels = accounts.sumOf { compte ->
+            val taux = compte.tauxAnnuelPct ?: 0.0
+            if (taux <= 0.0) 0L
+            else CurrencyConverter.convertCents(
+                (compte.currentBalanceCents * taux / 100.0).roundToLong(),
+                compte.currency, target, rates
+            )
+        }
+
+        // Taux d'épargne réel : versements programmés / revenu moyen 3 mois (null si revenu inconnu).
+        val tauxReel = conseil.revenuMoyenCents
+            .takeIf { it > 0L }
+            ?.let { totalMonthly.toFloat() / it.toFloat() }
+
+        // Conversion secondaire du total pour la ligne "≈" : FCFA si la devise cible est €/$,
+        // sinon € (pour ne pas afficher "≈ … FCFA" quand on est déjà en FCFA).
+        val deviseSecondaire =
+            if (target == Currency.XOF || target == Currency.XAF) Currency.EUR else Currency.XOF
+        val conversionSecondaire =
+            CurrencyConverter.convertCents(totalBalance, target, deviseSecondaire, rates)
+
         SavingsUiState.Success(
-            accounts            = accounts,
-            children            = children,
-            totalEpargneCents   = totalBalance,
-            totalMensuelCents   = totalMonthly,
-            totalVerseMoisCents = totalVerse,
-            summaryCurrency     = target
+            accounts               = accounts,
+            children               = children,
+            totalEpargneCents      = totalBalance,
+            totalMensuelCents      = totalMonthly,
+            totalVerseMoisCents    = totalVerse,
+            summaryCurrency        = target,
+            liquiditesSuresCents   = conseil.liquiditesSuresCents,
+            chargesMensuellesCents = conseil.chargesMensuellesCents,
+            interetsAnnuelsCents   = interetsAnnuels,
+            tauxEpargneReel        = tauxReel,
+            tauxEpargneCiblePct    = prefs.tauxEpargneCiblePct,
+            conversionSecondaireCents    = conversionSecondaire,
+            conversionSecondaireCurrency = deviseSecondaire
         ) as SavingsUiState
     }
         .catch { emit(SavingsUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -101,7 +134,8 @@ class SavingsViewModel @Inject constructor(
         contributionStr: String,
         currency: Currency,
         childId: Long?,
-        plafondStr: String = ""
+        plafondStr: String = "",
+        tauxStr: String = ""
     ) {
         val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
@@ -109,6 +143,7 @@ class SavingsViewModel @Inject constructor(
         }
         val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
+        val taux = tauxStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 }
         viewModelScope.launch {
             saveSavingsAccount(
                 SavingsAccount(
@@ -119,7 +154,8 @@ class SavingsViewModel @Inject constructor(
                     currency = currency,
                     childId = childId,
                     updatedAt = LocalDate.now(),
-                    plafondCents = plafond
+                    plafondCents = plafond,
+                    tauxAnnuelPct = taux
                 )
             )
                 .onSuccess { newId ->
@@ -138,7 +174,8 @@ class SavingsViewModel @Inject constructor(
         contributionStr: String,
         currency: Currency,
         childId: Long?,
-        plafondStr: String = ""
+        plafondStr: String = "",
+        tauxStr: String = ""
     ) {
         val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant invalide")) }
@@ -146,6 +183,7 @@ class SavingsViewModel @Inject constructor(
         }
         val contribution = contributionStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
         val plafond = plafondStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
+        val taux = tauxStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 }
         viewModelScope.launch {
             updateSavingsAccount(
                 account.copy(
@@ -156,7 +194,8 @@ class SavingsViewModel @Inject constructor(
                     currency                 = currency,
                     childId                  = childId,
                     updatedAt                = LocalDate.now(),
-                    plafondCents             = plafond
+                    plafondCents             = plafond,
+                    tauxAnnuelPct            = taux
                 )
             )
                 .onSuccess {
@@ -257,7 +296,16 @@ sealed class SavingsUiState {
         val totalEpargneCents   : Long     = 0L,
         val totalMensuelCents   : Long     = 0L,
         val totalVerseMoisCents : Long     = 0L,
-        val summaryCurrency     : Currency = Currency.EUR
+        val summaryCurrency     : Currency = Currency.EUR,
+        // Fonds d'urgence (§2) - repris tel quel du Conseiller patrimoine (une seule définition).
+        val liquiditesSuresCents   : Long = 0L,
+        val chargesMensuellesCents : Long = 0L,
+        // Hero (§1)
+        val interetsAnnuelsCents : Long   = 0L,
+        val tauxEpargneReel      : Float? = null,   // null = revenu moyen inconnu
+        val tauxEpargneCiblePct  : Int    = 20,
+        val conversionSecondaireCents    : Long     = 0L,
+        val conversionSecondaireCurrency : Currency = Currency.XOF
     ) : SavingsUiState()
     data class Error(val message: String) : SavingsUiState()
 }

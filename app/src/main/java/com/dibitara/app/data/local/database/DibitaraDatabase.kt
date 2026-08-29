@@ -44,7 +44,7 @@ import java.time.LocalDate
         AssetValuationSnapshotEntity::class,
         BankAccountEntity::class
     ],
-    version = 23,
+    version = 24,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -68,6 +68,16 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun bankAccountDao(): BankAccountDao
 
     companion object {
+        // Migration v23 → v24 : colonne tauxAnnuelPct (REAL nullable) sur savings_accounts, pour
+        // estimer les intérêts annuels (hero Épargne) et le gain annuel par compte. Colonne
+        // nullable : les comptes existants ne perdent rien, l'estimation ne s'affiche que si
+        // l'utilisateur renseigne le taux via le sheet.
+        val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE savings_accounts ADD COLUMN tauxAnnuelPct REAL")
+            }
+        }
+
         // Migration v22 → v23 : valeur et date d'acquisition (saisies rétroactivement) sur les
         // 4 types d'actifs investissement, pour le bloc "Acquisition → Aujourd'hui" (écran
         // Placements). Colonnes nullables : les actifs existants ne perdent rien, le bloc ne
