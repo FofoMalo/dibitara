@@ -94,6 +94,12 @@ class SavingsViewModel @Inject constructor(
         val conversionSecondaire =
             CurrencyConverter.convertCents(totalBalance, target, deviseSecondaire, rates)
 
+        // Total épargné par enfant (devise cible) - affiché dans l'en-tête repliable de chaque enfant.
+        val totauxParEnfant = children.associate { enfant ->
+            enfant.id to accounts.filter { it.childId == enfant.id }
+                .sumOf { CurrencyConverter.convertCents(it.currentBalanceCents, it.currency, target, rates) }
+        }
+
         SavingsUiState.Success(
             accounts               = accounts,
             children               = children,
@@ -107,7 +113,8 @@ class SavingsViewModel @Inject constructor(
             tauxEpargneReel        = tauxReel,
             tauxEpargneCiblePct    = prefs.tauxEpargneCiblePct,
             conversionSecondaireCents    = conversionSecondaire,
-            conversionSecondaireCurrency = deviseSecondaire
+            conversionSecondaireCurrency = deviseSecondaire,
+            totauxParEnfantCents         = totauxParEnfant
         ) as SavingsUiState
     }
         .catch { emit(SavingsUiState.Error(it.message ?: "Erreur inconnue")) }
@@ -305,7 +312,9 @@ sealed class SavingsUiState {
         val tauxEpargneReel      : Float? = null,   // null = revenu moyen inconnu
         val tauxEpargneCiblePct  : Int    = 20,
         val conversionSecondaireCents    : Long     = 0L,
-        val conversionSecondaireCurrency : Currency = Currency.XOF
+        val conversionSecondaireCurrency : Currency = Currency.XOF,
+        // Total épargné par enfant (devise cible), pour l'en-tête repliable de chaque enfant.
+        val totauxParEnfantCents         : Map<Long, Long> = emptyMap()
     ) : SavingsUiState()
     data class Error(val message: String) : SavingsUiState()
 }

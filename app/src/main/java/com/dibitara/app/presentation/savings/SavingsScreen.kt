@@ -1,5 +1,6 @@
 package com.dibitara.app.presentation.savings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
@@ -207,6 +210,8 @@ private fun SavingsContent(
                     child = child,
                     savingsAccounts = state.accounts.filter { it.childId == child.id },
                     tousLesComptes = state.accounts,
+                    totalCents = state.totauxParEnfantCents[child.id] ?: 0L,
+                    summaryCurrency = state.summaryCurrency,
                     onDelete = { onDeleteChild(child) },
                     onAssocierComptes = { selectionnes -> onAssocierComptes(child, selectionnes) }
                 )
@@ -490,46 +495,83 @@ private fun SavingsTypeChip(type: SavingsType, customName: String? = null) {
     }
 }
 
+/**
+ * Ligne enfant repliable (§8). En-tête cliquable : prénom + total épargné pour lui +
+ * chevron. Replié par défaut - avec 8 enfants ou plus, la liste des comptes de chacun
+ * n'apparaît qu'à la demande. Déplié : comptes associés + actions (associer / supprimer).
+ */
 @Composable
 private fun ChildCard(
     child: Child,
     savingsAccounts: List<SavingsAccount>,
     tousLesComptes: List<SavingsAccount>,
+    totalCents: Long,
+    summaryCurrency: Currency,
     onDelete: () -> Unit,
     onAssocierComptes: (Set<Long>) -> Unit
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var showAssocier by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            // En-tête cliquable (replie / déplie)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Filled.Person, contentDescription = null,
                         tint = MaterialTheme.colorScheme.secondary)
                     Text(child.name, style = MaterialTheme.typography.titleSmall)
                 }
-                Row {
-                    IconButton(onClick = { showAssocier = true }) {
-                        Icon(Icons.Filled.Link, contentDescription = "Associer des comptes",
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = { showConfirm = true }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(totalCents.toCurrencyDisplay(summaryCurrency),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(
+                        if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = if (expanded) "Replier" else "Déplier",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-            if (savingsAccounts.isEmpty()) {
-                Text("Aucun compte épargne associé", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                savingsAccounts.forEach { acc ->
-                    Text(
-                        "• ${acc.type.displayName} - ${acc.currentBalanceCents.toCurrencyDisplay(acc.currency)}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+
+            if (expanded) {
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (savingsAccounts.isEmpty()) {
+                        Text("Aucun compte épargne associé", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        savingsAccounts.forEach { acc ->
+                            Text(
+                                "• ${acc.type.displayName} - ${acc.currentBalanceCents.toCurrencyDisplay(acc.currency)}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    Row {
+                        TextButton(onClick = { showAssocier = true }) {
+                            Icon(Icons.Filled.Link, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Associer des comptes")
+                        }
+                        TextButton(onClick = { showConfirm = true }) {
+                            Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Supprimer", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             }
         }
