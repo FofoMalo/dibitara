@@ -110,11 +110,57 @@ class RestoreRoundTripTest : RoomIntegrationTestBase() {
         assertEquals(1, db.monthlyVersementDao().getAll().size)
         assertEquals(1, db.bankAccountDao().getAll().first().size)
         assertEquals(1, db.categorizationRuleDao().getAll().size)
+        assertEquals(1, db.customSubCategoryDao().getAll().first().size)
+        assertEquals(1, db.categoryEnvelopeDao().getAll().first().size)
 
         val versement = db.monthlyVersementDao().getAll().first()
         assertEquals(20000L, versement.montant_cents)
         assertEquals(2026, versement.year)
         assertEquals(8, versement.month)
+
+        fichier.delete()
+    }
+
+    /**
+     * Si une insertion échoue en cours de restauration (ici : contrainte UNIQUE sur
+     * monthly_versements violée par deux versements identiques dans le fichier), toute
+     * la transaction doit être annulée - la base d'origine reste intacte, pas à moitié
+     * effacée.
+     */
+    @Test
+    fun une_insertion_qui_echoue_annule_toute_la_restauration() = runBlocking<Unit> {
+        // Base d'origine : 1 enfant + 1 versement légitime
+        db.childDao().insert(ChildEntity.fromDomain(Child(id = 7L, name = "Origine")))
+        db.monthlyVersementDao().insert(
+            MonthlyVersementEntity.fromDomain(
+                MonthlyVersement(1L, 99L, CompteType.EPARGNE, 2026, 7, 5000L, Currency.EUR)
+            )
+        )
+
+        // Fichier corrompu : deux versements identiques → le 2e viole l'index UNIQUE
+        val vDouble = MonthlyVersement(0L, 1L, CompteType.EPARGNE, 2026, 8, 20000L, Currency.EUR)
+        val exportData = ExportData(
+            enfants = listOf(Child(1L, "Nouveau")),
+            transactions = emptyList(), budgets = emptyList(), epargne = emptyList(),
+            immobilier = emptyList(), scpi = emptyList(), airbnb = emptyList(),
+            vehiculeLocatif = emptyList(), dettes = emptyList(), actifsLibres = emptyList(),
+            epargneSalariale = emptyList(), sousCategoriesPerso = emptyList(),
+            comptesBancaires = emptyList(), enveloppesBudget = emptyList(),
+            reglesCategorisation = emptyList(),
+            versementsMensuels = listOf(vDouble, vDouble)
+        )
+        val fichier = File(context.cacheDir, "roundtrip-corrompu.json").apply {
+            writeText(JsonExporter.generer(exportData, "test"))
+        }
+
+        val result = RestoreRepositoryImpl(context, db).restaurer(Uri.fromFile(fichier))
+
+        assertTrue("attendu RestoreResult.Error, obtenu $result", result is RestoreResult.Error)
+        // La base d'origine n'a pas été touchée
+        assertEquals(1, db.childDao().getAll().first().size)
+        assertEquals("Origine", db.childDao().getAll().first().first().name)
+        assertEquals(1, db.monthlyVersementDao().getAll().size)
+        assertEquals(99L, db.monthlyVersementDao().getAll().first().account_id)
 
         fichier.delete()
     }

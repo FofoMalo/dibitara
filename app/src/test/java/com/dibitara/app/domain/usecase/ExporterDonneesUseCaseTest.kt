@@ -3,10 +3,14 @@ package com.dibitara.app.domain.usecase
 import android.net.Uri
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.Budget
+import com.dibitara.app.domain.model.BankAccount
+import com.dibitara.app.domain.model.BankProvider
+import com.dibitara.app.domain.model.CategorizationRule
 import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.CategoryEnvelope
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CustomSubCategory
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.DebtType
@@ -164,20 +168,34 @@ class ExporterDonneesUseCaseTest {
     }
 
     @Test
-    fun `agrège aussi les versements mensuels et les enveloppes (régression sauvegarde incomplète)`() = runTest {
-        val versement = MonthlyVersement(
-            id = 1L, accountId = 1L, compteType = CompteType.EPARGNE,
-            year = 2026, month = 8, montantCents = 20000L, currency = Currency.EUR
+    fun `agrège les 5 collections autrefois absentes de la sauvegarde (régression)`() = runTest {
+        coEvery { versementRepo.getAll() } returns listOf(
+            MonthlyVersement(1L, 1L, CompteType.EPARGNE, 2026, 8, 20000L, Currency.EUR)
         )
-        val enveloppe = CategoryEnvelope(id = 1L, category = Category.ALIMENTATION, plafondCents = 40000L, currency = Currency.EUR)
-        coEvery { versementRepo.getAll() } returns listOf(versement)
-        coEvery { envelopeRepo.getAll()  } returns flowOf(listOf(enveloppe))
+        coEvery { envelopeRepo.getAll() } returns flowOf(listOf(
+            CategoryEnvelope(1L, Category.ALIMENTATION, 40000L, Currency.EUR)
+        ))
+        coEvery { ruleRepo.getAll() } returns listOf(
+            CategorizationRule(1L, "boulangerie x", Category.ALIMENTATION)
+        )
+        coEvery { subCategoryRepo.getAll() } returns flowOf(listOf(
+            CustomSubCategory(1L, "Cantine", Category.ALIMENTATION)
+        ))
+        coEvery { bankAccountRepo.getAll() } returns flowOf(listOf(
+            BankAccount(1L, BankProvider.BRED, "BRED", 120000L, Currency.EUR, LocalDate.of(2026, 8, 1))
+        ))
 
         useCase(ExportFormat.JSON)
 
         coVerify {
             exportRepo.exporter(
-                match { data -> data.versementsMensuels.size == 1 && data.enveloppesBudget.size == 1 },
+                match { data ->
+                    data.versementsMensuels.size    == 1 &&
+                    data.enveloppesBudget.size       == 1 &&
+                    data.reglesCategorisation.size   == 1 &&
+                    data.sousCategoriesPerso.size    == 1 &&
+                    data.comptesBancaires.size       == 1
+                },
                 ExportFormat.JSON
             )
         }
