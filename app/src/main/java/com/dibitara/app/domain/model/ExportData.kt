@@ -26,5 +26,6 @@ data class ExportData(
     val comptesBancaires    : List<BankAccount>,
     val enveloppesBudget    : List<CategoryEnvelope>,
     val reglesCategorisation: List<CategorizationRule>,
-    val versementsMensuels  : List<MonthlyVersement>
+    val versementsMensuels  : List<MonthlyVersement>,
+    val objectifsEpargne    : List<SavingsGoal>
 )

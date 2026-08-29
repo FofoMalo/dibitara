@@ -168,6 +168,59 @@ class MigrationTest {
         }
     }
 
+    /**
+     * Vérifie que [DibitaraDatabase.MIGRATION_24_25] crée la table [savings_goals]
+     * (objectifs d'épargne) sans toucher aux lignes des tables existantes.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migration_24_vers_25_cree_table_savings_goals() {
+        helper.createDatabase(TEST_DB, 24).use { db ->
+            // Une ligne quelconque en v24 : elle doit survivre à la migration.
+            db.execSQL(
+                """
+                INSERT INTO savings_accounts
+                    (type, label, currentBalanceCents, monthlyContributionCents, currency, childId, updatedAtEpochDay, tauxAnnuelPct)
+                VALUES
+                    ('LIVRET_A', 'Livret A', 500000, 20000, 'EUR', NULL, 19845, NULL)
+                """.trimIndent()
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            25,
+            true,
+            DibitaraDatabase.MIGRATION_24_25
+        ).use { db ->
+            // La table est créée et vide.
+            db.query("SELECT COUNT(*) FROM savings_goals").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(0, cursor.getInt(0))
+            }
+            // On peut y insérer un objectif et le relire.
+            db.execSQL(
+                """
+                INSERT INTO savings_goals
+                    (name, targetAmountCents, currentAmountCents, targetDateEpochDay,
+                     monthlyContributionCents, currency, colorKey, iconKey)
+                VALUES
+                    ('Voiture', 1500000, 420000, 20970, 40000, 'EUR', 'TEAL', 'VOITURE')
+                """.trimIndent()
+            )
+            db.query("SELECT name, colorKey FROM savings_goals").use { cursor ->
+                assertEquals(1, cursor.count)
+                cursor.moveToFirst()
+                assertEquals("Voiture", cursor.getString(cursor.getColumnIndex("name")))
+                assertEquals("TEAL", cursor.getString(cursor.getColumnIndex("colorKey")))
+            }
+            // La ligne v24 est intacte.
+            db.query("SELECT label FROM savings_accounts WHERE label = 'Livret A'").use { cursor ->
+                assertEquals(1, cursor.count)
+            }
+        }
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
     }

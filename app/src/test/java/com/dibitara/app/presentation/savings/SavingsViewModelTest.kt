@@ -3,6 +3,9 @@ package com.dibitara.app.presentation.savings
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.GoalColor
+import com.dibitara.app.domain.model.GoalIcon
+import com.dibitara.app.domain.model.SavingsGoal
 import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.SavingsAccount
@@ -16,8 +19,11 @@ import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAssetValuationHistoryUseCase
+import com.dibitara.app.domain.usecase.DeleteSavingsGoalUseCase
 import com.dibitara.app.domain.usecase.GetChildrenUseCase
+import com.dibitara.app.domain.usecase.GetSavingsGoalsUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
+import com.dibitara.app.domain.usecase.ProjeterObjectifUseCase
 import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.usecase.SaveAssetValuationSnapshotUseCase
@@ -25,6 +31,7 @@ import com.dibitara.app.domain.usecase.SaveChildUseCase
 import com.dibitara.app.domain.usecase.SaveSavingsAccountUseCase
 import com.dibitara.app.domain.usecase.SaveVersementUseCase
 import com.dibitara.app.domain.usecase.UpdateSavingsAccountUseCase
+import com.dibitara.app.domain.usecase.UpsertSavingsGoalUseCase
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -58,6 +65,10 @@ class SavingsViewModelTest {
     private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase = mockk(relaxed = true)
     private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase = mockk(relaxed = true)
     private val ucCalculerTendanceActif: CalculerTendanceActifUseCase = mockk(relaxed = true)
+    private val getSavingsGoals: GetSavingsGoalsUseCase = mockk()
+    private val upsertSavingsGoal: UpsertSavingsGoalUseCase = mockk(relaxed = true)
+    private val deleteSavingsGoal: DeleteSavingsGoalUseCase = mockk(relaxed = true)
+    private val ucProjeterObjectif = ProjeterObjectifUseCase()
     private lateinit var viewModel: SavingsViewModel
 
     @BeforeEach
@@ -69,11 +80,13 @@ class SavingsViewModelTest {
         every { ratesRepo.getRatesFlow() } returns flowOf(ExchangeRates(1.09, 655.96, 0L))
         every { ucAnalyserPatrimoine(any(), any()) } returns flowOf(conseil())
         coEvery { getVersementsMois(any(), any(), any()) } returns emptyList()
+        every { getSavingsGoals() } returns flowOf(emptyList())
         viewModel = SavingsViewModel(
             getSavings, saveSavingsAccount, updateSavingsAccount,
             deleteSavingsAccount, getChildren, saveChild, deleteChild,
             saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
-            ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
+            ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
+            getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif
         )
     }
 
@@ -105,7 +118,8 @@ class SavingsViewModelTest {
             getSavings, saveSavingsAccount, updateSavingsAccount,
             deleteSavingsAccount, getChildren, saveChild, deleteChild,
             saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
-            ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif
+            ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
+            getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif
         )
     }
 
@@ -241,6 +255,79 @@ class SavingsViewModelTest {
 
         val enFcfa = viewModel.uiState.first { it is SavingsUiState.Success } as SavingsUiState.Success
         assertEquals(Currency.EUR, enFcfa.conversionSecondaireCurrency)
+    }
+
+    @Test
+    fun `objectifs mappe chaque goal avec sa projection`() = runTest {
+        every { getSavingsGoals() } returns flowOf(listOf(
+            SavingsGoal(
+                id = 1L, name = "Voiture", targetAmountCents = 1_000_000L,
+                currentAmountCents = 200_000L, targetDate = LocalDate.now().plusMonths(24),
+                monthlyContributionCents = 100_000L, currency = Currency.EUR,
+                colorKey = GoalColor.TEAL, iconKey = GoalIcon.VOITURE
+            )
+        ))
+        rebuild()
+
+        val objectifs = viewModel.objectifs.first { it.isNotEmpty() }
+
+        assertEquals(1, objectifs.size)
+        // reste 800 000 / 100 000 par mois = 8 mois
+        assertEquals(8, objectifs.first().projection.moisRestants)
+    }
+
+    @Test
+    fun `upsertObjectif avec montant objectif valide émet ObjectifEnregistre`() = runTest {
+        coEvery { upsertSavingsGoal(any()) } just Runs
+        val events = mutableListOf<SavingsEvent>()
+        val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
+
+        viewModel.upsertObjectif(
+            null, "Vacances", "3000", "500", "150", Currency.EUR,
+            LocalDate.now().plusMonths(10), GoalColor.OR, GoalIcon.VOYAGE
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(events.any { it is SavingsEvent.ObjectifEnregistre })
+        job.cancel()
+    }
+
+    @Test
+    fun `upsertObjectif en édition conserve l'id de l'objectif existant`() = runTest {
+        // Garde-fou : SavingsGoalDao.upsert est @Insert(REPLACE) sur une PK autoGenerate.
+        // Un id perdu (= 0) n'écrase pas la ligne, il en insère une nouvelle → doublon
+        // silencieux à chaque « Modifier ». Ce test fige le passage de l'id.
+        coEvery { upsertSavingsGoal(any()) } just Runs
+        val existant = SavingsGoal(
+            id = 7L, name = "Voiture", targetAmountCents = 1_000_000L,
+            currentAmountCents = 200_000L, targetDate = LocalDate.now().plusMonths(12),
+            monthlyContributionCents = 50_000L, currency = Currency.EUR,
+            colorKey = GoalColor.TEAL, iconKey = GoalIcon.VOITURE
+        )
+
+        viewModel.upsertObjectif(
+            existant, "Voiture", "12000", "3000", "500", Currency.EUR,
+            LocalDate.now().plusMonths(12), GoalColor.TEAL, GoalIcon.VOITURE
+        )
+        testScheduler.advanceUntilIdle()
+
+        coVerify { upsertSavingsGoal(match { it.id == 7L && it.targetAmountCents == 1_200_000L }) }
+    }
+
+    @Test
+    fun `upsertObjectif avec montant objectif nul ou vide émet Error`() = runTest {
+        val events = mutableListOf<SavingsEvent>()
+        val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }
+
+        viewModel.upsertObjectif(
+            null, "Vacances", "0", "", "", Currency.EUR,
+            LocalDate.now().plusMonths(10), GoalColor.OR, GoalIcon.VOYAGE
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(events.any { it is SavingsEvent.Error })
+        coVerify(exactly = 0) { upsertSavingsGoal(any()) }
+        job.cancel()
     }
 
     private fun buildAccount(balance: Long = 500000L, contribution: Long = 20000L) = SavingsAccount(

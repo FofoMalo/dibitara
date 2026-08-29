@@ -13,6 +13,7 @@ import com.dibitara.app.domain.repository.CustomSubCategoryRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.ExportRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
+import com.dibitara.app.domain.repository.SavingsGoalRepository
 import com.dibitara.app.domain.repository.SavingsRepository
 import com.dibitara.app.domain.repository.TransactionRepository
 import com.dibitara.app.domain.repository.VersementRepository
@@ -38,6 +39,7 @@ class ExporterDonneesUseCase @Inject constructor(
     private val categoryEnvelopeRepository : CategoryEnvelopeRepository,
     private val categorizationRuleRepository: CategorizationRuleRepository,
     private val versementRepository        : VersementRepository,
+    private val savingsGoalRepository      : SavingsGoalRepository,
     private val exportRepository           : ExportRepository
 ) {
     suspend operator fun invoke(format: ExportFormat): Uri {
@@ -58,7 +60,8 @@ class ExporterDonneesUseCase @Inject constructor(
             comptesBancaires     = bankAccountRepository.getAll().first(),
             enveloppesBudget     = categoryEnvelopeRepository.getAll().first(),
             reglesCategorisation = categorizationRuleRepository.getAll(),
-            versementsMensuels   = versementRepository.getAll()
+            versementsMensuels   = versementRepository.getAll(),
+            objectifsEpargne     = savingsGoalRepository.getAll().first()
         )
         return exportRepository.exporter(data, format)
     }

@@ -70,7 +70,8 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_20_21,
                 DibitaraDatabase.MIGRATION_21_22,
                 DibitaraDatabase.MIGRATION_22_23,
-                DibitaraDatabase.MIGRATION_23_24
+                DibitaraDatabase.MIGRATION_23_24,
+                DibitaraDatabase.MIGRATION_24_25
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
@@ -93,6 +94,7 @@ object DatabaseModule {
     @Provides fun provideVehicleRentalEntryDao(db: DibitaraDatabase): VehicleRentalEntryDao = db.vehicleRentalEntryDao()
     @Provides fun provideAssetValuationSnapshotDao(db: DibitaraDatabase): AssetValuationSnapshotDao = db.assetValuationSnapshotDao()
     @Provides fun provideBankAccountDao(db: DibitaraDatabase): BankAccountDao = db.bankAccountDao()
+    @Provides fun provideSavingsGoalDao(db: DibitaraDatabase): SavingsGoalDao = db.savingsGoalDao()
 }
 
 @Module
@@ -116,4 +118,5 @@ abstract class RepositoryModule {
     @Binds abstract fun bindRestoreRepository(impl: RestoreRepositoryImpl): RestoreRepository
     @Binds abstract fun bindAssetValuationSnapshotRepository(impl: AssetValuationSnapshotRepositoryImpl): AssetValuationSnapshotRepository
     @Binds abstract fun bindBankAccountRepository(impl: BankAccountRepositoryImpl): BankAccountRepository
+    @Binds abstract fun bindSavingsGoalRepository(impl: SavingsGoalRepositoryImpl): SavingsGoalRepository
 }

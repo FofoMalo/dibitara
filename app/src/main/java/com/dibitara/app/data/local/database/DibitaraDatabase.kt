@@ -42,9 +42,10 @@ import java.time.LocalDate
         CategoryEnvelopeEntity::class,
         VehicleRentalEntryEntity::class,
         AssetValuationSnapshotEntity::class,
-        BankAccountEntity::class
+        BankAccountEntity::class,
+        SavingsGoalEntity::class
     ],
-    version = 24,
+    version = 25,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -66,8 +67,29 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun vehicleRentalEntryDao(): VehicleRentalEntryDao
     abstract fun assetValuationSnapshotDao(): AssetValuationSnapshotDao
     abstract fun bankAccountDao(): BankAccountDao
+    abstract fun savingsGoalDao(): SavingsGoalDao
 
     companion object {
+        // Migration v24 → v25 : nouvelle table savings_goals pour les objectifs d'épargne
+        // (« Voiture », « Vacances »...). Pas d'index unique : plusieurs objectifs possibles.
+        val MIGRATION_24_25 = object : Migration(24, 25) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS savings_goals (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        targetAmountCents INTEGER NOT NULL,
+                        currentAmountCents INTEGER NOT NULL,
+                        targetDateEpochDay INTEGER NOT NULL,
+                        monthlyContributionCents INTEGER NOT NULL,
+                        currency TEXT NOT NULL,
+                        colorKey TEXT NOT NULL,
+                        iconKey TEXT NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         // Migration v23 → v24 : colonne tauxAnnuelPct (REAL nullable) sur savings_accounts, pour
         // estimer les intérêts annuels (hero Épargne) et le gain annuel par compte. Colonne
         // nullable : les comptes existants ne perdent rien, l'estimation ne s'affiche que si

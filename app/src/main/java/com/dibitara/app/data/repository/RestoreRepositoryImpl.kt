@@ -26,6 +26,7 @@ import com.dibitara.app.data.local.entity.EmployeeSavingsEntity
 import com.dibitara.app.data.local.entity.MonthlyVersementEntity
 import com.dibitara.app.data.local.entity.RealEstateAssetEntity
 import com.dibitara.app.data.local.entity.SavingsAccountEntity
+import com.dibitara.app.data.local.entity.SavingsGoalEntity
 import com.dibitara.app.data.local.entity.ScpiInvestmentEntity
 import com.dibitara.app.data.local.entity.TransactionEntity
 import com.dibitara.app.data.local.entity.VehicleRentalEntryEntity
@@ -42,6 +43,7 @@ import com.dibitara.app.domain.model.EmployeeSavings
 import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.SavingsAccount
+import com.dibitara.app.domain.model.SavingsGoal
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.VehicleRentalEntry
@@ -67,11 +69,11 @@ import javax.inject.Singleton
  *     childId, debtId, bankAccountId, customSubCategoryId… restent cohérentes). Si une
  *     insertion échoue, la transaction est annulée et la base d'origine reste intacte.
  *
- * Couvre 16 des 18 tables. Volontairement exclues : `patrimoine_snapshots` et
+ * Couvre 17 des 19 tables. Volontairement exclues : `patrimoine_snapshots` et
  * `asset_valuation_snapshots` (historiques qui se reconstruisent d'eux-mêmes et
  * gonfleraient le fichier). Un fichier de sauvegarde antérieur à 2026-08 n'a pas les
- * clés `versements_mensuels`, `sous_categories_perso`, etc. : [parseList] renvoie alors
- * une liste vide, sans erreur.
+ * clés `versements_mensuels`, `sous_categories_perso`, `objectifs_epargne`, etc. :
+ * [parseList] renvoie alors une liste vide, sans erreur.
  */
 @Singleton
 class RestoreRepositoryImpl @Inject constructor(
@@ -113,6 +115,7 @@ class RestoreRepositoryImpl @Inject constructor(
             val enveloppes   = parseList<CategoryEnvelope>(jsonObj, "enveloppes_budget")
             val regles       = parseList<CategorizationRule>(jsonObj, "regles_categorisation")
             val versements   = parseList<MonthlyVersement>(jsonObj, "versements_mensuels")
+            val objectifs    = parseList<SavingsGoal>(jsonObj, "objectifs_epargne")
 
             // ── Étape 3 : tout dans une transaction (rollback si une insertion échoue) ──
             database.withTransaction {
@@ -139,12 +142,13 @@ class RestoreRepositoryImpl @Inject constructor(
                 enveloppes.forEach       { database.categoryEnvelopeDao().upsert(CategoryEnvelopeEntity.fromDomain(it)) }
                 regles.forEach           { database.categorizationRuleDao().upsert(CategorizationRuleEntity.fromDomain(it)) }
                 versements.forEach       { database.monthlyVersementDao().insert(MonthlyVersementEntity.fromDomain(it)) }
+                objectifs.forEach        { database.savingsGoalDao().upsert(SavingsGoalEntity.fromDomain(it)) }
             }
 
             val total = enfants.size + transactions.size + budgets.size + epargne.size +
                 immobilier.size + scpi.size + airbnb.size + vehiculeLocatif.size + dettes.size +
                 actifs.size + epargneSal.size + sousCategories.size + comptesBancaires.size +
-                enveloppes.size + regles.size + versements.size
+                enveloppes.size + regles.size + versements.size + objectifs.size
 
             RestoreResult.Success(total)
 
@@ -186,7 +190,7 @@ class RestoreRepositoryImpl @Inject constructor(
             "custom_sub_categories", "monthly_versements", "custom_assets",
             "employee_savings", "patrimoine_snapshots", "categorization_rules",
             "category_envelopes", "vehicle_rental_entries", "asset_valuation_snapshots",
-            "bank_accounts"
+            "bank_accounts", "savings_goals"
         )
     }
 }

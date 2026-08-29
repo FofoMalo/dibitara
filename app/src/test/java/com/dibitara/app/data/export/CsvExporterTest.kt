@@ -38,7 +38,8 @@ class CsvExporterTest {
         comptesBancaires     = emptyList(),
         enveloppesBudget     = emptyList(),
         reglesCategorisation = emptyList(),
-        versementsMensuels   = emptyList()
+        versementsMensuels   = emptyList(),
+        objectifsEpargne     = emptyList()
     )
 
     @Test

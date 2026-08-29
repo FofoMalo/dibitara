@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Application bancaire Android à usage personnel, inspirée de **Finary**. L'objectif est de centraliser budget mensuel, suivi des dépenses, investissements et projections financières.
 
 **Stack cible :** Android natif (Kotlin), architecture MVVM + Clean Architecture.
-**Version courante :** v4.4.0 (versionCode 15) — Room v23.
+**Version courante :** v4.4.0 (versionCode 15) — Room v25 (branche `florent/prive`).
 
 ## Fonctionnalités principales
 
@@ -82,7 +82,7 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
   `GetRecategorizationSuggestionsUseCase` (suggestions du Dashboard)
   vérifiait `subCategory == null` mais oubliait `customSubCategoryId`.
 
-## Schéma Room — Version actuelle : v23
+## Schéma Room — Version actuelle : v25 (branche `florent/prive`)
 
 | Migration | Contenu |
 |-----------|---------|
@@ -108,6 +108,8 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 | v20 → v21 | Table `asset_valuation_snapshots` pour les badges de tendance par actif (Immobilier/SCPI) |
 | v21 → v22 | Table `bank_accounts` (BRED, TradeRepublic) + `bankAccountId` sur `transactions`, seed et backfill via `importSource` |
 | v22 → v23 | `acquisitionValueCents`/`acquisitionDateEpochDay` sur les 4 types d'actifs investissement, pour le bloc "Acquisition → Aujourd'hui" |
+| v23 → v24 | `tauxAnnuelPct REAL` sur `savings_accounts` (intérêts annuels estimés, hero Épargne) |
+| v24 → v25 | Table `savings_goals` pour les objectifs d'épargne (écran Épargne §3) |
 
 ## Modèles métier clés (domain/model/)
 

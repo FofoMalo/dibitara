@@ -45,7 +45,8 @@ object JsonExporter {
             "comptes_bancaires"      to data.comptesBancaires,
             "enveloppes_budget"      to data.enveloppesBudget,
             "regles_categorisation"  to data.reglesCategorisation,
-            "versements_mensuels"    to data.versementsMensuels
+            "versements_mensuels"    to data.versementsMensuels,
+            "objectifs_epargne"      to data.objectifsEpargne
         )
         return gson.toJson(enveloppe)
     }

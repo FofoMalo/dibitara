@@ -4,9 +4,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.ChildCare
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalHospital
@@ -17,6 +20,7 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SmokingRooms
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -27,6 +31,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.dibitara.app.domain.model.BankProvider
 import com.dibitara.app.domain.model.Category
+import com.dibitara.app.domain.model.GoalColor
+import com.dibitara.app.domain.model.GoalIcon
 import com.dibitara.app.domain.model.SavingsType
 
 /**
@@ -111,4 +117,25 @@ fun SavingsType.chartIcon(): ImageVector = when (this) {
     SavingsType.ORANGE_MONEY      -> Icons.Filled.Smartphone
     SavingsType.COMPTE_COURANT    -> Icons.Filled.CreditCard
     SavingsType.AUTRE             -> Icons.Filled.AccountBalanceWallet
+}
+
+/**
+ * Accent d'un objectif d'épargne (écran Épargne, refonte §3). 3 teintes reprises de
+ * la data-viz - stables par [GoalColor], jamais positionnelles.
+ */
+fun GoalColor.accent(): Color = when (this) {
+    GoalColor.OR    -> Color(0xFFF5C542)
+    GoalColor.TEAL  -> Color(0xFF7FB6B0)
+    GoalColor.MAUVE -> Color(0xFFC79AB0)
+}
+
+/** Icône stable par [GoalIcon] - jeu fixe proposé à l'utilisateur pour un objectif. */
+fun GoalIcon.icon(): ImageVector = when (this) {
+    GoalIcon.VOYAGE     -> Icons.Filled.Flight
+    GoalIcon.VOITURE    -> Icons.Filled.DirectionsCar
+    GoalIcon.MAISON     -> Icons.Filled.Home
+    GoalIcon.ETUDES     -> Icons.Filled.School
+    GoalIcon.CADEAU     -> Icons.Filled.CardGiftcard
+    GoalIcon.PRECAUTION -> Icons.Filled.Shield
+    GoalIcon.AUTRE      -> Icons.Filled.Star
 }

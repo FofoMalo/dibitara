@@ -16,8 +16,11 @@ import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.DebtType
 import com.dibitara.app.domain.model.ExportData
 import com.dibitara.app.domain.model.ExportFormat
+import com.dibitara.app.domain.model.GoalColor
+import com.dibitara.app.domain.model.GoalIcon
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.SavingsAccount
+import com.dibitara.app.domain.model.SavingsGoal
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.domain.model.ScpiInvestment
 import com.dibitara.app.domain.model.Transaction
@@ -34,6 +37,7 @@ import com.dibitara.app.domain.repository.CustomSubCategoryRepository
 import com.dibitara.app.domain.repository.DebtRepository
 import com.dibitara.app.domain.repository.ExportRepository
 import com.dibitara.app.domain.repository.InvestmentRepository
+import com.dibitara.app.domain.repository.SavingsGoalRepository
 import com.dibitara.app.domain.repository.SavingsRepository
 import com.dibitara.app.domain.repository.TransactionRepository
 import com.dibitara.app.domain.repository.VersementRepository
@@ -61,6 +65,7 @@ class ExporterDonneesUseCaseTest {
     private val envelopeRepo       : CategoryEnvelopeRepository  = mockk()
     private val ruleRepo           : CategorizationRuleRepository = mockk()
     private val versementRepo      : VersementRepository         = mockk()
+    private val savingsGoalRepo    : SavingsGoalRepository       = mockk()
     private val exportRepo         : ExportRepository           = mockk()
 
     private lateinit var useCase: ExporterDonneesUseCase
@@ -82,6 +87,7 @@ class ExporterDonneesUseCaseTest {
             categoryEnvelopeRepository = envelopeRepo,
             categorizationRuleRepository = ruleRepo,
             versementRepository        = versementRepo,
+            savingsGoalRepository      = savingsGoalRepo,
             exportRepository           = exportRepo
         )
 
@@ -91,6 +97,7 @@ class ExporterDonneesUseCaseTest {
         coEvery { envelopeRepo.getAll()                      } returns flowOf(emptyList())
         coEvery { ruleRepo.getAll()                          } returns emptyList()
         coEvery { versementRepo.getAll()                     } returns emptyList()
+        coEvery { savingsGoalRepo.getAll()                   } returns flowOf(emptyList())
         coEvery { childRepo.getAll()                         } returns flowOf(emptyList())
         coEvery { transactionRepo.getAll()                   } returns flowOf(emptyList())
         coEvery { budgetRepo.getAll()                        } returns flowOf(emptyList())
@@ -168,10 +175,18 @@ class ExporterDonneesUseCaseTest {
     }
 
     @Test
-    fun `agrège les 5 collections autrefois absentes de la sauvegarde (régression)`() = runTest {
+    fun `agrège les collections autrefois absentes de la sauvegarde (régression)`() = runTest {
         coEvery { versementRepo.getAll() } returns listOf(
             MonthlyVersement(1L, 1L, CompteType.EPARGNE, 2026, 8, 20000L, Currency.EUR)
         )
+        coEvery { savingsGoalRepo.getAll() } returns flowOf(listOf(
+            SavingsGoal(
+                id = 1L, name = "Voiture", targetAmountCents = 1_500_000L,
+                currentAmountCents = 420_000L, targetDate = LocalDate.of(2027, 6, 1),
+                monthlyContributionCents = 40_000L, currency = Currency.EUR,
+                colorKey = GoalColor.TEAL, iconKey = GoalIcon.VOITURE
+            )
+        ))
         coEvery { envelopeRepo.getAll() } returns flowOf(listOf(
             CategoryEnvelope(1L, Category.ALIMENTATION, 40000L, Currency.EUR)
         ))
@@ -194,7 +209,8 @@ class ExporterDonneesUseCaseTest {
                     data.enveloppesBudget.size       == 1 &&
                     data.reglesCategorisation.size   == 1 &&
                     data.sousCategoriesPerso.size    == 1 &&
-                    data.comptesBancaires.size       == 1
+                    data.comptesBancaires.size       == 1 &&
+                    data.objectifsEpargne.size       == 1
                 },
                 ExportFormat.JSON
             )

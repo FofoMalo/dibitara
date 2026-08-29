@@ -1,7 +1,9 @@
 package com.dibitara.app.presentation.savings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -11,8 +13,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
@@ -20,6 +25,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.shape.CircleShape
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -28,28 +34,38 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.GoalColor
+import com.dibitara.app.domain.model.GoalIcon
 import com.dibitara.app.domain.model.PlafondDefaut
 import com.dibitara.app.domain.model.SavingsAccount
+import com.dibitara.app.domain.model.SavingsGoal
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.TrendChip
+import com.dibitara.app.presentation.common.accent
 import com.dibitara.app.presentation.common.chartIcon
+import com.dibitara.app.presentation.common.icon
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 @Composable
 fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val defaultCurrency by viewModel.defaultCurrency.collectAsState()
+    val objectifs by viewModel.objectifs.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var showAddChild by remember { mutableStateOf(false) }
     // Compte à modifier : null = pas d'édition en cours
     var accountToEdit by remember { mutableStateOf<SavingsAccount?>(null) }
+    var showAddObjectif by remember { mutableStateOf(false) }
+    // Objectif à modifier : null = pas d'édition en cours
+    var objectifToEdit by remember { mutableStateOf<SavingsGoal?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -63,6 +79,12 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                 is SavingsEvent.Deleted           -> snackbarHostState.showSnackbar("Compte supprimé")
                 is SavingsEvent.ChildSaved        -> { showAddChild = false; snackbarHostState.showSnackbar("Enfant ajouté") }
                 is SavingsEvent.VersementApplique -> snackbarHostState.showSnackbar("Versement appliqué ✓")
+                is SavingsEvent.ObjectifEnregistre -> {
+                    showAddObjectif = false
+                    objectifToEdit = null
+                    snackbarHostState.showSnackbar("Objectif enregistré")
+                }
+                is SavingsEvent.ObjectifSupprime  -> snackbarHostState.showSnackbar("Objectif supprimé")
                 is SavingsEvent.AvertissementPlafond ->
                     snackbarHostState.showSnackbar("Versement appliqué - plafond dépassé sur « ${event.compteLabel} »")
                 is SavingsEvent.Error             -> snackbarHostState.showSnackbar(event.message)
@@ -88,11 +110,15 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
                 is SavingsUiState.Success ->
                     SavingsContent(
                         state = state,
+                        objectifs = objectifs,
                         onEditAccount = { accountToEdit = it },
                         onDeleteAccount = viewModel::deleteAccount,
                         onAddChild = { showAddChild = true },
                         onDeleteChild = viewModel::removeChild,
                         onAppliquerVersement = viewModel::appliquerVersement,
+                        onAddObjectif = { showAddObjectif = true },
+                        onEditObjectif = { objectifToEdit = it },
+                        onDeleteObjectif = viewModel::deleteObjectif,
                         onAssocierComptes = { child, selectionnes ->
                             viewModel.associerComptesEnfant(
                                 child,
@@ -137,16 +163,42 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
             onDismiss = { showAddChild = false }
         )
     }
+
+    if (showAddObjectif) {
+        ObjectifSheet(
+            existant = null,
+            defaultCurrency = defaultCurrency,
+            onSave = { name, target, current, monthly, currency, date, color, icon ->
+                viewModel.upsertObjectif(null, name, target, current, monthly, currency, date, color, icon)
+            },
+            onDismiss = { showAddObjectif = false }
+        )
+    }
+
+    objectifToEdit?.let { goal ->
+        ObjectifSheet(
+            existant = goal,
+            defaultCurrency = goal.currency,
+            onSave = { name, target, current, monthly, currency, date, color, icon ->
+                viewModel.upsertObjectif(goal, name, target, current, monthly, currency, date, color, icon)
+            },
+            onDismiss = { objectifToEdit = null }
+        )
+    }
 }
 
 @Composable
 private fun SavingsContent(
     state: SavingsUiState.Success,
+    objectifs: List<ObjectifUi>,
     onEditAccount: (SavingsAccount) -> Unit,
     onDeleteAccount: (SavingsAccount) -> Unit,
     onAddChild: () -> Unit,
     onDeleteChild: (Child) -> Unit,
     onAppliquerVersement: (SavingsAccount) -> Unit,
+    onAddObjectif: () -> Unit,
+    onEditObjectif: (SavingsGoal) -> Unit,
+    onDeleteObjectif: (SavingsGoal) -> Unit,
     onAssocierComptes: (Child, Set<Long>) -> Unit,
     getTrend: suspend (Long) -> Float?
 ) {
@@ -166,6 +218,38 @@ private fun SavingsContent(
         // Repris tel quel du Conseiller patrimoine - masqué s'il n'y a pas de données de charges.
         if (state.chargesMensuellesCents > 0) {
             item { FondsUrgenceCard(state) }
+        }
+
+        // Objectifs d'épargne (§3) : projets nommés avec progression et échéance projetée.
+        // L'en-tête (titre + "Ajouter") est toujours affiché - même sans objectif, c'est le
+        // seul point d'entrée (la section Comptes, elle, a la FAB).
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Objectifs", style = MaterialTheme.typography.titleMedium)
+                TextButton(onClick = onAddObjectif) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Ajouter")
+                }
+            }
+        }
+        if (objectifs.isEmpty()) {
+            item {
+                Text("Aucun objectif d'épargne.", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            items(objectifs, key = { "objectif_${it.goal.id}" }) { objectif ->
+                ObjectifCard(
+                    objectif = objectif,
+                    onEdit = { onEditObjectif(objectif.goal) },
+                    onDelete = { onDeleteObjectif(objectif.goal) }
+                )
+            }
         }
 
         // Comptes par type
@@ -319,6 +403,132 @@ private fun FondsUrgenceCard(state: SavingsUiState.Success) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/**
+ * Carte d'un objectif d'épargne (§3). En-tête : icône teintée par l'accent + nom +
+ * menu ⋮. Barre de progression colorée par l'accent, puis montants (masquables),
+ * ratio en % (toujours visible, c'est un ratio), effort mensuel, ligne de projection
+ * de date et échéance cible.
+ */
+@Composable
+private fun ObjectifCard(
+    objectif: ObjectifUi,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val goal = objectif.goal
+    val projection = objectif.projection
+    val accent = goal.colorKey.accent()
+    val moisFormatter = remember { DateTimeFormatter.ofPattern("MMM yyyy", Locale.FRENCH) }
+    var showMenu by remember { mutableStateOf(false) }
+    var showConfirm by remember { mutableStateOf(false) }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)) {
+                    Icon(goal.iconKey.icon(), contentDescription = null,
+                        modifier = Modifier.size(24.dp), tint = accent)
+                    Text(goal.name, style = MaterialTheme.typography.titleSmall)
+                }
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Modifier") },
+                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary) },
+                            onClick = { showMenu = false; onEdit() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; showConfirm = true }
+                        )
+                    }
+                }
+            }
+
+            LinearProgressIndicator(
+                progress = { goal.progression },
+                modifier = Modifier.fillMaxWidth(),
+                color = accent,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Montants : masquables comme partout ailleurs.
+                Text(
+                    "${goal.currentAmountCents.toCurrencyDisplay(goal.currency)} / " +
+                        goal.targetAmountCents.toCurrencyDisplay(goal.currency),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                // Ratio : toujours visible, ce n'est pas un montant.
+                Text("${(goal.progression * 100).toInt()} %",
+                    style = MaterialTheme.typography.bodyMedium, color = accent)
+            }
+
+            if (goal.monthlyContributionCents > 0) {
+                Text(
+                    "+ ${goal.monthlyContributionCents.toCurrencyDisplay(goal.currency)}/mois",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            // Ligne de projection : atteint / dans les temps / en retard / (rien si non calculable)
+            when {
+                goal.estAtteint -> Text("Objectif atteint ✓",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary)
+                projection.tenable == true -> Text(
+                    "Dans les temps · ${projection.dateProjetee!!.format(moisFormatter)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                projection.tenable == false -> Text(
+                    // `ecartMois` est tronqué au mois : une échéance dépassée de quelques
+                    // jours donne 0 → on n'écrit pas « En retard de 0 mois ».
+                    if ((projection.ecartMois ?: 0) > 0) "En retard de ${projection.ecartMois} mois"
+                    else "En retard sur l'échéance",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Text(
+                "Objectif : ${goal.targetDate.format(moisFormatter)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Supprimer « ${goal.name} » ?") },
+            confirmButton = { TextButton(onClick = { onDelete(); showConfirm = false }) { Text("Supprimer") } },
+            dismissButton = { TextButton(onClick = { showConfirm = false }) { Text("Annuler") } }
+        )
     }
 }
 
@@ -985,6 +1195,193 @@ private fun EditSavingsSheet(
                 enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
+        }
+    }
+}
+
+/**
+ * Feuille de création / édition d'un objectif d'épargne (§3). Une seule feuille pour
+ * les deux cas : [existant] non-null = édition (champs pré-remplis), null = création.
+ * Calquée sur [AddSavingsSheet] (ModalBottomSheet, dropdown devise, DatePicker comme
+ * dans InvestmentsScreen).
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun ObjectifSheet(
+    existant: SavingsGoal?,
+    defaultCurrency: Currency,
+    onSave: (String, String, String, String, Currency, LocalDate, GoalColor, GoalIcon) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    var name by remember { mutableStateOf(existant?.name ?: "") }
+    var target by remember {
+        mutableStateOf(existant?.let { "%.2f".format(it.targetAmountCents / 100.0).replace(',', '.') } ?: "")
+    }
+    var current by remember {
+        mutableStateOf(existant?.let { "%.2f".format(it.currentAmountCents / 100.0).replace(',', '.') } ?: "")
+    }
+    var monthly by remember {
+        mutableStateOf(
+            existant?.takeIf { it.monthlyContributionCents > 0 }
+                ?.let { "%.2f".format(it.monthlyContributionCents / 100.0).replace(',', '.') } ?: ""
+        )
+    }
+    var selectedCurrency by remember { mutableStateOf(existant?.currency ?: defaultCurrency) }
+    var targetDate by remember { mutableStateOf(existant?.targetDate ?: LocalDate.now().plusMonths(12)) }
+    var selectedColor by remember { mutableStateOf(existant?.colorKey ?: GoalColor.OR) }
+    var selectedIcon by remember { mutableStateOf(existant?.iconKey ?: GoalIcon.AUTRE) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    val targetValide = target.replace(',', '.').toDoubleOrNull()?.let { it > 0.0 } == true
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                if (existant == null) "Nouvel objectif" else "Modifier l'objectif",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            OutlinedTextField(value = name, onValueChange = { name = it },
+                label = { Text("Nom (ex. Voiture, Vacances...)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(value = target, onValueChange = { target = it },
+                label = { Text("Montant objectif") },
+                isError = target.isNotBlank() && !targetValide,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(value = current, onValueChange = { current = it },
+                label = { Text("Montant déjà épargné (optionnel)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            OutlinedTextField(value = monthly, onValueChange = { monthly = it },
+                label = { Text("Versement mensuel (optionnel)") },
+                supportingText = { Text("Sert à projeter la date d'atteinte") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+
+            ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                OutlinedTextField(
+                    value = "${selectedCurrency.name} (${selectedCurrency.symbol})", onValueChange = {},
+                    readOnly = true, label = { Text("Devise") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(currencyExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    Currency.entries.forEach { c ->
+                        DropdownMenuItem(text = { Text("${c.name} (${c.symbol})") },
+                            onClick = { selectedCurrency = c; currencyExpanded = false })
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = targetDate.format(dateFormatter), onValueChange = {},
+                readOnly = true, label = { Text("Échéance") },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Filled.CalendarToday, contentDescription = "Choisir une date")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Couleur : 3 pastilles, bord doré sur la sélection.
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Couleur", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    GoalColor.entries.forEach { couleur ->
+                        val selectionne = couleur == selectedColor
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(couleur.accent())
+                                .then(
+                                    if (selectionne) Modifier.border(
+                                        3.dp, MaterialTheme.colorScheme.primary, CircleShape
+                                    ) else Modifier
+                                )
+                                .clickable { selectedColor = couleur }
+                        )
+                    }
+                }
+            }
+
+            // Icône : jeu fixe de 7, surbrillance de la sélection.
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Icône", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GoalIcon.entries.forEach { ic ->
+                        val selectionne = ic == selectedIcon
+                        IconButton(
+                            onClick = { selectedIcon = ic },
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(
+                                    if (selectionne) MaterialTheme.colorScheme.secondaryContainer
+                                    else Color.Transparent
+                                )
+                        ) {
+                            Icon(
+                                ic.icon(), contentDescription = null,
+                                tint = if (selectionne) MaterialTheme.colorScheme.onSecondaryContainer
+                                       else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = {
+                    onSave(name, target, current, monthly, selectedCurrency, targetDate, selectedColor, selectedIcon)
+                },
+                enabled = name.isNotBlank() && targetValide,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(if (existant == null) "Créer l'objectif" else "Enregistrer") }
+        }
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = targetDate.toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        targetDate = LocalDate.ofEpochDay(millis / 86_400_000L)
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Annuler") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }

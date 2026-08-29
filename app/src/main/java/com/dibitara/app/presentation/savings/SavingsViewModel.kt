@@ -7,10 +7,18 @@ import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.GoalColor
+import com.dibitara.app.domain.model.GoalIcon
 import com.dibitara.app.domain.model.MonthlyVersement
 import com.dibitara.app.domain.model.SavingsAccount
+import com.dibitara.app.domain.model.SavingsGoal
 import com.dibitara.app.domain.model.SavingsType
 import com.dibitara.app.domain.usecase.AnalyserPatrimoineUseCase
+import com.dibitara.app.domain.usecase.DeleteSavingsGoalUseCase
+import com.dibitara.app.domain.usecase.GetSavingsGoalsUseCase
+import com.dibitara.app.domain.usecase.ProjectionObjectif
+import com.dibitara.app.domain.usecase.ProjeterObjectifUseCase
+import com.dibitara.app.domain.usecase.UpsertSavingsGoalUseCase
 import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
 import com.dibitara.app.domain.usecase.DeleteSavingsAccountUseCase
@@ -50,7 +58,11 @@ class SavingsViewModel @Inject constructor(
     private val ucAnalyserPatrimoine: AnalyserPatrimoineUseCase,
     private val ucSaveAssetSnapshot: SaveAssetValuationSnapshotUseCase,
     private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase,
-    private val ucCalculerTendanceActif: CalculerTendanceActifUseCase
+    private val ucCalculerTendanceActif: CalculerTendanceActifUseCase,
+    private val getSavingsGoals: GetSavingsGoalsUseCase,
+    private val upsertSavingsGoal: UpsertSavingsGoalUseCase,
+    private val deleteSavingsGoal: DeleteSavingsGoalUseCase,
+    private val ucProjeterObjectif: ProjeterObjectifUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -126,6 +138,17 @@ class SavingsViewModel @Inject constructor(
 
     private val _event = MutableSharedFlow<SavingsEvent>()
     val event: SharedFlow<SavingsEvent> = _event.asSharedFlow()
+
+    /**
+     * Objectifs d'épargne (§3), exposés hors du `combine` de [uiState] : celui-ci est
+     * déjà à 5 flows (limite des surcharges typées de `combine`). Chaque objectif est
+     * accompagné de sa projection de date (calcul pur, pas de devise convertie - un
+     * objectif s'affiche dans sa propre devise).
+     */
+    val objectifs: StateFlow<List<ObjectifUi>> =
+        getSavingsGoals()
+            .map { goals -> goals.map { ObjectifUi(it, ucProjeterObjectif(it)) } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
      * Tendance d'un compte épargne, lue à la demande - même logique que
@@ -210,6 +233,52 @@ class SavingsViewModel @Inject constructor(
                     _event.emit(SavingsEvent.Saved)
                 }
                 .onFailure { _event.emit(SavingsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    /**
+     * Crée ([existant] == null) ou met à jour un objectif d'épargne.
+     * Le montant objectif est obligatoire et strictement positif ; le montant épargné
+     * et le versement mensuel valent 0 s'ils sont vides. Montants parsés `,`→`.`.
+     */
+    fun upsertObjectif(
+        existant: SavingsGoal?,
+        name: String,
+        targetStr: String,
+        currentStr: String,
+        monthlyStr: String,
+        currency: Currency,
+        targetDate: LocalDate,
+        color: GoalColor,
+        icon: GoalIcon
+    ) {
+        val target = targetStr.replace(',', '.').toDoubleOrNull()
+            ?.let { (it * 100).roundToLong() }
+            ?.takeIf { it > 0L }
+            ?: run {
+                viewModelScope.launch { _event.emit(SavingsEvent.Error("Montant objectif invalide")) }
+                return
+            }
+        val current = currentStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+        val monthly = monthlyStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: 0L
+
+        val goal = SavingsGoal(
+            id = existant?.id ?: 0,
+            name = name, targetAmountCents = target, currentAmountCents = current,
+            targetDate = targetDate, monthlyContributionCents = monthly,
+            currency = currency, colorKey = color, iconKey = icon
+        )
+        viewModelScope.launch {
+            runCatching { upsertSavingsGoal(goal) }
+                .onSuccess { _event.emit(SavingsEvent.ObjectifEnregistre) }
+                .onFailure { _event.emit(SavingsEvent.Error(it.message ?: "Erreur")) }
+        }
+    }
+
+    fun deleteObjectif(goal: SavingsGoal) {
+        viewModelScope.launch {
+            deleteSavingsGoal(goal)
+            _event.emit(SavingsEvent.ObjectifSupprime)
         }
     }
 
@@ -319,11 +388,19 @@ sealed class SavingsUiState {
     data class Error(val message: String) : SavingsUiState()
 }
 
+/** Un objectif d'épargne + sa projection de date, pour l'affichage. */
+data class ObjectifUi(
+    val goal: SavingsGoal,
+    val projection: ProjectionObjectif
+)
+
 sealed class SavingsEvent {
     data object Saved : SavingsEvent()
     data object Deleted : SavingsEvent()
     data object ChildSaved : SavingsEvent()
     data object VersementApplique : SavingsEvent()
+    data object ObjectifEnregistre : SavingsEvent()
+    data object ObjectifSupprime : SavingsEvent()
     // Versement appliqué mais le nouveau solde dépasse le plafond configuré
     data class AvertissementPlafond(val compteLabel: String) : SavingsEvent()
     data class Error(val message: String) : SavingsEvent()
