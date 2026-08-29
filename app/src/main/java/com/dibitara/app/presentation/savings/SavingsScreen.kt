@@ -424,8 +424,8 @@ private fun FondsUrgenceCard(state: SavingsUiState.Success) {
  * Carte d'un objectif d'épargne (§3). En-tête : icône teintée par l'accent + nom +
  * menu ⋮. Barre de progression colorée par l'accent, puis montants (masquables),
  * ratio en % (toujours visible, c'est un ratio), effort mensuel, ligne de projection
- * de date, échéance cible, et bouton « Verser ce mois » (mis en avant tant que le
- * versement du mois n'est pas enregistré - même code couleur que les comptes).
+ * de date, échéance cible, et bouton « Verser » (mis en avant tant que le versement
+ * du mois n'est pas enregistré - même code couleur que les comptes).
  */
 @Composable
 private fun ObjectifCard(
@@ -555,10 +555,7 @@ private fun ObjectifCard(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
-                    Text(
-                        if (enAttente) "Versement du mois à enregistrer"
-                        else "Verser sur cet objectif"
-                    )
+                    Text("Verser")
                 }
             }
         }
@@ -752,7 +749,7 @@ private fun SavingsAccountCard(
 
             // Bouton versement : visible uniquement si un montant mensuel est configuré.
             // Rappel in-app (§ versement mensuel) : quand le versement du mois n'est pas
-            // encore enregistré, on met le bouton en avant - puce dorée + libellé explicite.
+            // encore enregistré, on met le bouton en avant - puce + bordure dorées.
             // L'or (primary) en accent, pas le rouge (error) : c'est un rappel, pas une alerte.
             if (account.monthlyContributionCents > 0) {
                 val montant = account.monthlyContributionCents.toCurrencyDisplay(account.currency)
@@ -770,10 +767,7 @@ private fun SavingsAccountCard(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
-                    Text(
-                        if (versementEnAttente) "Versement du mois à enregistrer (+$montant)"
-                        else "Versement du mois (+$montant)"
-                    )
+                    Text("Verser (+$montant)")
                 }
             }
         }
@@ -793,7 +787,7 @@ private fun SavingsAccountCard(
             .format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH))
         AlertDialog(
             onDismissRequest = { showVersementConfirm = false },
-            title = { Text("Appliquer le versement ?") },
+            title = { Text("Verser ce mois ?") },
             text = {
                 Text(
                     "${account.monthlyContributionCents.toCurrencyDisplay(account.currency)} seront " +
