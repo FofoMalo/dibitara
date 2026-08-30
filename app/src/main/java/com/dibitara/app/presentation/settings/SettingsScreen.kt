@@ -353,7 +353,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
-                val devises = listOf(Currency.EUR, Currency.USD, Currency.XOF)
+                val devises = listOf(Currency.EUR, Currency.USD, Currency.XOF, Currency.CAD)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     devises.forEach { devise ->
                         FilterChip(

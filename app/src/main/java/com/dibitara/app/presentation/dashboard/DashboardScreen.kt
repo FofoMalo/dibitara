@@ -533,7 +533,7 @@ private fun DeviseChip(current: Currency, onSelect: (Currency) -> Unit) {
             label = { Text("${current.symbol} ${current.isoCode}") }
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            listOf(Currency.EUR, Currency.USD, Currency.XOF).forEach { devise ->
+            listOf(Currency.EUR, Currency.USD, Currency.XOF, Currency.CAD).forEach { devise ->
                 DropdownMenuItem(
                     text = { Text("${devise.symbol} ${devise.isoCode}") },
                     onClick = { expanded = false; onSelect(devise) },

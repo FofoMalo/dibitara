@@ -9,6 +9,18 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
+## [4.5.0] - 2026-08-30
+
+### Ajouté
+- Support du dollar canadien (CAD) : nouvelle devise dans `Currency`, taux `CAD/EUR` récupéré
+  via l'API Frankfurter (déjà utilisée pour l'USD, mise en cache 1h) et intégré à
+  `CurrencyConverter`. Apparaît dans les deux sélecteurs de devise d'affichage (chip du
+  Dashboard, Paramètres → Devise par défaut). Pensé pour un utilisateur avec sa propre
+  installation/base de données - aucune agrégation avec le patrimoine existant.
+- `CurrencyConverter` documente désormais explicitement le piège du `else` non-convertisseur :
+  toute devise ajoutée à l'enum sans être traitée dans ses deux `when` est comptée comme si
+  elle valait déjà des EUR, sans erreur de compilation pour le rappeler.
+
 ## [4.4.2] - 2026-08-30
 
 ### Corrigé

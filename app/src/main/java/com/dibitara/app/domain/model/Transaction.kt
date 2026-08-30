@@ -37,7 +37,9 @@ enum class Currency(val symbol: String, val isoCode: String) {
     EUR("€", "EUR"),
     USD("$", "USD"),
     XOF("FCFA", "XOF"),
-    XAF("FCFA", "XAF")
+    XAF("FCFA", "XAF"),
+    // "CA$" plutôt que "$" seul pour ne pas se confondre avec USD à l'affichage.
+    CAD("CA$", "CAD")
 }
 
 enum class Category(val displayName: String) {

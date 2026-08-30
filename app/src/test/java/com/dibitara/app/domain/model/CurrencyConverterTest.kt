@@ -14,7 +14,8 @@ class CurrencyConverterTest {
     private val rates = ExchangeRates(
         usdParEur  = 1.10,   // 1 € = 1,10 $
         xofParEur  = 660.0,  // 1 € = 660 FCFA
-        horodatage = 0L
+        horodatage = 0L,
+        cadParEur  = 1.50    // 1 € = 1,50 CA$
     )
 
     // ─── Identité ─────────────────────────────────────────────────────────────
@@ -82,6 +83,30 @@ class CurrencyConverterTest {
         // 66000 centimes XAF = 66000 XOF → 100 EUR → 110 USD
         val result = CurrencyConverter.convertCents(66_000L, Currency.XAF, Currency.USD, rates)
         assertEquals(110L, result)
+    }
+
+    // ─── EUR ↔ CAD ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `EUR vers CAD - multiplie par le taux`() {
+        // 100 € = 100 * 1,50 CA$ = 150 CA$  →  10000 centimes * 1.50 = 15000
+        val result = CurrencyConverter.convertCents(10_000L, Currency.EUR, Currency.CAD, rates)
+        assertEquals(15_000L, result)
+    }
+
+    @Test
+    fun `CAD vers EUR - divise par le taux`() {
+        // 150 CA$ = 100 €  →  15000 centimes / 1.50 = 10000
+        val result = CurrencyConverter.convertCents(15_000L, Currency.CAD, Currency.EUR, rates)
+        assertEquals(10_000L, result)
+    }
+
+    @Test
+    fun `USD vers CAD passe par EUR pivot`() {
+        // 1,10 $ = 1 € = 1,50 CA$
+        // 11000 centimes USD → 10000 centimes EUR → 15000 centimes CAD
+        val result = CurrencyConverter.convertCents(11_000L, Currency.USD, Currency.CAD, rates)
+        assertEquals(15_000L, result)
     }
 
     // ─── isSameCurrency ───────────────────────────────────────────────────────

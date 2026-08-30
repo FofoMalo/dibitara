@@ -25,13 +25,15 @@ class ExchangeRateRepositoryImpl @Inject constructor(
 
     companion object {
         val KEY_USD  = doublePreferencesKey("exchange_usd_par_eur")
+        val KEY_CAD  = doublePreferencesKey("exchange_cad_par_eur")
         val KEY_TIME = longPreferencesKey("exchange_timestamp")
 
         // Durée de validité du cache : 1 heure
         const val CACHE_DUREE_MS = 60 * 60 * 1_000L
 
-        // Taux de secours USD si réseau indisponible
+        // Taux de secours si réseau indisponible
         const val USD_FALLBACK = 1.09
+        const val CAD_FALLBACK = 1.47
 
         // XOF (et XAF) sont indexés sur l'euro à parité fixe depuis 1999 (traité de Maastricht).
         // Frankfurter ne les expose pas - inutile d'appeler le réseau pour ces devises.
@@ -43,27 +45,31 @@ class ExchangeRateRepositoryImpl @Inject constructor(
         val timestamp = prefs[KEY_TIME] ?: 0L
         val maintenant = System.currentTimeMillis()
 
-        // Retourne le cache s'il est encore frais (USD uniquement - XOF est une constante)
+        // Retourne le cache s'il est encore frais (USD/CAD uniquement - XOF est une constante)
         if (maintenant - timestamp < CACHE_DUREE_MS) {
             val usd = prefs[KEY_USD] ?: USD_FALLBACK
-            return Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, timestamp))
+            val cad = prefs[KEY_CAD] ?: CAD_FALLBACK
+            return Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, timestamp, cad))
         }
 
-        // Appel réseau pour USD uniquement
+        // Appel réseau pour USD/CAD uniquement
         return try {
             val response = api.getLatest()
             val usd = response.rates["USD"] ?: USD_FALLBACK
+            val cad = response.rates["CAD"] ?: CAD_FALLBACK
 
             dataStore.edit { p ->
                 p[KEY_USD]  = usd
+                p[KEY_CAD]  = cad
                 p[KEY_TIME] = maintenant
             }
 
-            Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, maintenant))
+            Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, maintenant, cad))
         } catch (e: Exception) {
             val usd = prefs[KEY_USD] ?: USD_FALLBACK
+            val cad = prefs[KEY_CAD] ?: CAD_FALLBACK
             if (prefs[KEY_USD] != null) {
-                Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, timestamp))
+                Result.success(ExchangeRates(usd, XOF_TAUX_FIXE, timestamp, cad))
             } else {
                 Result.failure(e)
             }
@@ -74,7 +80,8 @@ class ExchangeRateRepositoryImpl @Inject constructor(
         ExchangeRates(
             usdParEur  = prefs[KEY_USD] ?: USD_FALLBACK,
             xofParEur  = XOF_TAUX_FIXE,
-            horodatage = prefs[KEY_TIME] ?: 0L
+            horodatage = prefs[KEY_TIME] ?: 0L,
+            cadParEur  = prefs[KEY_CAD] ?: CAD_FALLBACK
         )
     }
 }

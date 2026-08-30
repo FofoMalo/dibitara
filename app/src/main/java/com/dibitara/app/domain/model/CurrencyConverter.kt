@@ -8,11 +8,19 @@ import kotlin.math.roundToLong
  * Règles de conversion - tout passe par l'EUR comme devise pivot :
  *   USD → EUR : amountCents / usdParEur
  *   XOF → EUR : amountCents / xofParEur
+ *   CAD → EUR : amountCents / cadParEur
  *   EUR → USD : amountCents * usdParEur
  *   EUR → XOF : amountCents * xofParEur
+ *   EUR → CAD : amountCents * cadParEur
  *
  * XOF et XAF sont à parité 1:1 (même ancrage BCE, même taux).
  * Si [from] == [to], les centimes sont retournés tels quels.
+ *
+ * ATTENTION : les `when` ci-dessous ont un `else` qui NE CONVERTIT PAS (retourne le
+ * montant tel quel). Toute nouvelle devise ajoutée à [Currency] doit être traitée
+ * explicitement ici, sinon elle est silencieusement comptée comme si elle valait déjà
+ * des EUR partout où le patrimoine est agrégé - pas d'erreur de compilation pour le
+ * rappeler.
  */
 object CurrencyConverter {
 
@@ -39,6 +47,7 @@ object CurrencyConverter {
             Currency.EUR -> amountCents
             Currency.USD -> (amountCents / rates.usdParEur).roundToLong()
             Currency.XOF -> (amountCents / rates.xofParEur).roundToLong()
+            Currency.CAD -> (amountCents / rates.cadParEur).roundToLong()
             else         -> amountCents
         }
 
@@ -47,6 +56,7 @@ object CurrencyConverter {
             Currency.EUR -> enEurCents
             Currency.USD -> (enEurCents * rates.usdParEur).roundToLong()
             Currency.XOF -> (enEurCents * rates.xofParEur).roundToLong()
+            Currency.CAD -> (enEurCents * rates.cadParEur).roundToLong()
             else         -> enEurCents
         }
     }
