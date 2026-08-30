@@ -45,6 +45,7 @@ import com.dibitara.app.presentation.common.AcquisitionEvolutionBlock
 import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.HorizontalBarChart
 import com.dibitara.app.presentation.common.HorizontalBarEntry
+import com.dibitara.app.presentation.common.MouvementCapitalField
 import com.dibitara.app.presentation.common.TrendChip
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.LocalDate
@@ -1402,19 +1403,7 @@ private fun EditRealEstateSheet(
     var acquisitionDate by remember { mutableStateOf(asset.acquisitionDate) }
     var mouvementCapital by remember { mutableStateOf(false) }
     var mouvementAmount by remember { mutableStateOf("") }
-    // Tant que ce flag est false, le montant suggéré suit la "Valeur actuelle" en direct - peu
-    // importe l'ordre dans lequel Florent coche la case et tape le nouveau montant (piège vécu :
-    // cocher la case avant de taper la valeur laissait le montant figé à 0).
-    var mouvementAmountModifieManuellement by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
-
-    LaunchedEffect(value, mouvementCapital) {
-        if (mouvementCapital && !mouvementAmountModifieManuellement) {
-            val nouveauCents = value.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: asset.currentValueCents
-            val diff = nouveauCents - asset.currentValueCents
-            mouvementAmount = "%.2f".format(diff / 100.0).replace(',', '.')
-        }
-    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -1487,29 +1476,16 @@ private fun EditRealEstateSheet(
                 focusManager = focusManager
             )
 
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Checkbox(checked = mouvementCapital, onCheckedChange = { checked ->
-                    mouvementCapital = checked
-                    mouvementAmountModifieManuellement = false
-                })
-                Text(
-                    "Ce changement de valeur est un apport de capital (ex. travaux), pas une plus-value de marché - neutralisé dans le taux d'évolution",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (mouvementCapital) {
-                OutlinedTextField(
-                    value = mouvementAmount,
-                    onValueChange = { mouvementAmount = it; mouvementAmountModifieManuellement = true },
-                    label = { Text("Montant du mouvement (+ apport, - retrait)") },
-                    supportingText = { Text("Suit automatiquement l'écart avec la \"Valeur actuelle\" ci-dessus tant que tu ne le modifies pas toi-même") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            MouvementCapitalField(
+                checked = mouvementCapital,
+                onCheckedChange = { mouvementCapital = it },
+                montant = mouvementAmount,
+                onMontantChange = { mouvementAmount = it },
+                montantSuggereCents = (value.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: asset.currentValueCents) - asset.currentValueCents,
+                checkboxLabel = "Ce changement de valeur est un apport de capital (ex. travaux), pas une plus-value de marché - neutralisé dans le taux d'évolution",
+                supportingText = "Suit automatiquement l'écart avec la \"Valeur actuelle\" ci-dessus tant que tu ne le modifies pas toi-même",
+                focusManager = focusManager
+            )
 
             Button(
                 onClick = {
@@ -1545,21 +1521,14 @@ private fun EditScpiSheet(
     var acquisitionDate by remember { mutableStateOf(scpi.acquisitionDate) }
     var mouvementCapital by remember { mutableStateOf(false) }
     var mouvementAmount by remember { mutableStateOf("") }
-    // Tant que ce flag est false, le montant suggéré suit le delta de PARTS en direct (pas le
-    // delta de valeur totale - une révision du prix de la part par le gestionnaire est de la
-    // performance, pas un mouvement de capital, voir CADRAGE_MOUVEMENTS_CAPITAL_SCPI_EPARGNE.md §3).
-    var mouvementAmountModifieManuellement by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
-    LaunchedEffect(shares, shareValue, mouvementCapital) {
-        if (mouvementCapital && !mouvementAmountModifieManuellement) {
-            val nouveauSharesCount = shares.replace(',', '.').toDoubleOrNull() ?: scpi.sharesCount
-            val nouveauShareValueCents = shareValue.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: scpi.shareValueCents
-            val diffParts = nouveauSharesCount - scpi.sharesCount
-            val montant = (diffParts * nouveauShareValueCents).roundToLong()
-            mouvementAmount = "%.2f".format(montant / 100.0).replace(',', '.')
-        }
-    }
+    // Le mouvement de capital porte sur le delta de PARTS, pas le delta de valeur totale - une
+    // révision du prix de la part par le gestionnaire est de la performance, pas un mouvement
+    // de capital (voir CADRAGE_MOUVEMENTS_CAPITAL_SCPI_EPARGNE.md §3).
+    val nouveauSharesCount = shares.replace(',', '.').toDoubleOrNull() ?: scpi.sharesCount
+    val nouveauShareValueCents = shareValue.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: scpi.shareValueCents
+    val montantMouvementSuggereCents = ((nouveauSharesCount - scpi.sharesCount) * nouveauShareValueCents).roundToLong()
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -1629,29 +1598,16 @@ private fun EditScpiSheet(
                 focusManager = focusManager
             )
 
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Checkbox(checked = mouvementCapital, onCheckedChange = { checked ->
-                    mouvementCapital = checked
-                    mouvementAmountModifieManuellement = false
-                })
-                Text(
-                    "Le nombre de parts a changé hors versement mensuel (apport/retrait de capital) - neutralisé dans le taux d'évolution",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (mouvementCapital) {
-                OutlinedTextField(
-                    value = mouvementAmount,
-                    onValueChange = { mouvementAmount = it; mouvementAmountModifieManuellement = true },
-                    label = { Text("Montant du mouvement (+ apport, - retrait)") },
-                    supportingText = { Text("Suit automatiquement l'écart de parts valorisé au prix actuel tant que tu ne le modifies pas toi-même - une simple révision du prix de la part reste comptée en performance") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            MouvementCapitalField(
+                checked = mouvementCapital,
+                onCheckedChange = { mouvementCapital = it },
+                montant = mouvementAmount,
+                onMontantChange = { mouvementAmount = it },
+                montantSuggereCents = montantMouvementSuggereCents,
+                checkboxLabel = "Le nombre de parts a changé hors versement mensuel (apport/retrait de capital) - neutralisé dans le taux d'évolution",
+                supportingText = "Suit automatiquement l'écart de parts valorisé au prix actuel tant que tu ne le modifies pas toi-même - une simple révision du prix de la part reste comptée en performance",
+                focusManager = focusManager
+            )
 
             Button(
                 onClick = {
@@ -2075,19 +2031,7 @@ private fun EditCustomAssetSheet(
     var acquisitionDate by remember { mutableStateOf(asset.acquisitionDate) }
     var mouvementCapital by remember { mutableStateOf(false) }
     var mouvementAmount by remember { mutableStateOf("") }
-    // Tant que ce flag est false, le montant suggéré suit la "Valeur actuelle" en direct - peu
-    // importe l'ordre dans lequel Florent coche la case et tape le nouveau montant (piège vécu :
-    // cocher la case avant de taper la valeur laissait le montant figé à 0).
-    var mouvementAmountModifieManuellement by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
-
-    LaunchedEffect(value, mouvementCapital) {
-        if (mouvementCapital && !mouvementAmountModifieManuellement) {
-            val nouveauCents = value.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: asset.totalValueCents
-            val diff = nouveauCents - asset.totalValueCents
-            mouvementAmount = "%.2f".format(diff / 100.0).replace(',', '.')
-        }
-    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -2105,29 +2049,16 @@ private fun EditCustomAssetSheet(
                 onAcquisitionDateChange = { acquisitionDate = it },
                 focusManager = focusManager
             )
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Checkbox(checked = mouvementCapital, onCheckedChange = { checked ->
-                    mouvementCapital = checked
-                    mouvementAmountModifieManuellement = false
-                })
-                Text(
-                    "Retrait ou apport de capital (pas une variation de marché) - neutralisé dans le taux d'évolution",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (mouvementCapital) {
-                OutlinedTextField(
-                    value = mouvementAmount,
-                    onValueChange = { mouvementAmount = it; mouvementAmountModifieManuellement = true },
-                    label = { Text("Montant du mouvement (+ apport, - retrait)") },
-                    supportingText = { Text("Suit automatiquement l'écart avec la \"Valeur actuelle\" ci-dessus tant que tu ne le modifies pas toi-même") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            MouvementCapitalField(
+                checked = mouvementCapital,
+                onCheckedChange = { mouvementCapital = it },
+                montant = mouvementAmount,
+                onMontantChange = { mouvementAmount = it },
+                montantSuggereCents = (value.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: asset.totalValueCents) - asset.totalValueCents,
+                checkboxLabel = "Retrait ou apport de capital (pas une variation de marché) - neutralisé dans le taux d'évolution",
+                supportingText = "Suit automatiquement l'écart avec la \"Valeur actuelle\" ci-dessus tant que tu ne le modifies pas toi-même",
+                focusManager = focusManager
+            )
             Button(
                 onClick = {
                     val mouvementCents = if (mouvementCapital)
@@ -2199,18 +2130,7 @@ private fun EditEmployeeSavingsSheet(
     var acquisitionDate by remember { mutableStateOf(savings.acquisitionDate) }
     var mouvementCapital by remember { mutableStateOf(false) }
     var mouvementAmount by remember { mutableStateOf("") }
-    // Tant que ce flag est false, le montant suggéré suit le "Solde actuel" en direct - peu
-    // importe l'ordre dans lequel Florent coche la case et tape le nouveau solde.
-    var mouvementAmountModifieManuellement by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
-
-    LaunchedEffect(balance, mouvementCapital) {
-        if (mouvementCapital && !mouvementAmountModifieManuellement) {
-            val nouveauCents = balance.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: savings.currentBalanceCents
-            val diff = nouveauCents - savings.currentBalanceCents
-            mouvementAmount = "%.2f".format(diff / 100.0).replace(',', '.')
-        }
-    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -2230,29 +2150,16 @@ private fun EditEmployeeSavingsSheet(
                 onAcquisitionDateChange = { acquisitionDate = it },
                 focusManager = focusManager
             )
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Checkbox(checked = mouvementCapital, onCheckedChange = { checked ->
-                    mouvementCapital = checked
-                    mouvementAmountModifieManuellement = false
-                })
-                Text(
-                    "Ce changement de solde est un retrait ou un apport de capital hors abondement mensuel, pas une performance du fonds - neutralisé dans le taux d'évolution",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (mouvementCapital) {
-                OutlinedTextField(
-                    value = mouvementAmount,
-                    onValueChange = { mouvementAmount = it; mouvementAmountModifieManuellement = true },
-                    label = { Text("Montant du mouvement (+ apport, - retrait)") },
-                    supportingText = { Text("Suit automatiquement l'écart avec le \"Solde actuel\" ci-dessus tant que tu ne le modifies pas toi-même") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            MouvementCapitalField(
+                checked = mouvementCapital,
+                onCheckedChange = { mouvementCapital = it },
+                montant = mouvementAmount,
+                onMontantChange = { mouvementAmount = it },
+                montantSuggereCents = (balance.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: savings.currentBalanceCents) - savings.currentBalanceCents,
+                checkboxLabel = "Ce changement de solde est un retrait ou un apport de capital hors abondement mensuel, pas une performance du fonds - neutralisé dans le taux d'évolution",
+                supportingText = "Suit automatiquement l'écart avec le \"Solde actuel\" ci-dessus tant que tu ne le modifies pas toi-même",
+                focusManager = focusManager
+            )
             Button(
                 onClick = {
                     val mouvementCents = if (mouvementCapital)

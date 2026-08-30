@@ -179,6 +179,13 @@ toute nouvelle carte de synthèse.
   le **delta de parts** valorisé au prix actuel, pas sur le delta de valeur totale - sinon une
   simple révision du prix de la part par le gestionnaire serait neutralisée à tort (voir
   `CADRAGE_MOUVEMENTS_CAPITAL_SCPI_EPARGNE.md`).
+- **`MouvementCapitalField`** (`presentation/common/MouvementCapitalField.kt`) — case à cocher
+  + champ montant signé pour déclarer un mouvement de capital, réutilisée dans les 4 sheets
+  d'édition d'actif investissement (`EditCustomAssetSheet`, `EditRealEstateSheet`,
+  `EditScpiSheet`, `EditEmployeeSavingsSheet`). Encapsule le pattern live-sync (le montant
+  suggéré suit `montantSuggereCents` tant qu'il n'est pas modifié à la main) ; le calcul de
+  `montantSuggereCents` reste à la charge de l'appelant, qui seul sait si c'est un delta de
+  valeur simple ou, pour SCPI, un delta de parts (§ ci-dessus).
 - **Piège Vico (bibliothèque de graphiques) :** Vico tronque les libellés
   d'axe indépendamment de l'espace réellement disponible - il alloue la
   largeur de chaque graduation selon le nombre total de points de données,
