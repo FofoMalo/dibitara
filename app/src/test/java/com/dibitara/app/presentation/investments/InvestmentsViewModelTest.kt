@@ -5,6 +5,8 @@ import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.CustomAsset
+import com.dibitara.app.domain.model.EmployeeSavings
+import com.dibitara.app.domain.model.EmployeeSavingsType
 import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
@@ -217,6 +219,73 @@ class InvestmentsViewModelTest {
         // 10 parts × 200,00 € = 2000,00 € = 200000 centimes
         coVerify { ucSaveAssetSnapshot(AssetValuationType.SCPI, 7L, 200000L, Currency.EUR) }
         job.cancel()
+    }
+
+    @Test
+    fun `updateScpi avec mouvement de capital enregistre le montant sur la voie SCPI_MOUVEMENT`() = runTest {
+        val scpi = ScpiInvestment(id = 7L, label = "SCPI Primovie", sharesCount = 5.0,
+            shareValueCents = 20000L, monthlyContributionCents = 0L, currency = Currency.EUR, updatedAt = LocalDate.now())
+        coEvery { ucUpdateScpi(any()) } returns Result.success(Unit)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        // 2 parts de plus (hors versement mensuel), valorisées à 200€ = 400€ de mouvement,
+        // saisi explicitement - pas recalculé depuis le ViewModel.
+        viewModel.updateScpi(scpi, "SCPI Primovie", "7", "200.00", "0.00", Currency.EUR, mouvementCapitalCents = 400_00L)
+        testScheduler.advanceUntilIdle()
+
+        coVerify { ucEnregistrerMouvementCapital(7L, CompteType.SCPI_MOUVEMENT, 400_00L, Currency.EUR) }
+        job.cancel()
+    }
+
+    @Test
+    fun `updateScpi sans case cochée n'enregistre aucun mouvement de capital`() = runTest {
+        val scpi = ScpiInvestment(id = 7L, label = "SCPI Primovie", sharesCount = 5.0,
+            shareValueCents = 20000L, monthlyContributionCents = 0L, currency = Currency.EUR, updatedAt = LocalDate.now())
+        coEvery { ucUpdateScpi(any()) } returns Result.success(Unit)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        viewModel.updateScpi(scpi, "SCPI Primovie", "7", "200.00", "0.00", Currency.EUR)
+        testScheduler.advanceUntilIdle()
+
+        coVerify(exactly = 0) { ucEnregistrerMouvementCapital(any(), CompteType.SCPI_MOUVEMENT, any(), any(), any()) }
+        job.cancel()
+    }
+
+    @Test
+    fun `updateEmployeeSavings avec mouvement de capital enregistre le montant sur la voie EMPLOYEE_SAVINGS_MOUVEMENT`() = runTest {
+        val savings = EmployeeSavings(id = 9L, type = EmployeeSavingsType.PEE, label = "PEE", currentBalanceCents = 3_000_00L,
+            employerContributionCents = 100_00L, currency = Currency.EUR, updatedAt = LocalDate.now())
+        coEvery { ucUpdateEmployeeSavings(any()) } returns Result.success(Unit)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        // Correction manuelle du solde depuis le relevé AXA, hors abondement mensuel.
+        viewModel.updateEmployeeSavings(savings, EmployeeSavingsType.PEE, "PEE", "3200.00", "100.00", Currency.EUR, mouvementCapitalCents = 200_00L)
+        testScheduler.advanceUntilIdle()
+
+        coVerify { ucEnregistrerMouvementCapital(9L, CompteType.EMPLOYEE_SAVINGS_MOUVEMENT, 200_00L, Currency.EUR) }
+        job.cancel()
+    }
+
+    @Test
+    fun `performanceDepuisAcquisition pour SCPI additionne versement mensuel et mouvement ad hoc`() = runTest {
+        coEvery { ucSommeVersementsDepuis(5L, CompteType.SCPI, any()) } returns 300_00L
+        coEvery { ucSommeVersementsDepuis(5L, CompteType.SCPI_MOUVEMENT, any()) } returns 100_00L
+        coEvery { ucCalculerPerformanceActif(any(), any(), any()) } returns null
+
+        viewModel.performanceDepuisAcquisition(5L, 1_000_00L, 1_500_00L, LocalDate.of(2025, 1, 1), CompteType.SCPI)
+
+        coVerify { ucCalculerPerformanceActif(1_000_00L, 1_500_00L, 400_00L) }
+    }
+
+    @Test
+    fun `performanceDepuisAcquisition pour épargne salariale additionne abondement et mouvement ad hoc`() = runTest {
+        coEvery { ucSommeVersementsDepuis(9L, CompteType.EMPLOYEE_SAVINGS, any()) } returns 1_200_00L
+        coEvery { ucSommeVersementsDepuis(9L, CompteType.EMPLOYEE_SAVINGS_MOUVEMENT, any()) } returns -200_00L
+        coEvery { ucCalculerPerformanceActif(any(), any(), any()) } returns null
+
+        viewModel.performanceDepuisAcquisition(9L, 3_000_00L, 3_500_00L, LocalDate.of(2025, 1, 1), CompteType.EMPLOYEE_SAVINGS)
+
+        coVerify { ucCalculerPerformanceActif(3_000_00L, 3_500_00L, 1_000_00L) }
     }
 
     @Test

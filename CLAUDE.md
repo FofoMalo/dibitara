@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Application bancaire Android à usage personnel, inspirée de **Finary**. L'objectif est de centraliser budget mensuel, suivi des dépenses, investissements et projections financières.
 
 **Stack cible :** Android natif (Kotlin), architecture MVVM + Clean Architecture.
-**Version courante :** v4.4.1 (versionCode 16) — Room v25 (branche `florent/prive`).
+**Version courante :** v4.4.2 (versionCode 17) — Room v25 (branche `florent/prive`).
 
 ## Fonctionnalités principales
 
@@ -170,10 +170,15 @@ toute nouvelle carte de synthèse.
   (retrait = négatif) et cumulé dans le mois via `EnregistrerMouvementCapitalUseCase` plutôt
   que rejeté par la contrainte UNIQUE (compte, type, mois) de `monthly_versements` -
   contrairement au versement mensuel fixe de SCPI/Épargne salariale, ces deux types peuvent
-  recevoir plusieurs mouvements le même mois. Ce mécanisme (`EnregistrerMouvementCapitalUseCase`)
-  est réservé aux types SANS versement mensuel récurrent existant : le réutiliser pour
-  SCPI/EMPLOYEE_SAVINGS collisionnerait avec la contrainte UNIQUE déjà occupée par
-  `appliquerVersementScpi`/`appliquerVersementEmployeeSavings` dans `InvestmentsViewModel`.
+  recevoir plusieurs mouvements le même mois. SCPI et Épargne salariale ONT un versement
+  mensuel récurrent (`appliquerVersementScpi`/`appliquerVersementEmployeeSavings`,
+  contrainte UNIQUE) - leur mouvement ad hoc passe donc par une **voie séparée**
+  (`CompteType.SCPI_MOUVEMENT`/`EMPLOYEE_SAVINGS_MOUVEMENT`) pour ne pas collisionner avec
+  cette ligne mensuelle ; `InvestmentsViewModel.performanceDepuisAcquisition` additionne les
+  deux voies (`mouvementLane`). Nuance SCPI (`EditScpiSheet`) : le mouvement suggéré porte sur
+  le **delta de parts** valorisé au prix actuel, pas sur le delta de valeur totale - sinon une
+  simple révision du prix de la part par le gestionnaire serait neutralisée à tort (voir
+  `CADRAGE_MOUVEMENTS_CAPITAL_SCPI_EPARGNE.md`).
 - **Piège Vico (bibliothèque de graphiques) :** Vico tronque les libellés
   d'axe indépendamment de l'espace réellement disponible - il alloue la
   largeur de chaque graduation selon le nombre total de points de données,

@@ -1,6 +1,9 @@
 # Cadrage — Mouvements de capital sur SCPI et Épargne salariale
 
-> Statut : **CADRAGE** du sprint (rien d'implémenté).
+> Statut : **LIVRÉ** (2026-08-30). G1 + G2 + G3 implémentés tels que cadrés
+> ci-dessous (voies `SCPI_MOUVEMENT`/`EMPLOYEE_SAVINGS_MOUVEMENT`, delta de
+> parts pour SCPI §3, pattern live-sync repris tel quel §3). G4 (composable
+> partagé) non fait, reste un nettoyage optionnel.
 > Branche cible : `florent/prive`. Room : **aucune migration** (voir §4).
 > Date : 2026-08-30
 > Fait suite au Sprint « Mouvements de capital sur les actifs libres et

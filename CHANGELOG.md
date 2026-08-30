@@ -9,6 +9,16 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
+## [4.4.2] - 2026-08-30
+
+### Corrigé
+- Même correctif que 4.4.1, étendu à SCPI et Épargne salariale : `CompteType.SCPI_MOUVEMENT`/
+  `EMPLOYEE_SAVINGS_MOUVEMENT` (voie séparée du versement mensuel récurrent, pour ne pas
+  collisionner avec sa contrainte UNIQUE compte/mois) - case à cocher + montant signé dans
+  `EditScpiSheet`/`EditEmployeeSavingsSheet`. Pour SCPI, le mouvement suggéré porte sur le
+  delta de parts valorisé au prix actuel, pas sur le delta de valeur totale, pour ne pas
+  neutraliser à tort une simple révision du prix de la part.
+
 ## [4.4.1] - 2026-08-30
 
 ### Corrigé

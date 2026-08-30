@@ -31,8 +31,17 @@ data class MonthlyVersement(
  * ils portent un mouvement de capital ponctuel (apport ou retrait, signé), cumulé au sein du
  * même mois plutôt que rejeté par la contrainte UNIQUE - voir
  * [com.dibitara.app.domain.usecase.EnregistrerMouvementCapitalUseCase]. Ce sont les deux seuls
- * types d'actif sans versement mensuel récurrent existant, donc sans collision possible avec
- * la contrainte « un seul versement par compte et par mois » qui régit SCPI/EMPLOYEE_SAVINGS
- * (voir leur `appliquerVersement*` dans `InvestmentsViewModel`).
+ * types d'actif sans versement mensuel récurrent existant au moment de leur introduction, donc
+ * sans collision possible avec la contrainte « un seul versement par compte et par mois ».
+ *
+ * `SCPI_MOUVEMENT` et `EMPLOYEE_SAVINGS_MOUVEMENT` portent le même genre de mouvement ponctuel
+ * que `CUSTOM_ASSET`/`REAL_ESTATE`, mais pour SCPI et épargne salariale qui, elles, ONT déjà un
+ * versement mensuel récurrent (`CompteType.SCPI`/`EMPLOYEE_SAVINGS`, un seul par compte et par
+ * mois - voir `appliquerVersementScpi`/`appliquerVersementEmployeeSavings` dans
+ * `InvestmentsViewModel`). Réutiliser directement `SCPI`/`EMPLOYEE_SAVINGS` pour un mouvement
+ * ad hoc écrirait dans la même ligne `monthly_versements` que ce versement mensuel et le
+ * ferait échouer - d'où une voie séparée pour le même compte. `SommeVersementsDepuisUseCase`
+ * est appelé sur les deux voies et les totaux additionnés (voir
+ * `InvestmentsViewModel.performanceDepuisAcquisition`).
  */
-enum class CompteType { EPARGNE, SCPI, EMPLOYEE_SAVINGS, OBJECTIF, CUSTOM_ASSET, REAL_ESTATE }
+enum class CompteType { EPARGNE, SCPI, EMPLOYEE_SAVINGS, OBJECTIF, CUSTOM_ASSET, REAL_ESTATE, SCPI_MOUVEMENT, EMPLOYEE_SAVINGS_MOUVEMENT }

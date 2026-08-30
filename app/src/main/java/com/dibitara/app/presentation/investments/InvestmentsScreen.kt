@@ -144,7 +144,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     }
     empSavingsToEdit?.let { savings ->
         EditEmployeeSavingsSheet(savings = savings,
-            onSave = { type, label, balance, contrib, cur, acqValue, acqDate -> viewModel.updateEmployeeSavings(savings, type, label, balance, contrib, cur, acqValue, acqDate) },
+            onSave = { type, label, balance, contrib, cur, acqValue, acqDate, mouvementCents -> viewModel.updateEmployeeSavings(savings, type, label, balance, contrib, cur, acqValue, acqDate, mouvementCents) },
             onDismiss = { empSavingsToEdit = null })
     }
     if (showAddRealEstate) {
@@ -197,8 +197,8 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     scpiToEdit?.let { scpi ->
         EditScpiSheet(
             scpi = scpi,
-            onSave = { label, shares, shareValue, contribution, currency, acqValue, acqDate ->
-                viewModel.updateScpi(scpi, label, shares, shareValue, contribution, currency, acqValue, acqDate)
+            onSave = { label, shares, shareValue, contribution, currency, acqValue, acqDate, mouvementCents ->
+                viewModel.updateScpi(scpi, label, shares, shareValue, contribution, currency, acqValue, acqDate, mouvementCents)
             },
             onDismiss = { scpiToEdit = null }
         )
@@ -1529,7 +1529,7 @@ private fun EditRealEstateSheet(
 @Composable
 private fun EditScpiSheet(
     scpi: ScpiInvestment,
-    onSave: (label: String, shares: String, shareValue: String, contribution: String, currency: Currency, acquisitionValue: String, acquisitionDate: LocalDate?) -> Unit,
+    onSave: (label: String, shares: String, shareValue: String, contribution: String, currency: Currency, acquisitionValue: String, acquisitionDate: LocalDate?, mouvementCapitalCents: Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(scpi.label) }
@@ -1543,7 +1543,23 @@ private fun EditScpiSheet(
     var currencyExpanded by remember { mutableStateOf(false) }
     var acquisitionValue by remember { mutableStateOf(scpi.acquisitionValueCents?.let { "%.2f".format(it / 100.0).replace(',', '.') } ?: "") }
     var acquisitionDate by remember { mutableStateOf(scpi.acquisitionDate) }
+    var mouvementCapital by remember { mutableStateOf(false) }
+    var mouvementAmount by remember { mutableStateOf("") }
+    // Tant que ce flag est false, le montant suggéré suit le delta de PARTS en direct (pas le
+    // delta de valeur totale - une révision du prix de la part par le gestionnaire est de la
+    // performance, pas un mouvement de capital, voir CADRAGE_MOUVEMENTS_CAPITAL_SCPI_EPARGNE.md §3).
+    var mouvementAmountModifieManuellement by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(shares, shareValue, mouvementCapital) {
+        if (mouvementCapital && !mouvementAmountModifieManuellement) {
+            val nouveauSharesCount = shares.replace(',', '.').toDoubleOrNull() ?: scpi.sharesCount
+            val nouveauShareValueCents = shareValue.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: scpi.shareValueCents
+            val diffParts = nouveauSharesCount - scpi.sharesCount
+            val montant = (diffParts * nouveauShareValueCents).roundToLong()
+            mouvementAmount = "%.2f".format(montant / 100.0).replace(',', '.')
+        }
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -1613,8 +1629,37 @@ private fun EditScpiSheet(
                 focusManager = focusManager
             )
 
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Checkbox(checked = mouvementCapital, onCheckedChange = { checked ->
+                    mouvementCapital = checked
+                    mouvementAmountModifieManuellement = false
+                })
+                Text(
+                    "Le nombre de parts a changé hors versement mensuel (apport/retrait de capital) - neutralisé dans le taux d'évolution",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (mouvementCapital) {
+                OutlinedTextField(
+                    value = mouvementAmount,
+                    onValueChange = { mouvementAmount = it; mouvementAmountModifieManuellement = true },
+                    label = { Text("Montant du mouvement (+ apport, - retrait)") },
+                    supportingText = { Text("Suit automatiquement l'écart de parts valorisé au prix actuel tant que tu ne le modifies pas toi-même - une simple révision du prix de la part reste comptée en performance") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             Button(
-                onClick = { onSave(label, shares, shareValue, contribution, selectedCurrency, acquisitionValue, acquisitionDate) },
+                onClick = {
+                    val mouvementCents = if (mouvementCapital)
+                        mouvementAmount.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
+                    else null
+                    onSave(label, shares, shareValue, contribution, selectedCurrency, acquisitionValue, acquisitionDate, mouvementCents)
+                },
                 enabled = label.isNotBlank() && shares.replace(',', '.').toDoubleOrNull()?.let { it > 0.0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
@@ -2141,7 +2186,7 @@ private fun AddEmployeeSavingsSheet(
 @Composable
 private fun EditEmployeeSavingsSheet(
     savings: EmployeeSavings,
-    onSave: (EmployeeSavingsType, String, String, String, Currency, String, LocalDate?) -> Unit,
+    onSave: (EmployeeSavingsType, String, String, String, Currency, String, LocalDate?, Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var savingsType by remember { mutableStateOf(savings.type) }
@@ -2152,7 +2197,20 @@ private fun EditEmployeeSavingsSheet(
     var currencyExpanded by remember { mutableStateOf(false) }
     var acquisitionValue by remember { mutableStateOf(savings.acquisitionValueCents?.let { "%.2f".format(it / 100.0).replace(',', '.') } ?: "") }
     var acquisitionDate by remember { mutableStateOf(savings.acquisitionDate) }
+    var mouvementCapital by remember { mutableStateOf(false) }
+    var mouvementAmount by remember { mutableStateOf("") }
+    // Tant que ce flag est false, le montant suggéré suit le "Solde actuel" en direct - peu
+    // importe l'ordre dans lequel Florent coche la case et tape le nouveau solde.
+    var mouvementAmountModifieManuellement by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(balance, mouvementCapital) {
+        if (mouvementCapital && !mouvementAmountModifieManuellement) {
+            val nouveauCents = balance.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: savings.currentBalanceCents
+            val diff = nouveauCents - savings.currentBalanceCents
+            mouvementAmount = "%.2f".format(diff / 100.0).replace(',', '.')
+        }
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -2172,7 +2230,39 @@ private fun EditEmployeeSavingsSheet(
                 onAcquisitionDateChange = { acquisitionDate = it },
                 focusManager = focusManager
             )
-            Button(onClick = { onSave(savingsType, label, balance, contribution, selectedCurrency, acquisitionValue, acquisitionDate) }, enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Checkbox(checked = mouvementCapital, onCheckedChange = { checked ->
+                    mouvementCapital = checked
+                    mouvementAmountModifieManuellement = false
+                })
+                Text(
+                    "Ce changement de solde est un retrait ou un apport de capital hors abondement mensuel, pas une performance du fonds - neutralisé dans le taux d'évolution",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (mouvementCapital) {
+                OutlinedTextField(
+                    value = mouvementAmount,
+                    onValueChange = { mouvementAmount = it; mouvementAmountModifieManuellement = true },
+                    label = { Text("Montant du mouvement (+ apport, - retrait)") },
+                    supportingText = { Text("Suit automatiquement l'écart avec le \"Solde actuel\" ci-dessus tant que tu ne le modifies pas toi-même") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Button(
+                onClick = {
+                    val mouvementCents = if (mouvementCapital)
+                        mouvementAmount.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
+                    else null
+                    onSave(savingsType, label, balance, contribution, selectedCurrency, acquisitionValue, acquisitionDate, mouvementCents)
+                },
+                enabled = label.isNotBlank() && balance.replace(',', '.').toDoubleOrNull()?.let { it >= 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Enregistrer les modifications") }
         }
     }
 }

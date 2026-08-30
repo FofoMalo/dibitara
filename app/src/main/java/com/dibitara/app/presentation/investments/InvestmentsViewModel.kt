@@ -202,6 +202,18 @@ class InvestmentsViewModel @Inject constructor(
         ucCalculerTendanceActif(ucGetAssetValuationHistory(type, assetId).first())
 
     /**
+     * SCPI et épargne salariale ont, en plus de leur versement mensuel récurrent
+     * ([CompteType.SCPI]/[CompteType.EMPLOYEE_SAVINGS]), une voie séparée pour les mouvements
+     * de capital ad hoc (édition manuelle des parts/du solde hors versement) - voir le
+     * commentaire sur [CompteType.SCPI_MOUVEMENT]. Les deux voies sont sommées dans
+     * [performanceDepuisAcquisition].
+     */
+    private val mouvementLane = mapOf(
+        CompteType.SCPI to CompteType.SCPI_MOUVEMENT,
+        CompteType.EMPLOYEE_SAVINGS to CompteType.EMPLOYEE_SAVINGS_MOUVEMENT
+    )
+
+    /**
      * Performance "Acquisition → Aujourd'hui" (voir [AcquisitionEvolutionBlock][com.dibitara.app.presentation.common.AcquisitionEvolutionBlock]),
      * nette des versements/abondements/mouvements de capital enregistrés depuis l'acquisition
      * pour les comptes qui en ont ([versementCompteType] non null - SCPI, épargne salariale,
@@ -214,7 +226,11 @@ class InvestmentsViewModel @Inject constructor(
         acquisitionDate: LocalDate,
         versementCompteType: CompteType? = null
     ): PerformanceActif? {
-        val versementsCumules = versementCompteType?.let { ucSommeVersementsDepuis(accountId, it, acquisitionDate) } ?: 0L
+        val versementsCumules = versementCompteType?.let { type ->
+            val versementRecurrent = ucSommeVersementsDepuis(accountId, type, acquisitionDate)
+            val mouvementAdHoc = mouvementLane[type]?.let { ucSommeVersementsDepuis(accountId, it, acquisitionDate) } ?: 0L
+            versementRecurrent + mouvementAdHoc
+        } ?: 0L
         return ucCalculerPerformanceActif(acquisitionValueCents, currentValueCents, versementsCumules)
     }
 
@@ -333,7 +349,8 @@ class InvestmentsViewModel @Inject constructor(
         contributionStr: String,
         currency: Currency,
         acquisitionValueStr: String = "",
-        acquisitionDate: LocalDate? = null
+        acquisitionDate: LocalDate? = null,
+        mouvementCapitalCents: Long? = null
     ) {
         val shares = sharesStr.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Nombre de parts invalide")) }
@@ -349,6 +366,9 @@ class InvestmentsViewModel @Inject constructor(
             ucUpdateScpi(scpiToUpdate)
                 .onSuccess {
                     ucSaveAssetSnapshot(AssetValuationType.SCPI, scpi.id, scpiToUpdate.totalValueCents, currency)
+                    if (mouvementCapitalCents != null && mouvementCapitalCents != 0L) {
+                        ucEnregistrerMouvementCapital(scpi.id, CompteType.SCPI_MOUVEMENT, mouvementCapitalCents, currency)
+                    }
                     _event.emit(InvestmentsEvent.Saved)
                 }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
@@ -490,7 +510,8 @@ class InvestmentsViewModel @Inject constructor(
         contributionStr: String,
         currency: Currency,
         acquisitionValueStr: String = "",
-        acquisitionDate: LocalDate? = null
+        acquisitionDate: LocalDate? = null,
+        mouvementCapitalCents: Long? = null
     ) {
         val balance = balanceStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Solde invalide")) }
@@ -503,6 +524,9 @@ class InvestmentsViewModel @Inject constructor(
                 acquisitionValueCents = acquisitionCents, acquisitionDate = acquisitionDate))
                 .onSuccess {
                     ucSaveAssetSnapshot(AssetValuationType.EMPLOYEE_SAVINGS, savings.id, balance, currency)
+                    if (mouvementCapitalCents != null && mouvementCapitalCents != 0L) {
+                        ucEnregistrerMouvementCapital(savings.id, CompteType.EMPLOYEE_SAVINGS_MOUVEMENT, mouvementCapitalCents, currency)
+                    }
                     _event.emit(InvestmentsEvent.Saved)
                 }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
