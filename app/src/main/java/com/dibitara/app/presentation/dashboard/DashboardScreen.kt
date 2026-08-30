@@ -530,7 +530,7 @@ private fun DeviseChip(current: Currency, onSelect: (Currency) -> Unit) {
     Box {
         AssistChip(
             onClick = { expanded = true },
-            label = { Text("${current.symbol} ${current.isoCode}") }
+            label = { Text(current.symbol) }
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             listOf(Currency.EUR, Currency.USD, Currency.XOF, Currency.CAD).forEach { devise ->
