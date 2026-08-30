@@ -34,4 +34,13 @@ class CalculerPerformanceActifUseCaseTest {
         assertEquals(-220_00L, result.deltaCents)
         assertEquals((-220_00L.toFloat() / 4_200_00L.toFloat()) * 100f, result.deltaPct, 0.01f)
     }
+
+    @Test
+    fun `retrait de capital neutralisé - la baisse du montant n'est pas comptée en perte`() {
+        // Actif libre (CTO) acquis à 10 000€, toujours valant 10 000€ après un retrait de
+        // 1 000€ (versementsCumulesCents négatif) : la vraie performance est nulle, pas -10%.
+        val result = useCase(10_000_00L, 9_000_00L, versementsCumulesCents = -1_000_00L)!!
+        assertEquals(0L, result.deltaCents)
+        assertEquals(0f, result.deltaPct, 0.01f)
+    }
 }

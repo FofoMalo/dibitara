@@ -18,6 +18,18 @@ interface MonthlyVersementDao {
     """)
     suspend fun countPourMois(accountId: Long, accountType: String, year: Int, month: Int): Int
 
+    /** Le versement d'un compte pour un mois donné, ou null si aucun n'existe encore. */
+    @Query("""
+        SELECT * FROM monthly_versements
+        WHERE account_id = :accountId AND account_type = :accountType
+          AND year = :year AND month = :month
+        LIMIT 1
+    """)
+    suspend fun getPourMoisEtCompte(accountId: Long, accountType: String, year: Int, month: Int): MonthlyVersementEntity?
+
+    @Update
+    suspend fun update(entity: MonthlyVersementEntity)
+
     @Query("""
         SELECT * FROM monthly_versements
         WHERE account_id = :accountId AND account_type = :accountType

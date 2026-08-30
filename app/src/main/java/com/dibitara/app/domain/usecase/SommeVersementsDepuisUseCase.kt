@@ -7,10 +7,12 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 /**
- * Somme des versements enregistrés pour un compte (SCPI ou épargne salariale) à partir
- * d'un mois donné inclus - utilisé pour neutraliser les versements dans le calcul de
- * performance depuis acquisition (voir [CalculerPerformanceActifUseCase]) : un versement
- * est de l'argent apporté, pas de la performance.
+ * Somme des versements enregistrés pour un compte (SCPI, épargne salariale, actif libre ou
+ * immobilier) à partir d'un mois donné inclus - utilisé pour neutraliser les versements dans
+ * le calcul de performance depuis acquisition (voir [CalculerPerformanceActifUseCase]) : un
+ * versement est de l'argent apporté, pas de la performance. Pour un actif libre ou un bien
+ * immobilier, les montants peuvent être négatifs (retrait de capital) - la somme les
+ * neutralise de la même façon.
  */
 class SommeVersementsDepuisUseCase @Inject constructor(
     private val repository: VersementRepository

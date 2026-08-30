@@ -139,7 +139,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
     }
     customAssetToEdit?.let { asset ->
         EditCustomAssetSheet(asset = asset,
-            onSave = { label, value, cur, acqValue, acqDate -> viewModel.updateCustomAsset(asset, label, value, cur, acqValue, acqDate) },
+            onSave = { label, value, cur, acqValue, acqDate, mouvementCents -> viewModel.updateCustomAsset(asset, label, value, cur, acqValue, acqDate, mouvementCents) },
             onDismiss = { customAssetToEdit = null })
     }
     empSavingsToEdit?.let { savings ->
@@ -188,8 +188,8 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
         EditRealEstateSheet(
             asset          = asset,
             availableDebts = debts,
-            onSave = { label, value, currency, debtId, acqValue, acqDate ->
-                viewModel.updateRealEstate(asset, label, value, currency, debtId, acqValue, acqDate)
+            onSave = { label, value, currency, debtId, acqValue, acqDate, mouvementCents ->
+                viewModel.updateRealEstate(asset, label, value, currency, debtId, acqValue, acqDate, mouvementCents)
             },
             onDismiss = { realEstateToEdit = null }
         )
@@ -530,7 +530,7 @@ private fun RealEstateCard(
     var performance by remember(asset.id, acquisitionValue, acquisitionDate, asset.currentValueCents) { mutableStateOf<PerformanceActif?>(null) }
     LaunchedEffect(asset.id, acquisitionValue, acquisitionDate, asset.currentValueCents) {
         performance = if (acquisitionValue != null && acquisitionDate != null)
-            getPerformance(asset.id, acquisitionValue, asset.currentValueCents, acquisitionDate, null) else null
+            getPerformance(asset.id, acquisitionValue, asset.currentValueCents, acquisitionDate, CompteType.REAL_ESTATE) else null
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -1388,7 +1388,7 @@ private fun AddVehicleRentalSheet(
 private fun EditRealEstateSheet(
     asset          : RealEstateAsset,
     availableDebts : List<Debt> = emptyList(),
-    onSave: (label: String, value: String, currency: Currency, debtId: Long?, acquisitionValue: String, acquisitionDate: LocalDate?) -> Unit,
+    onSave: (label: String, value: String, currency: Currency, debtId: Long?, acquisitionValue: String, acquisitionDate: LocalDate?, mouvementCapitalCents: Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(asset.label) }
@@ -1400,7 +1400,21 @@ private fun EditRealEstateSheet(
     var debtExpanded by remember { mutableStateOf(false) }
     var acquisitionValue by remember { mutableStateOf(asset.acquisitionValueCents?.let { "%.2f".format(it / 100.0).replace(',', '.') } ?: "") }
     var acquisitionDate by remember { mutableStateOf(asset.acquisitionDate) }
+    var mouvementCapital by remember { mutableStateOf(false) }
+    var mouvementAmount by remember { mutableStateOf("") }
+    // Tant que ce flag est false, le montant suggéré suit la "Valeur actuelle" en direct - peu
+    // importe l'ordre dans lequel Florent coche la case et tape le nouveau montant (piège vécu :
+    // cocher la case avant de taper la valeur laissait le montant figé à 0).
+    var mouvementAmountModifieManuellement by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(value, mouvementCapital) {
+        if (mouvementCapital && !mouvementAmountModifieManuellement) {
+            val nouveauCents = value.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: asset.currentValueCents
+            val diff = nouveauCents - asset.currentValueCents
+            mouvementAmount = "%.2f".format(diff / 100.0).replace(',', '.')
+        }
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -1473,8 +1487,37 @@ private fun EditRealEstateSheet(
                 focusManager = focusManager
             )
 
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Checkbox(checked = mouvementCapital, onCheckedChange = { checked ->
+                    mouvementCapital = checked
+                    mouvementAmountModifieManuellement = false
+                })
+                Text(
+                    "Ce changement de valeur est un apport de capital (ex. travaux), pas une plus-value de marché - neutralisé dans le taux d'évolution",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (mouvementCapital) {
+                OutlinedTextField(
+                    value = mouvementAmount,
+                    onValueChange = { mouvementAmount = it; mouvementAmountModifieManuellement = true },
+                    label = { Text("Montant du mouvement (+ apport, - retrait)") },
+                    supportingText = { Text("Suit automatiquement l'écart avec la \"Valeur actuelle\" ci-dessus tant que tu ne le modifies pas toi-même") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             Button(
-                onClick = { onSave(label, value, selectedCurrency, selectedDebtId, acquisitionValue, acquisitionDate) },
+                onClick = {
+                    val mouvementCents = if (mouvementCapital)
+                        mouvementAmount.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
+                    else null
+                    onSave(label, value, selectedCurrency, selectedDebtId, acquisitionValue, acquisitionDate, mouvementCents)
+                },
                 enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Enregistrer les modifications") }
@@ -1774,7 +1817,7 @@ private fun CustomAssetCard(
     var performance by remember(asset.id, acquisitionValue, acquisitionDate, asset.totalValueCents) { mutableStateOf<PerformanceActif?>(null) }
     LaunchedEffect(asset.id, acquisitionValue, acquisitionDate, asset.totalValueCents) {
         performance = if (acquisitionValue != null && acquisitionDate != null)
-            getPerformance(asset.id, acquisitionValue, asset.totalValueCents, acquisitionDate, null) else null
+            getPerformance(asset.id, acquisitionValue, asset.totalValueCents, acquisitionDate, CompteType.CUSTOM_ASSET) else null
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -1976,7 +2019,7 @@ private fun AddCustomAssetSheet(
 @Composable
 private fun EditCustomAssetSheet(
     asset: CustomAsset,
-    onSave: (String, String, Currency, String, LocalDate?) -> Unit,
+    onSave: (String, String, Currency, String, LocalDate?, Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var label by remember { mutableStateOf(asset.label) }
@@ -1985,7 +2028,21 @@ private fun EditCustomAssetSheet(
     var currencyExpanded by remember { mutableStateOf(false) }
     var acquisitionValue by remember { mutableStateOf(asset.acquisitionValueCents?.let { "%.2f".format(it / 100.0).replace(',', '.') } ?: "") }
     var acquisitionDate by remember { mutableStateOf(asset.acquisitionDate) }
+    var mouvementCapital by remember { mutableStateOf(false) }
+    var mouvementAmount by remember { mutableStateOf("") }
+    // Tant que ce flag est false, le montant suggéré suit la "Valeur actuelle" en direct - peu
+    // importe l'ordre dans lequel Florent coche la case et tape le nouveau montant (piège vécu :
+    // cocher la case avant de taper la valeur laissait le montant figé à 0).
+    var mouvementAmountModifieManuellement by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(value, mouvementCapital) {
+        if (mouvementCapital && !mouvementAmountModifieManuellement) {
+            val nouveauCents = value.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: asset.totalValueCents
+            val diff = nouveauCents - asset.totalValueCents
+            mouvementAmount = "%.2f".format(diff / 100.0).replace(',', '.')
+        }
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -2003,7 +2060,39 @@ private fun EditCustomAssetSheet(
                 onAcquisitionDateChange = { acquisitionDate = it },
                 focusManager = focusManager
             )
-            Button(onClick = { onSave(label, value, selectedCurrency, acquisitionValue, acquisitionDate) }, enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true, modifier = Modifier.fillMaxWidth()) { Text("Enregistrer les modifications") }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Checkbox(checked = mouvementCapital, onCheckedChange = { checked ->
+                    mouvementCapital = checked
+                    mouvementAmountModifieManuellement = false
+                })
+                Text(
+                    "Retrait ou apport de capital (pas une variation de marché) - neutralisé dans le taux d'évolution",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (mouvementCapital) {
+                OutlinedTextField(
+                    value = mouvementAmount,
+                    onValueChange = { mouvementAmount = it; mouvementAmountModifieManuellement = true },
+                    label = { Text("Montant du mouvement (+ apport, - retrait)") },
+                    supportingText = { Text("Suit automatiquement l'écart avec la \"Valeur actuelle\" ci-dessus tant que tu ne le modifies pas toi-même") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Button(
+                onClick = {
+                    val mouvementCents = if (mouvementCapital)
+                        mouvementAmount.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
+                    else null
+                    onSave(label, value, selectedCurrency, acquisitionValue, acquisitionDate, mouvementCents)
+                },
+                enabled = label.isNotBlank() && value.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Enregistrer les modifications") }
         }
     }
 }

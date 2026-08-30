@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Application bancaire Android à usage personnel, inspirée de **Finary**. L'objectif est de centraliser budget mensuel, suivi des dépenses, investissements et projections financières.
 
 **Stack cible :** Android natif (Kotlin), architecture MVVM + Clean Architecture.
-**Version courante :** v4.4.0 (versionCode 15) — Room v25 (branche `florent/prive`).
+**Version courante :** v4.4.1 (versionCode 16) — Room v25 (branche `florent/prive`).
 
 ## Fonctionnalités principales
 
@@ -162,9 +162,18 @@ toute nouvelle carte de synthèse.
   et `acquisitionDate` sont renseignés (saisie rétroactive, jamais déduite des
   `AssetValuationSnapshot` - ceux-ci ne remontent pas avant la refonte du 2026-08).
   Réutilise `TrendChip` pour le badge de pourcentage. Le delta est net des
-  versements/abondements enregistrés depuis l'acquisition (`SommeVersementsDepuisUseCase`)
-  pour SCPI et Épargne salariale via `CompteType.SCPI`/`CompteType.EMPLOYEE_SAVINGS` -
-  un versement est de l'argent apporté, pas de la performance.
+  versements/abondements/mouvements de capital enregistrés depuis l'acquisition
+  (`SommeVersementsDepuisUseCase`) pour SCPI, Épargne salariale, Actif libre et Immobilier via
+  `CompteType.SCPI`/`CompteType.EMPLOYEE_SAVINGS`/`CompteType.CUSTOM_ASSET`/`CompteType.REAL_ESTATE`
+  - un versement est de l'argent apporté (ou retiré), pas de la performance. Pour Actif libre
+  et Immobilier (ex. travaux qui font remonter la valeur affichée), ce mouvement est signé
+  (retrait = négatif) et cumulé dans le mois via `EnregistrerMouvementCapitalUseCase` plutôt
+  que rejeté par la contrainte UNIQUE (compte, type, mois) de `monthly_versements` -
+  contrairement au versement mensuel fixe de SCPI/Épargne salariale, ces deux types peuvent
+  recevoir plusieurs mouvements le même mois. Ce mécanisme (`EnregistrerMouvementCapitalUseCase`)
+  est réservé aux types SANS versement mensuel récurrent existant : le réutiliser pour
+  SCPI/EMPLOYEE_SAVINGS collisionnerait avec la contrainte UNIQUE déjà occupée par
+  `appliquerVersementScpi`/`appliquerVersementEmployeeSavings` dans `InvestmentsViewModel`.
 - **Piège Vico (bibliothèque de graphiques) :** Vico tronque les libellés
   d'axe indépendamment de l'espace réellement disponible - il alloue la
   largeur de chaque graduation selon le nombre total de points de données,

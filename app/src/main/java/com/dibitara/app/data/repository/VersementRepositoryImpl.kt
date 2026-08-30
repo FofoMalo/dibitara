@@ -26,6 +26,12 @@ class VersementRepositoryImpl @Inject constructor(
     override suspend fun getAllPourMois(type: CompteType, year: Int, month: Int): List<MonthlyVersement> =
         dao.getAllPourMois(type.name, year, month).map { it.toDomain() }
 
+    override suspend fun getPourMoisEtCompte(accountId: Long, type: CompteType, year: Int, month: Int): MonthlyVersement? =
+        dao.getPourMoisEtCompte(accountId, type.name, year, month)?.toDomain()
+
+    override suspend fun update(versement: MonthlyVersement): Result<Unit> =
+        runCatching { dao.update(MonthlyVersementEntity.fromDomain(versement)) }
+
     override suspend fun getAll(): List<MonthlyVersement> =
         dao.getAll().map { it.toDomain() }
 }

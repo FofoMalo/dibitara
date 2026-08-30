@@ -2,7 +2,9 @@ package com.dibitara.app.presentation.investments
 
 import com.dibitara.app.domain.model.AirbnbRental
 import com.dibitara.app.domain.model.AssetValuationType
+import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.CustomAsset
 import com.dibitara.app.domain.model.ExchangeRates
 import com.dibitara.app.domain.model.RealEstateAsset
 import com.dibitara.app.domain.model.ScpiInvestment
@@ -18,6 +20,7 @@ import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
 import com.dibitara.app.domain.usecase.DeleteVehicleRentalEntryUseCase
+import com.dibitara.app.domain.usecase.EnregistrerMouvementCapitalUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetCustomAssetsUseCase
@@ -101,6 +104,7 @@ class InvestmentsViewModelTest {
     private val ucCalculerTendanceActif: CalculerTendanceActifUseCase = mockk(relaxed = true)
     private val ucCalculerPerformanceActif: CalculerPerformanceActifUseCase = mockk(relaxed = true)
     private val ucSommeVersementsDepuis: SommeVersementsDepuisUseCase = mockk(relaxed = true)
+    private val ucEnregistrerMouvementCapital: EnregistrerMouvementCapitalUseCase = mockk(relaxed = true)
 
     private lateinit var viewModel: InvestmentsViewModel
 
@@ -130,7 +134,7 @@ class InvestmentsViewModelTest {
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts,
             ucGetPatrimoineHistory, ucCalculerTendance,
             ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
-            ucCalculerPerformanceActif, ucSommeVersementsDepuis
+            ucCalculerPerformanceActif, ucSommeVersementsDepuis, ucEnregistrerMouvementCapital
         )
     }
 
@@ -216,6 +220,49 @@ class InvestmentsViewModelTest {
     }
 
     @Test
+    fun `updateRealEstate avec mouvement de capital enregistre le montant signé saisi`() = runTest {
+        val asset = RealEstateAsset(id = 1L, label = "Appart", currentValueCents = 25000000L, currency = Currency.EUR, updatedAt = LocalDate.now())
+        coEvery { ucUpdateRealEstate(any()) } returns Result.success(Unit)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        // Travaux de 5000€ qui font remonter la valeur affichée du bien : ce n'est pas
+        // une plus-value de marché, donc passé explicitement comme mouvement de capital.
+        viewModel.updateRealEstate(asset, "Appartement Lyon", "255000.00", Currency.EUR, mouvementCapitalCents = 5_000_00L)
+        testScheduler.advanceUntilIdle()
+
+        coVerify { ucEnregistrerMouvementCapital(1L, CompteType.REAL_ESTATE, 5_000_00L, Currency.EUR) }
+        job.cancel()
+    }
+
+    @Test
+    fun `updateCustomAsset avec mouvement de capital enregistre le montant signé saisi`() = runTest {
+        val asset = CustomAsset(id = 3L, label = "CTO", totalValueCents = 10_000_00L, currency = Currency.EUR, updatedAt = LocalDate.now())
+        coEvery { ucUpdateCustomAsset(any()) } returns Result.success(Unit)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        // Retrait de 1000€ déjà saisi précédemment sur la valeur : le mouvement est passé
+        // explicitement, pas recalculé depuis l'écart avec l'ancienne valeur du ViewModel.
+        viewModel.updateCustomAsset(asset, "CTO", "9000.00", Currency.EUR, mouvementCapitalCents = -1_000_00L)
+        testScheduler.advanceUntilIdle()
+
+        coVerify { ucEnregistrerMouvementCapital(3L, CompteType.CUSTOM_ASSET, -1_000_00L, Currency.EUR) }
+        job.cancel()
+    }
+
+    @Test
+    fun `updateCustomAsset sans case cochée n'enregistre aucun mouvement de capital`() = runTest {
+        val asset = CustomAsset(id = 3L, label = "CTO", totalValueCents = 10_000_00L, currency = Currency.EUR, updatedAt = LocalDate.now())
+        coEvery { ucUpdateCustomAsset(any()) } returns Result.success(Unit)
+        val job = launch(testDispatcher) { viewModel.event.collect {} }
+
+        viewModel.updateCustomAsset(asset, "CTO", "9000.00", Currency.EUR)
+        testScheduler.advanceUntilIdle()
+
+        coVerify(exactly = 0) { ucEnregistrerMouvementCapital(any(), any(), any(), any(), any()) }
+        job.cancel()
+    }
+
+    @Test
     fun `addAirbnbRental avec montant valide émet Saved`() = runTest {
         coEvery { ucSaveAirbnbRental(any()) } returns Result.success(1L)
         val events = mutableListOf<InvestmentsEvent>()
@@ -282,7 +329,7 @@ class InvestmentsViewModelTest {
             ucSaveVersement, ucExisteVersementMois, ucGetPreferences, ratesRepo, ucGetDebts,
             ucGetPatrimoineHistory, ucCalculerTendance,
             ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
-            ucCalculerPerformanceActif, ucSommeVersementsDepuis
+            ucCalculerPerformanceActif, ucSommeVersementsDepuis, ucEnregistrerMouvementCapital
         )
 
         val job = launch { viewModel.uiState.collect {} }

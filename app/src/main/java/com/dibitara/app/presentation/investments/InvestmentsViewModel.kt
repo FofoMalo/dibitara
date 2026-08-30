@@ -25,6 +25,7 @@ import com.dibitara.app.domain.usecase.DeleteCustomAssetUseCase
 import com.dibitara.app.domain.usecase.DeleteEmployeeSavingsUseCase
 import com.dibitara.app.domain.usecase.DeleteRealEstateUseCase
 import com.dibitara.app.domain.usecase.DeleteScpiUseCase
+import com.dibitara.app.domain.usecase.EnregistrerMouvementCapitalUseCase
 import com.dibitara.app.domain.usecase.ExisteVersementMoisUseCase
 import com.dibitara.app.domain.usecase.GetAirbnbRentalsByYearUseCase
 import com.dibitara.app.domain.usecase.GetCustomAssetsUseCase
@@ -99,7 +100,8 @@ class InvestmentsViewModel @Inject constructor(
     private val ucGetAssetValuationHistory: GetAssetValuationHistoryUseCase,
     private val ucCalculerTendanceActif: CalculerTendanceActifUseCase,
     private val ucCalculerPerformanceActif: CalculerPerformanceActifUseCase,
-    private val ucSommeVersementsDepuis: SommeVersementsDepuisUseCase
+    private val ucSommeVersementsDepuis: SommeVersementsDepuisUseCase,
+    private val ucEnregistrerMouvementCapital: EnregistrerMouvementCapitalUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -201,8 +203,9 @@ class InvestmentsViewModel @Inject constructor(
 
     /**
      * Performance "Acquisition → Aujourd'hui" (voir [AcquisitionEvolutionBlock][com.dibitara.app.presentation.common.AcquisitionEvolutionBlock]),
-     * nette des versements/abondements enregistrés depuis l'acquisition pour les comptes
-     * qui en ont ([versementCompteType] non null - SCPI et épargne salariale uniquement).
+     * nette des versements/abondements/mouvements de capital enregistrés depuis l'acquisition
+     * pour les comptes qui en ont ([versementCompteType] non null - SCPI, épargne salariale,
+     * actif libre et immobilier).
      */
     suspend fun performanceDepuisAcquisition(
         accountId: Long,
@@ -299,7 +302,8 @@ class InvestmentsViewModel @Inject constructor(
         currency: Currency,
         debtId: Long? = null,
         acquisitionValueStr: String = "",
-        acquisitionDate: LocalDate? = null
+        acquisitionDate: LocalDate? = null,
+        mouvementCapitalCents: Long? = null
     ) {
         val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
@@ -312,6 +316,9 @@ class InvestmentsViewModel @Inject constructor(
                 acquisitionValueCents = acquisitionCents, acquisitionDate = acquisitionDate))
                 .onSuccess {
                     ucSaveAssetSnapshot(AssetValuationType.REAL_ESTATE, asset.id, cents, currency)
+                    if (mouvementCapitalCents != null && mouvementCapitalCents != 0L) {
+                        ucEnregistrerMouvementCapital(asset.id, CompteType.REAL_ESTATE, mouvementCapitalCents, currency)
+                    }
                     _event.emit(InvestmentsEvent.Saved)
                 }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }
@@ -423,7 +430,7 @@ class InvestmentsViewModel @Inject constructor(
         }
     }
 
-    fun updateCustomAsset(asset: CustomAsset, label: String, valueStr: String, currency: Currency, acquisitionValueStr: String = "", acquisitionDate: LocalDate? = null) {
+    fun updateCustomAsset(asset: CustomAsset, label: String, valueStr: String, currency: Currency, acquisitionValueStr: String = "", acquisitionDate: LocalDate? = null, mouvementCapitalCents: Long? = null) {
         val cents = valueStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(InvestmentsEvent.Error("Montant invalide")) }
             return
@@ -434,6 +441,9 @@ class InvestmentsViewModel @Inject constructor(
                 acquisitionValueCents = acquisitionCents, acquisitionDate = acquisitionDate))
                 .onSuccess {
                     ucSaveAssetSnapshot(AssetValuationType.CUSTOM_ASSET, asset.id, cents, currency)
+                    if (mouvementCapitalCents != null && mouvementCapitalCents != 0L) {
+                        ucEnregistrerMouvementCapital(asset.id, CompteType.CUSTOM_ASSET, mouvementCapitalCents, currency)
+                    }
                     _event.emit(InvestmentsEvent.Saved)
                 }
                 .onFailure { _event.emit(InvestmentsEvent.Error(it.message ?: "Erreur")) }

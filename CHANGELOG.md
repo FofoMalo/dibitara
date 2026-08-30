@@ -9,6 +9,18 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
+## [4.4.1] - 2026-08-30
+
+### Corrigé
+- Taux "Acquisition → Aujourd'hui" des actifs libres (ex. CTO) et de l'immobilier faussé par
+  un retrait/apport manuel de capital (ex. travaux) compté à tort comme performance de marché -
+  `CompteType.CUSTOM_ASSET`/`CompteType.REAL_ESTATE` ajoutés, `EnregistrerMouvementCapitalUseCase`
+  (cumule les mouvements du même mois, contrairement au versement mensuel fixe de
+  SCPI/épargne salariale)
+- Champ "Montant du mouvement" (retrait/apport) figé à 0 si la case était cochée avant la
+  saisie de la nouvelle valeur - suit maintenant l'écart en direct tant qu'il n'est pas
+  modifié à la main, quel que soit l'ordre des actions
+
 ## [4.4.0] - 2026-08-27
 
 > Le `versionCode` n'avait pas été incrémenté depuis Sprint 19 (4.3.0, 2026-05-22)
