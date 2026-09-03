@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlin.math.roundToLong
 import com.dibitara.app.domain.model.AirbnbRental
+import com.dibitara.app.domain.model.AssetValuationSnapshot
 import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
@@ -200,6 +201,16 @@ class InvestmentsViewModel @Inject constructor(
      */
     suspend fun tendancePourActif(type: AssetValuationType, assetId: Long): Float? =
         ucCalculerTendanceActif(ucGetAssetValuationHistory(type, assetId).first())
+
+    /**
+     * Historique de valorisation d'un actif (un point par mois, déjà agrégé par
+     * [GetAssetValuationHistoryUseCase]), lu à la demande comme [tendancePourActif]
+     * : la série ne bouge que sur une édition explicite. Alimente la mini-courbe
+     * [ValueHistorySparkline][com.dibitara.app.presentation.common.ValueHistorySparkline]
+     * sur la carte d'un actif libre.
+     */
+    suspend fun historiquePourActif(type: AssetValuationType, assetId: Long): List<AssetValuationSnapshot> =
+        ucGetAssetValuationHistory(type, assetId).first()
 
     /**
      * SCPI et épargne salariale ont, en plus de leur versement mensuel récurrent

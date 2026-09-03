@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.AirbnbRental
+import com.dibitara.app.domain.model.AssetValuationSnapshot
 import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
@@ -47,6 +48,7 @@ import com.dibitara.app.presentation.common.HorizontalBarChart
 import com.dibitara.app.presentation.common.HorizontalBarEntry
 import com.dibitara.app.presentation.common.MouvementCapitalField
 import com.dibitara.app.presentation.common.TrendChip
+import com.dibitara.app.presentation.common.ValueHistorySparkline
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -122,7 +124,8 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                         onAppliquerVersementScpi = viewModel::appliquerVersementScpi,
                         onAppliquerVersementEmpSavings = viewModel::appliquerVersementEmployeeSavings,
                         getTrend = viewModel::tendancePourActif,
-                        getPerformance = viewModel::performanceDepuisAcquisition
+                        getPerformance = viewModel::performanceDepuisAcquisition,
+                        getHistorique = viewModel::historiquePourActif
                     )
             }
         }
@@ -244,7 +247,8 @@ private fun InvestmentsContent(
     onAppliquerVersementScpi: (ScpiInvestment) -> Unit,
     onAppliquerVersementEmpSavings: (EmployeeSavings) -> Unit,
     getTrend: suspend (AssetValuationType, Long) -> Float?,
-    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?,
+    getHistorique: suspend (AssetValuationType, Long) -> List<AssetValuationSnapshot>
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -355,7 +359,7 @@ private fun InvestmentsContent(
             item { EmptySectionText("Aucun actif libre enregistré (crypto, actions, œuvres...).") }
         } else {
             items(state.customAssets, key = { "custom_${it.id}" }) { asset ->
-                CustomAssetCard(asset = asset, onEdit = { onEditCustomAsset(asset) }, onDelete = { onDeleteCustomAsset(asset) }, getTrend = getTrend, getPerformance = getPerformance)
+                CustomAssetCard(asset = asset, onEdit = { onEditCustomAsset(asset) }, onDelete = { onDeleteCustomAsset(asset) }, getTrend = getTrend, getPerformance = getPerformance, getHistorique = getHistorique)
             }
         }
 
@@ -1807,12 +1811,17 @@ private fun CustomAssetCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     getTrend: suspend (AssetValuationType, Long) -> Float?,
-    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?,
+    getHistorique: suspend (AssetValuationType, Long) -> List<AssetValuationSnapshot>
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var trendPct by remember(asset.id, asset.updatedAt) { mutableStateOf<Float?>(null) }
     LaunchedEffect(asset.id, asset.updatedAt) { trendPct = getTrend(AssetValuationType.CUSTOM_ASSET, asset.id) }
+    // Historique de valorisation (un point par mois) pour la courbe d'évolution -
+    // même déclencheur que la tendance : ne bouge que sur une édition de la valeur.
+    var historique by remember(asset.id, asset.updatedAt) { mutableStateOf<List<AssetValuationSnapshot>>(emptyList()) }
+    LaunchedEffect(asset.id, asset.updatedAt) { historique = getHistorique(AssetValuationType.CUSTOM_ASSET, asset.id) }
     val acquisitionValue = asset.acquisitionValueCents
     val acquisitionDate = asset.acquisitionDate
     var performance by remember(asset.id, acquisitionValue, acquisitionDate, asset.totalValueCents) { mutableStateOf<PerformanceActif?>(null) }
@@ -1822,42 +1831,51 @@ private fun CustomAssetCard(
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Column {
-                    Text(asset.label, style = MaterialTheme.typography.bodyLarge)
-                    if (acquisitionDate != null) {
-                        Text(acquisitionDate.depuisLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column {
+                        Text(asset.label, style = MaterialTheme.typography.bodyLarge)
+                        if (acquisitionDate != null) {
+                            Text(acquisitionDate.depuisLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (performance != null) {
+                        AcquisitionEvolutionBlock(
+                            acquisitionValueCents = acquisitionValue!!,
+                            currentValueCents = asset.totalValueCents,
+                            currency = asset.currency,
+                            deltaCents = performance!!.deltaCents,
+                            deltaPct = performance!!.deltaPct
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(asset.totalValueCents.toCurrencyDisplay(asset.currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                            if (trendPct != null) TrendChip(trendPct!!)
+                        }
+                        Text("Mis à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                if (performance != null) {
-                    AcquisitionEvolutionBlock(
-                        acquisitionValueCents = acquisitionValue!!,
-                        currentValueCents = asset.totalValueCents,
-                        currency = asset.currency,
-                        deltaCents = performance!!.deltaCents,
-                        deltaPct = performance!!.deltaPct
-                    )
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(asset.totalValueCents.toCurrencyDisplay(asset.currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
-                        if (trendPct != null) TrendChip(trendPct!!)
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("Mis à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Modifier") },
+                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            onClick = { showMenu = false; onEdit() })
+                        DropdownMenuItem(text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; showConfirm = true })
+                    }
                 }
             }
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("Modifier") },
-                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                        onClick = { showMenu = false; onEdit() })
-                    DropdownMenuItem(text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                        onClick = { showMenu = false; showConfirm = true })
-                }
+            // Courbe d'évolution : masquée sous 2 relevés mensuels (voir ValueHistorySparkline).
+            if (historique.size >= 2) {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(12.dp))
+                ValueHistorySparkline(history = historique, currency = asset.currency)
             }
         }
     }
