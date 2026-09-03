@@ -296,7 +296,8 @@ private fun InvestmentsContent(
                     onEdit         = { onEditRealEstate(asset) },
                     onDelete       = { onDeleteRealEstate(asset) },
                     getTrend       = getTrend,
-                    getPerformance = getPerformance
+                    getPerformance = getPerformance,
+                    getHistorique  = getHistorique
                 )
             }
         }
@@ -317,7 +318,8 @@ private fun InvestmentsContent(
                     onDelete = { onDeleteScpi(scpi) },
                     onVersement = { onAppliquerVersementScpi(scpi) },
                     getTrend = getTrend,
-                    getPerformance = getPerformance
+                    getPerformance = getPerformance,
+                    getHistorique = getHistorique
                 )
             }
         }
@@ -516,6 +518,24 @@ private fun EmptySectionText(text: String) {
 private fun LocalDate.depuisLabel(): String =
     "depuis ${format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRENCH))}"
 
+/**
+ * Section "Évolution" (courbe de valeur mensuelle) affichée en bas d'une carte
+ * d'actif, séparée du contenu par un filet. N'affiche rien tant qu'il y a moins
+ * de deux relevés mensuels. Fournit ses propres écarts : à placer dans un Column
+ * sans `verticalArrangement.spacedBy`.
+ */
+@Composable
+private fun AssetEvolutionSection(
+    historique: List<AssetValuationSnapshot>,
+    currency: Currency
+) {
+    if (historique.size < 2) return
+    Spacer(Modifier.height(12.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(Modifier.height(12.dp))
+    ValueHistorySparkline(history = historique, currency = currency)
+}
+
 @Composable
 private fun RealEstateCard(
     asset         : RealEstateAsset,
@@ -524,12 +544,15 @@ private fun RealEstateCard(
     onEdit        : () -> Unit,
     onDelete      : () -> Unit,
     getTrend      : suspend (AssetValuationType, Long) -> Float?,
-    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?,
+    getHistorique : suspend (AssetValuationType, Long) -> List<AssetValuationSnapshot>
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var trendPct by remember(asset.id, asset.updatedAt) { mutableStateOf<Float?>(null) }
     LaunchedEffect(asset.id, asset.updatedAt) { trendPct = getTrend(AssetValuationType.REAL_ESTATE, asset.id) }
+    var historique by remember(asset.id, asset.updatedAt) { mutableStateOf<List<AssetValuationSnapshot>>(emptyList()) }
+    LaunchedEffect(asset.id, asset.updatedAt) { historique = getHistorique(AssetValuationType.REAL_ESTATE, asset.id) }
     val acquisitionValue = asset.acquisitionValueCents
     val acquisitionDate = asset.acquisitionDate
     var performance by remember(asset.id, acquisitionValue, acquisitionDate, asset.currentValueCents) { mutableStateOf<PerformanceActif?>(null) }
@@ -539,80 +562,83 @@ private fun RealEstateCard(
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Column {
-                    Text(asset.label, style = MaterialTheme.typography.bodyLarge)
-                    if (acquisitionDate != null) {
-                        Text(acquisitionDate.depuisLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column {
+                        Text(asset.label, style = MaterialTheme.typography.bodyLarge)
+                        if (acquisitionDate != null) {
+                            Text(acquisitionDate.depuisLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
-                }
-                if (performance != null) {
-                    AcquisitionEvolutionBlock(
-                        acquisitionValueCents = acquisitionValue!!,
-                        currentValueCents = asset.currentValueCents,
-                        currency = asset.currency,
-                        deltaCents = performance!!.deltaCents,
-                        deltaPct = performance!!.deltaPct
-                    )
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "Valeur actuelle : ${asset.currentValueCents.toCurrencyDisplay(asset.currency)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
+                    if (performance != null) {
+                        AcquisitionEvolutionBlock(
+                            acquisitionValueCents = acquisitionValue!!,
+                            currentValueCents = asset.currentValueCents,
+                            currency = asset.currency,
+                            deltaCents = performance!!.deltaCents,
+                            deltaPct = performance!!.deltaPct
                         )
-                        if (trendPct != null) TrendChip(trendPct!!)
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Valeur actuelle : ${asset.currentValueCents.toCurrencyDisplay(asset.currency)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            if (trendPct != null) TrendChip(trendPct!!)
+                        }
+                    }
+                    if (linkedDebt != null) {
+                        Text(
+                            "Crédit lié : ${linkedDebt.label} - −${linkedDebt.totalCents.toCurrencyDisplay(linkedDebt.currency)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        // Conversion nécessaire : le crédit lié peut être dans une devise différente du bien
+                        val detteDansDeviseDuBien = CurrencyConverter.convertCents(
+                            linkedDebt.totalCents, linkedDebt.currency, asset.currency, rates
+                        )
+                        val equite = asset.currentValueCents - detteDansDeviseDuBien
+                        Text(
+                            "Équité nette : ${equite.toCurrencyDisplay(asset.currency)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (equite >= 0) MaterialTheme.colorScheme.tertiary
+                                    else MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Text(
+                        "Mis à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Modifier") },
+                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary) },
+                            onClick = { showMenu = false; onEdit() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; showConfirm = true }
+                        )
                     }
                 }
-                if (linkedDebt != null) {
-                    Text(
-                        "Crédit lié : ${linkedDebt.label} - −${linkedDebt.totalCents.toCurrencyDisplay(linkedDebt.currency)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    // Conversion nécessaire : le crédit lié peut être dans une devise différente du bien
-                    val detteDansDeviseDuBien = CurrencyConverter.convertCents(
-                        linkedDebt.totalCents, linkedDebt.currency, asset.currency, rates
-                    )
-                    val equite = asset.currentValueCents - detteDansDeviseDuBien
-                    Text(
-                        "Équité nette : ${equite.toCurrencyDisplay(asset.currency)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (equite >= 0) MaterialTheme.colorScheme.tertiary
-                                else MaterialTheme.colorScheme.error
-                    )
-                }
-                Text(
-                    "Mis à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Modifier") },
-                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary) },
-                        onClick = { showMenu = false; onEdit() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error) },
-                        onClick = { showMenu = false; showConfirm = true }
-                    )
-                }
-            }
+            AssetEvolutionSection(historique, asset.currency)
         }
     }
 
@@ -633,13 +659,16 @@ private fun ScpiCard(
     onDelete: () -> Unit,
     onVersement: () -> Unit,
     getTrend: suspend (AssetValuationType, Long) -> Float?,
-    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?,
+    getHistorique: suspend (AssetValuationType, Long) -> List<AssetValuationSnapshot>
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var showVersementConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var trendPct by remember(scpi.id, scpi.updatedAt) { mutableStateOf<Float?>(null) }
     LaunchedEffect(scpi.id, scpi.updatedAt) { trendPct = getTrend(AssetValuationType.SCPI, scpi.id) }
+    var historique by remember(scpi.id, scpi.updatedAt) { mutableStateOf<List<AssetValuationSnapshot>>(emptyList()) }
+    LaunchedEffect(scpi.id, scpi.updatedAt) { historique = getHistorique(AssetValuationType.SCPI, scpi.id) }
     val acquisitionValue = scpi.acquisitionValueCents
     val acquisitionDate = scpi.acquisitionDate
     var performance by remember(scpi.id, acquisitionValue, acquisitionDate, scpi.totalValueCents) { mutableStateOf<PerformanceActif?>(null) }
@@ -649,10 +678,7 @@ private fun ScpiCard(
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -716,8 +742,11 @@ private fun ScpiCard(
                 }
             }
 
+            AssetEvolutionSection(historique, scpi.currency)
+
             // Bouton versement : visible uniquement si un montant mensuel est configuré
             if (scpi.monthlyContributionCents > 0) {
+                Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = { showVersementConfirm = true },
                     modifier = Modifier.fillMaxWidth()
@@ -1870,13 +1899,7 @@ private fun CustomAssetCard(
                     }
                 }
             }
-            // Courbe d'évolution : masquée sous 2 relevés mensuels (voir ValueHistorySparkline).
-            if (historique.size >= 2) {
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(Modifier.height(12.dp))
-                ValueHistorySparkline(history = historique, currency = asset.currency)
-            }
+            AssetEvolutionSection(historique, asset.currency)
         }
     }
     if (showConfirm) {
