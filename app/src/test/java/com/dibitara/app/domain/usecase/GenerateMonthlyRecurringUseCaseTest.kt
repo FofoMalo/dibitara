@@ -93,14 +93,16 @@ class GenerateRecurringUseCaseTest {
 
     @Test
     fun `MONTHLY - l occurrence a la date correcte avec le bon jour du mois`() = runTest {
-        val template = makeTemplate()
+        // Date figée (jour 15 > recurrenceDay 5) : sinon le test échoue les 1-4 du mois,
+        // depuis que la génération ne matérialise plus une échéance avant son jour dû.
+        val today = LocalDate.of(2026, 8, 15)
+        val template = makeTemplate(date = today.minusMonths(1))
         every { repository.getRecurring() } returns flowOf(listOf(template))
         coEvery { repository.hasRecurringOccurrenceInRange(1L, any(), any()) } returns false
         coEvery { repository.insert(any()) } returns 10L
 
-        useCase()
+        useCase(today)
 
-        val today = LocalDate.now()
         coVerify {
             repository.insert(match { t ->
                 t.date.monthValue == today.monthValue
