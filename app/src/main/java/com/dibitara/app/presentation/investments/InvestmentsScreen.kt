@@ -22,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -440,9 +441,12 @@ private fun TotalInvestmentsCard(
 @Composable
 private fun VehicleRentalSummaryCard(revenueCents: Long, chargeCents: Long, currency: Currency) {
     val netCents = revenueCents - chargeCents
+    // surfaceVariant, pas secondaryContainer : ses voisines (AirbnbRentalCard,
+    // VehicleRentalEntryCard) sont des Card() neutres, un aplat de couleur ici tranchait -
+    // même correctif que DashboardCard.DETTES (voir commit 7f0da3e).
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -452,38 +456,36 @@ private fun VehicleRentalSummaryCard(revenueCents: Long, chargeCents: Long, curr
                 Text(
                     "Revenus",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     revenueCents.toCurrencyDisplay(currency),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    style = MaterialTheme.typography.titleMedium
                 )
             }
             Column {
                 Text(
                     "Charges",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     chargeCents.toCurrencyDisplay(currency),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    style = MaterialTheme.typography.titleMedium
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     "Net",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     netCents.toCurrencyDisplay(currency),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     // error réservé au cas net négatif, jamais utilisé pour signaler une simple charge
-                    color = if (netCents < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer
+                    color = if (netCents < 0) MaterialTheme.colorScheme.error else Color.Unspecified
                 )
             }
         }
