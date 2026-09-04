@@ -716,14 +716,13 @@ private fun MetricCard(
 
 @Composable
 private fun DebtsCard(totalCents: Long, currency: Currency, onClick: () -> Unit) {
-    // tertiaryContainer : une dette en cours est une information neutre, pas une alerte
+    // surfaceVariant, comme les autres cartes reordonnables du Dashboard (Rapport,
+    // Enveloppes, Projection 30 jours) - une dette en cours est une information neutre,
+    // pas une alerte, et un aplat de couleur tranchait avec ses voisines.
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = if (totalCents > 0) MaterialTheme.colorScheme.tertiaryContainer
-                            else MaterialTheme.colorScheme.surface
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -731,20 +730,14 @@ private fun DebtsCard(totalCents: Long, currency: Currency, onClick: () -> Unit)
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Dettes & crédits", style = MaterialTheme.typography.titleSmall,
-                    color = if (totalCents > 0) MaterialTheme.colorScheme.onTertiaryContainer
-                            else MaterialTheme.colorScheme.onSurface)
+                Text("Dettes & crédits", style = MaterialTheme.typography.titleSmall)
                 Text("Appuyez pour gérer", style = MaterialTheme.typography.bodySmall,
-                    color = if (totalCents > 0)
-                        MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
-                    else MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
                 totalCents.toCurrencyDisplay(currency),
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (totalCents > 0) MaterialTheme.colorScheme.onTertiaryContainer
-                        else MaterialTheme.colorScheme.onSurface
+                fontWeight = FontWeight.Bold
             )
         }
     }

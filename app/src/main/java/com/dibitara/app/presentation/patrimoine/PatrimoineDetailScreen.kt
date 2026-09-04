@@ -125,7 +125,9 @@ private fun PatrimoineDetailContent(
         // ── Décomposition des actifs ─────────────────────────────────────────
         // Le budget restant (liquidités) n'y figure pas : c'est un flux mensuel, pas un actif
         // (voir PatrimonyOverview.patrimoineBrutCents) - visible séparément sur le Dashboard.
-        Card(modifier = Modifier.fillMaxWidth()) {
+        // HeroCard, comme Patrimoine brut/net juste au-dessus/en-dessous : cette carte plate
+        // tranchait entre les deux cartes hero qui l'encadrent.
+        HeroCard {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                 LigneActif(
                     label      = "Épargne",
@@ -146,15 +148,10 @@ private fun PatrimoineDetailContent(
         }
 
         // ── Dettes ───────────────────────────────────────────────────────────
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (overview.dettesTotalCents > 0)
-                    MaterialTheme.colorScheme.errorContainer
-                else
-                    MaterialTheme.colorScheme.surface
-            )
-        ) {
+        // HeroCard aussi : le fond errorContainer précédent violait la convention (le
+        // rouge est réservé aux vraies alertes, jamais en fond de carte - une dette en
+        // cours est une information neutre). Le montant garde son accent rouge en texte.
+        HeroCard {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                 LigneActif(
                     label      = "Dettes & crédits",

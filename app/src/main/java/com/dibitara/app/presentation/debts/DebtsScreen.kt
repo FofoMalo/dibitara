@@ -30,6 +30,7 @@ import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Debt
 import com.dibitara.app.domain.model.DebtType
 import com.dibitara.app.domain.model.SimulateurCredit
+import com.dibitara.app.presentation.common.HeroCard
 import com.dibitara.app.presentation.common.formatCurrency
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.util.Locale
@@ -145,13 +146,11 @@ private fun DebtsContent(
         contentPadding = PaddingValues(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Carte récapitulative - tertiaryContainer, pas errorContainer (une dette n'est pas une urgence)
+        // Carte récapitulative - HeroCard (fond neutre + filet doré), même principe que
+        // Patrimoine (Dashboard) et Total épargne (Épargne) : plus de containerColor plein.
         if (debts.isNotEmpty()) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-                ) {
+                HeroCard {
                     Row(
                         modifier = Modifier.padding(16.dp).fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -160,25 +159,23 @@ private fun DebtsContent(
                             Text(
                                 "Total restant dû",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 totalCents.toCurrencyDisplay(summaryCurrency),
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                fontWeight = FontWeight.Bold
                             )
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
                                 "Mensualités",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 "${totalMonthlyCents.toCurrencyDisplay(summaryCurrency)}/mois",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                style = MaterialTheme.typography.titleMedium
                             )
                         }
                     }
