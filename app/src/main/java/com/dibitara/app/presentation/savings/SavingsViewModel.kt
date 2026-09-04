@@ -287,12 +287,15 @@ class SavingsViewModel @Inject constructor(
      * Le montant objectif est obligatoire et strictement positif ; le montant épargné
      * et le versement mensuel valent 0 s'ils sont vides. Montants parsés `,`→`.`.
      *
-     * [currentStr] est toujours écrit tel quel en base, y compris en SOLDE_COMPTE : ce
-     * mode ne LIT jamais `currentAmountCents` (voir `ResoudreMontantObjectifUseCase`), la
-     * valeur stockée ne redevient significative qu'après déliaison. Comme [existant] vient
-     * de l'`ObjectifUi` affiché (déjà résolu), rouvrir la feuille pré-remplit ce champ avec
-     * le solde du compte au moment de l'ouverture - c'est ce qui fige la valeur à la
-     * déliaison (Q2 du cadrage), sans logique dédiée ici.
+     * En SOLDE_COMPTE, [currentStr] (champ masqué côté feuille) est IGNORÉ : la valeur
+     * réellement écrite est résolue depuis le compte lié au moment de l'enregistrement
+     * (voir plus bas). Sans ça, un objectif fraîchement créé en SOLDE_COMPTE stockerait 0
+     * - qui redeviendrait la valeur affichée si le compte est supprimé plus tard
+     * (`ResoudreMontantObjectifUseCase` retombe alors sur la valeur stockée). Comme
+     * [existant] vient de l'`ObjectifUi` affiché (déjà résolu), rouvrir la feuille en
+     * MANUEL/VERSEMENTS pré-remplit `currentStr` avec le solde du compte au moment de
+     * l'ouverture - c'est ce qui fige la valeur à la déliaison (Q2 du cadrage), sans
+     * logique dédiée pour ce cas-là.
      */
     fun upsertObjectif(
         existant: SavingsGoal?,
@@ -326,7 +329,15 @@ class SavingsViewModel @Inject constructor(
             fundingMode = fundingMode
         )
         viewModelScope.launch {
-            runCatching { upsertSavingsGoal(goal) }
+            // Résolution ponctuelle (pas de collecte) : en SOLDE_COMPTE on n'écrit jamais
+            // `current` tel quel, on résout le vrai solde du compte lié à cet instant -
+            // voir la doc de la fonction ci-dessus pour le pourquoi.
+            val goalAEcrire = if (goal.fundingModeEffectif == FundingMode.SOLDE_COMPTE) {
+                val comptes = getSavings().first()
+                val rates = exchangeRateRepository.getRatesFlow().first()
+                goal.copy(currentAmountCents = ucResoudreMontantObjectif(goal, comptes, rates))
+            } else goal
+            runCatching { upsertSavingsGoal(goalAEcrire) }
                 .onSuccess { _event.emit(SavingsEvent.ObjectifEnregistre) }
                 .onFailure { _event.emit(SavingsEvent.Error(it.message ?: "Erreur")) }
         }

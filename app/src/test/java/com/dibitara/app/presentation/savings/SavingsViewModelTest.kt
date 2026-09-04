@@ -419,6 +419,31 @@ class SavingsViewModelTest {
     }
 
     @Test
+    fun `upsertObjectif en SOLDE_COMPTE persiste le solde reel du compte, pas le champ masque`() = runTest {
+        // Le champ "Montant déjà épargné" est masqué côté feuille en SOLDE_COMPTE : currentStr
+        // arrive vide ("") comme si l'utilisateur n'avait rien saisi. Sans résolution au
+        // moment de l'enregistrement, la ligne stockerait 0 - qui redeviendrait la valeur
+        // affichée si le compte est supprimé plus tard.
+        coEvery { upsertSavingsGoal(any()) } just Runs
+        every { getSavings() } returns flowOf(listOf(
+            SavingsAccount(
+                id = 9L, type = SavingsType.LIVRET_A, label = "Epargne Cesar",
+                currentBalanceCents = 350_000L, monthlyContributionCents = 0L,
+                currency = Currency.EUR, updatedAt = LocalDate.now()
+            )
+        ))
+
+        viewModel.upsertObjectif(
+            null, "Cesar", "1000000", "", "0", Currency.EUR,
+            LocalDate.now().plusMonths(12), GoalColor.TEAL, GoalIcon.AUTRE,
+            9L, FundingMode.SOLDE_COMPTE
+        )
+        testScheduler.advanceUntilIdle()
+
+        coVerify { upsertSavingsGoal(match { it.currentAmountCents == 350_000L && it.sourceAccountId == 9L }) }
+    }
+
+    @Test
     fun `upsertObjectif avec montant objectif nul ou vide émet Error`() = runTest {
         val events = mutableListOf<SavingsEvent>()
         val job = launch(testDispatcher) { viewModel.event.collect { events.add(it) } }

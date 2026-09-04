@@ -1517,7 +1517,9 @@ private fun ObjectifSheet(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Alimenté par", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // FlowRow (pas Row) : les 3 libellés dépassent la largeur utile sur un
+                // écran étroit - même précaution que la grille d'icônes juste au-dessus.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = selectedFundingMode == FundingMode.MANUEL,
                         onClick = { selectedFundingMode = FundingMode.MANUEL },
                         label = { Text("Manuel") })
