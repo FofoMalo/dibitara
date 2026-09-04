@@ -1,9 +1,12 @@
 # Cadrage — Objectifs d'épargne connectés au flux d'argent
 
-> Statut : **CADRAGE** du sprint (rien d'implémenté). En attente d'arbitrage
-> priorité + go. Le lot prérequis « capture du versement » (§6) est **livré**.
-> Branche cible : `florent/prive` (les objectifs vivent ici, Room v25).
-> Date : 2026-08-29
+> Statut : **Socle F1+F2 LIVRÉ** (2026-09-04, non poussé sur origin). Room v25 → v26
+> (`MIGRATION_25_26`, `26.json`), `SavingsGoal.sourceAccountId`/`fundingMode`,
+> `ResoudreMontantObjectifUseCase`, UI (`ObjectifSheet`/`ObjectifCard`). F3-F9 restent à
+> cadrer/prioriser séparément - voir §3, rien n'est bloqué par ce lot.
+> Le lot prérequis « capture du versement » (§6) est **livré**.
+> Branche cible : `florent/prive` (les objectifs vivent ici, Room v26).
+> Date : 2026-08-29 (cadrage), 2026-09-04 (socle F1+F2)
 > Room : **une seule** migration v25 → v26 pour tout le sprint (pas une par feature).
 
 ---
@@ -76,6 +79,12 @@ Socle = **F1 + F2**. Les autres sont indépendantes et activables séparément.
     `CompteType.OBJECTIF` (c'est le lot « capture du versement », §6).
   - `SOLDE_COMPTE` — `currentAmountCents` = solde du compte lié (converti si
     devise différente), en lecture seule.
+  - Constat à l'implémentation : `MANUEL` et `VERSEMENTS` rendent **identiquement**
+    aujourd'hui (même champ « Montant déjà épargné » éditable, même bouton « Verser »
+    si une mensualité est définie) - `VERSEMENTS` ne fait qu'étiqueter l'usage déjà
+    existant du bouton (§6). Seul `SOLDE_COMPTE` change l'écran. Pas de UseCase de
+    résolution pour MANUEL/VERSEMENTS : `ResoudreMontantObjectifUseCase` les fait
+    simplement passer tels quels.
 - **Migration groupée** : `sourceAccountId`, `childId`, `fundingMode`, `statut` —
   une seule `MIGRATION_25_26`, un seul `26.json`, un seul test de migration.
 - **Devise** : objectif et compte source peuvent différer. Montants stockés dans
@@ -87,17 +96,21 @@ Socle = **F1 + F2**. Les autres sont indépendantes et activables séparément.
   automatiquement (`SavingsGoalEntity` est déjà dans l'export/restore + dans
   `TABLES_A_VIDER`). F4, si elle crée une table, refait la danse à 6 points.
 
-## 5. Questions ouvertes
+## 5. Questions ouvertes — TRANCHÉES (2026-09-04)
 
-- **Multi-source** par objectif (F4 le suppose) ou une source maximum ?
-- **Déliaison d'une source** : on fige `currentAmountCents` à la valeur courante et
-  on repasse en `MANUEL` ? ou on garde le dernier montant connu ?
-- En mode `SOLDE_COMPTE`, le bouton « Verser ce mois » de l'objectif **disparaît**
-  (redondant avec le versement du compte) ou **reste** pour un apport exceptionnel ?
-- **F7** : quel retard déclenche l'alerte (dès 1 mois ? seulement si le retard
-  s'aggrave ?) et à quelle fréquence (mensuelle, comme fonds/budget/dettes) ?
-- **F7** : quel retard déclenche l'alerte (dès 1 mois ? seulement si le retard
-  s'aggrave ?) et à quelle fréquence.
+- **Multi-source** : une source maximum (`sourceAccountId: Long?`, pas de liste). F4
+  (répartir un versement entre N objectifs) reste possible plus tard, indépendante.
+- **Déliaison d'une source** : figée. En pratique aucun code dédié n'a été nécessaire -
+  `ObjectifUi.goal` porte déjà le montant résolu (jamais persisté tant que SOLDE_COMPTE
+  est actif), donc rouvrir la feuille d'édition pré-remplit `currentAmountCents` avec la
+  valeur courante ; basculer vers MANUEL l'enregistre telle quelle. Voir
+  `SavingsViewModel.objectifs`/`upsertObjectif`.
+- En mode `SOLDE_COMPTE`, le bouton « Verser ce mois » **disparaît** (`ObjectifCard`),
+  et son rappel doré `versementEnAttente` est supprimé avec lui - même famille de piège
+  que le bug 43a281e4 (bouton qui n'aurait plus eu aucun effet).
+- **F7** (reste hors socle F1+F2, à cadrer si prioritaire) : dès 1 mois de retard,
+  fréquence 1×/jour via un `derniereAlerteObjectifEpochDay`, même mécanisme que
+  fonds/budget/dettes (cf. bug_notification_seuil_fonds_repetee_2026_08_21).
 
 ## 6. Lot « capture du versement » — **LIVRÉ** (prérequis du sprint)
 

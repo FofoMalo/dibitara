@@ -221,6 +221,55 @@ class MigrationTest {
         }
     }
 
+    /**
+     * Vérifie que [DibitaraDatabase.MIGRATION_25_26] ajoute `sourceAccountId`/`fundingMode`
+     * à [savings_goals] sans effacer un objectif déjà présent (colonnes NULL après migration,
+     * pas de perte de la ligne v25).
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migration_25_vers_26_ajoute_sourceAccountId_et_fundingMode() {
+        helper.createDatabase(TEST_DB, 25).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO savings_goals
+                    (name, targetAmountCents, currentAmountCents, targetDateEpochDay,
+                     monthlyContributionCents, currency, colorKey, iconKey)
+                VALUES
+                    ('Voiture', 1500000, 420000, 20970, 40000, 'EUR', 'TEAL', 'VOITURE')
+                """.trimIndent()
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            26,
+            true,
+            DibitaraDatabase.MIGRATION_25_26
+        ).use { db ->
+            db.query("SELECT name, sourceAccountId, fundingMode FROM savings_goals").use { cursor ->
+                assertEquals(1, cursor.count)
+                cursor.moveToFirst()
+                assertEquals("Voiture", cursor.getString(cursor.getColumnIndex("name")))
+                assertTrue(
+                    "sourceAccountId doit être NULL après migration",
+                    cursor.isNull(cursor.getColumnIndex("sourceAccountId"))
+                )
+                assertTrue(
+                    "fundingMode doit être NULL après migration",
+                    cursor.isNull(cursor.getColumnIndex("fundingMode"))
+                )
+            }
+            // On peut lier un compte et une des 3 valeurs de FundingMode.
+            db.execSQL("UPDATE savings_goals SET sourceAccountId = 7, fundingMode = 'SOLDE_COMPTE' WHERE name = 'Voiture'")
+            db.query("SELECT sourceAccountId, fundingMode FROM savings_goals WHERE name = 'Voiture'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(7L, cursor.getLong(cursor.getColumnIndex("sourceAccountId")))
+                assertEquals("SOLDE_COMPTE", cursor.getString(cursor.getColumnIndex("fundingMode")))
+            }
+        }
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
     }

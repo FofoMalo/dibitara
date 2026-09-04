@@ -3,6 +3,7 @@ package com.dibitara.app.presentation.savings
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.FundingMode
 import com.dibitara.app.domain.model.GoalColor
 import com.dibitara.app.domain.model.GoalIcon
 import com.dibitara.app.domain.model.SavingsGoal
@@ -27,6 +28,7 @@ import com.dibitara.app.domain.usecase.GetSavingsGoalsUseCase
 import com.dibitara.app.domain.usecase.GetSavingsUseCase
 import com.dibitara.app.domain.usecase.GetVersementsEnAttenteUseCase
 import com.dibitara.app.domain.usecase.ProjeterObjectifUseCase
+import com.dibitara.app.domain.usecase.ResoudreMontantObjectifUseCase
 import com.dibitara.app.domain.usecase.VersementsObjectifResult
 import com.dibitara.app.domain.usecase.GetVersementsMoisUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
@@ -76,6 +78,7 @@ class SavingsViewModelTest {
     private val ucGetVersementsEnAttente = GetVersementsEnAttenteUseCase()
     private val ucGetObjectifsVersementEnAttente = GetObjectifsVersementEnAttenteUseCase()
     private val ucAppliquerVersementsObjectif: AppliquerVersementsObjectifUseCase = mockk()
+    private val ucResoudreMontantObjectif = ResoudreMontantObjectifUseCase()
     private lateinit var viewModel: SavingsViewModel
 
     @BeforeEach
@@ -94,7 +97,8 @@ class SavingsViewModelTest {
             saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
             ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
             getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif,
-            ucGetVersementsEnAttente, ucGetObjectifsVersementEnAttente, ucAppliquerVersementsObjectif
+            ucGetVersementsEnAttente, ucGetObjectifsVersementEnAttente, ucAppliquerVersementsObjectif,
+            ucResoudreMontantObjectif
         )
     }
 
@@ -128,7 +132,8 @@ class SavingsViewModelTest {
             saveVersement, existeVersementMois, getVersementsMois, ucGetPreferences, ratesRepo,
             ucAnalyserPatrimoine, ucSaveAssetSnapshot, ucGetAssetValuationHistory, ucCalculerTendanceActif,
             getSavingsGoals, upsertSavingsGoal, deleteSavingsGoal, ucProjeterObjectif,
-            ucGetVersementsEnAttente, ucGetObjectifsVersementEnAttente, ucAppliquerVersementsObjectif
+            ucGetVersementsEnAttente, ucGetObjectifsVersementEnAttente, ucAppliquerVersementsObjectif,
+            ucResoudreMontantObjectif
         )
     }
 
@@ -312,6 +317,47 @@ class SavingsViewModelTest {
     }
 
     @Test
+    fun `objectifs en SOLDE_COMPTE resout le montant depuis le compte lie, pas la valeur stockee`() = runTest {
+        // currentAmountCents = 0 volontairement : si la résolution ne se déclenchait pas,
+        // ce test échouerait sur la progression (0 %) plutôt que de passer par accident.
+        val goal = SavingsGoal(
+            id = 1L, name = "Cesar", targetAmountCents = 1_000_000L, currentAmountCents = 0L,
+            targetDate = LocalDate.now().plusMonths(12), monthlyContributionCents = 0L,
+            currency = Currency.EUR, colorKey = GoalColor.TEAL, iconKey = GoalIcon.AUTRE,
+            sourceAccountId = 9L, fundingMode = FundingMode.SOLDE_COMPTE
+        )
+        val compte = SavingsAccount(
+            id = 9L, type = SavingsType.LIVRET_A, label = "Epargne Cesar",
+            currentBalanceCents = 350_000L, monthlyContributionCents = 0L,
+            currency = Currency.EUR, updatedAt = LocalDate.now()
+        )
+        every { getSavingsGoals() } returns flowOf(listOf(goal))
+        every { getSavings() } returns flowOf(listOf(compte))
+        rebuild()
+
+        val resultat = viewModel.objectifs.first { it.isNotEmpty() }.first()
+        assertEquals(350_000L, resultat.goal.currentAmountCents)
+        assertEquals(0.35f, resultat.goal.progression)
+    }
+
+    @Test
+    fun `objectifs masque versementEnAttente en SOLDE_COMPTE - le bouton Verser n'existe plus`() = runTest {
+        val goal = SavingsGoal(
+            id = 1L, name = "Cesar", targetAmountCents = 1_000_000L, currentAmountCents = 0L,
+            targetDate = LocalDate.now().plusMonths(12), monthlyContributionCents = 40_000L,
+            currency = Currency.EUR, colorKey = GoalColor.TEAL, iconKey = GoalIcon.AUTRE,
+            sourceAccountId = 9L, fundingMode = FundingMode.SOLDE_COMPTE
+        )
+        every { getSavingsGoals() } returns flowOf(listOf(goal))
+        every { getSavings() } returns flowOf(emptyList())
+        val now = LocalDate.now()
+        coEvery { getVersementsMois(CompteType.OBJECTIF, now.year, now.monthValue) } returns emptyList()
+        rebuild()
+
+        assertFalse(viewModel.objectifs.first { it.isNotEmpty() }.first().versementEnAttente)
+    }
+
+    @Test
     fun `appliquerVersementsObjectif émet VersementObjectifApplique avec le résultat`() = runTest {
         val goal = SavingsGoal(
             id = 7L, name = "Voiture", targetAmountCents = 1_500_000L, currentAmountCents = 420_000L,
@@ -340,7 +386,8 @@ class SavingsViewModelTest {
 
         viewModel.upsertObjectif(
             null, "Vacances", "3000", "500", "150", Currency.EUR,
-            LocalDate.now().plusMonths(10), GoalColor.OR, GoalIcon.VOYAGE
+            LocalDate.now().plusMonths(10), GoalColor.OR, GoalIcon.VOYAGE,
+            null, FundingMode.MANUEL
         )
         testScheduler.advanceUntilIdle()
 
@@ -363,7 +410,8 @@ class SavingsViewModelTest {
 
         viewModel.upsertObjectif(
             existant, "Voiture", "12000", "3000", "500", Currency.EUR,
-            LocalDate.now().plusMonths(12), GoalColor.TEAL, GoalIcon.VOITURE
+            LocalDate.now().plusMonths(12), GoalColor.TEAL, GoalIcon.VOITURE,
+            null, FundingMode.MANUEL
         )
         testScheduler.advanceUntilIdle()
 
@@ -377,7 +425,8 @@ class SavingsViewModelTest {
 
         viewModel.upsertObjectif(
             null, "Vacances", "0", "", "", Currency.EUR,
-            LocalDate.now().plusMonths(10), GoalColor.OR, GoalIcon.VOYAGE
+            LocalDate.now().plusMonths(10), GoalColor.OR, GoalIcon.VOYAGE,
+            null, FundingMode.MANUEL
         )
         testScheduler.advanceUntilIdle()
 

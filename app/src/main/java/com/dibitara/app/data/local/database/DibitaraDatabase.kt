@@ -45,7 +45,7 @@ import java.time.LocalDate
         BankAccountEntity::class,
         SavingsGoalEntity::class
     ],
-    version = 25,
+    version = 26,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
@@ -70,6 +70,18 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun savingsGoalDao(): SavingsGoalDao
 
     companion object {
+        // Migration v25 → v26 : objectifs d'épargne connectés au flux d'argent (§1 F1 du
+        // cadrage CADRAGE_OBJECTIFS_CONNECTES.md). Colonnes nullables : les objectifs
+        // existants ne perdent rien, `fundingMode` NULL se lit comme MANUEL côté domaine
+        // (SavingsGoal.fundingModeEffectif) - comportement inchangé tant que l'utilisateur
+        // ne lie pas explicitement un compte via la feuille d'édition.
+        val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE savings_goals ADD COLUMN sourceAccountId INTEGER")
+                db.execSQL("ALTER TABLE savings_goals ADD COLUMN fundingMode TEXT")
+            }
+        }
+
         // Migration v24 → v25 : nouvelle table savings_goals pour les objectifs d'épargne
         // (« Voiture », « Vacances »...). Pas d'index unique : plusieurs objectifs possibles.
         val MIGRATION_24_25 = object : Migration(24, 25) {

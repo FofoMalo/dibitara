@@ -7,6 +7,7 @@ import com.dibitara.app.domain.model.AssetValuationType
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.CompteType
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.FundingMode
 import com.dibitara.app.domain.model.GoalColor
 import com.dibitara.app.domain.model.GoalIcon
 import com.dibitara.app.domain.model.MonthlyVersement
@@ -20,6 +21,7 @@ import com.dibitara.app.domain.usecase.GetObjectifsVersementEnAttenteUseCase
 import com.dibitara.app.domain.usecase.GetSavingsGoalsUseCase
 import com.dibitara.app.domain.usecase.ProjectionObjectif
 import com.dibitara.app.domain.usecase.ProjeterObjectifUseCase
+import com.dibitara.app.domain.usecase.ResoudreMontantObjectifUseCase
 import com.dibitara.app.domain.usecase.UpsertSavingsGoalUseCase
 import com.dibitara.app.domain.usecase.CalculerTendanceActifUseCase
 import com.dibitara.app.domain.usecase.DeleteChildUseCase
@@ -68,7 +70,8 @@ class SavingsViewModel @Inject constructor(
     private val ucProjeterObjectif: ProjeterObjectifUseCase,
     private val ucGetVersementsEnAttente: GetVersementsEnAttenteUseCase,
     private val ucGetObjectifsVersementEnAttente: GetObjectifsVersementEnAttenteUseCase,
-    private val ucAppliquerVersementsObjectif: AppliquerVersementsObjectifUseCase
+    private val ucAppliquerVersementsObjectif: AppliquerVersementsObjectifUseCase,
+    private val ucResoudreMontantObjectif: ResoudreMontantObjectifUseCase
 ) : ViewModel() {
 
     val defaultCurrency: StateFlow<Currency> = ucGetPreferences()
@@ -165,22 +168,32 @@ class SavingsViewModel @Inject constructor(
      * Réactivité : aucun flux du combine n'observe `monthly_versements`. Ce bloc se
      * recalcule quand `getSavingsGoals()` ré-émet, ce qui arrive après un
      * `appliquerVersementsObjectif` (upsert de l'objectif) comme après une
-     * restauration (réécriture de `savings_goals`).
+     * restauration (réécriture de `savings_goals`) - et quand `getSavings()`/les taux
+     * changent, pour un objectif en `FundingMode.SOLDE_COMPTE`.
+     *
+     * `ObjectifUi.goal` porte le montant RÉSOLU (`ucResoudreMontantObjectif`), pas la
+     * valeur brute en base : pour SOLDE_COMPTE c'est un `copy()` d'affichage, jamais
+     * persisté. Ce choix a un effet de bord voulu - voir CADRAGE_OBJECTIFS_CONNECTES.md
+     * Q2 : rouvrir la feuille d'édition pré-remplit `existant.currentAmountCents` avec ce
+     * montant déjà résolu, donc délier le compte (retour à MANUEL) fige naturellement la
+     * dernière valeur affichée, sans code de gel dédié dans `upsertObjectif`.
      */
     val objectifs: StateFlow<List<ObjectifUi>> =
-        getSavingsGoals()
-            .map { goals ->
-                val now = LocalDate.now()
-                val versesCeMois = getVersementsMois(CompteType.OBJECTIF, now.year, now.monthValue)
-                val enAttente = ucGetObjectifsVersementEnAttente(goals, versesCeMois).toSet()
-                goals.map { goal ->
-                    ObjectifUi(
-                        goal = goal,
-                        projection = ucProjeterObjectif(goal),
-                        versementEnAttente = goal.id in enAttente
-                    )
-                }
+        combine(getSavingsGoals(), getSavings(), exchangeRateRepository.getRatesFlow()) { goals, comptes, rates ->
+            val now = LocalDate.now()
+            val versesCeMois = getVersementsMois(CompteType.OBJECTIF, now.year, now.monthValue)
+            val enAttente = ucGetObjectifsVersementEnAttente(goals, versesCeMois).toSet()
+            goals.map { goal ->
+                val goalResolu = goal.copy(currentAmountCents = ucResoudreMontantObjectif(goal, comptes, rates))
+                ObjectifUi(
+                    goal = goalResolu,
+                    projection = ucProjeterObjectif(goalResolu),
+                    // En SOLDE_COMPTE le bouton "Verser" est masqué (Q3 du cadrage, voir
+                    // ObjectifCard) - inutile d'allumer son rappel "à enregistrer".
+                    versementEnAttente = goal.id in enAttente && goal.fundingModeEffectif != FundingMode.SOLDE_COMPTE
+                )
             }
+        }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
@@ -273,6 +286,13 @@ class SavingsViewModel @Inject constructor(
      * Crée ([existant] == null) ou met à jour un objectif d'épargne.
      * Le montant objectif est obligatoire et strictement positif ; le montant épargné
      * et le versement mensuel valent 0 s'ils sont vides. Montants parsés `,`→`.`.
+     *
+     * [currentStr] est toujours écrit tel quel en base, y compris en SOLDE_COMPTE : ce
+     * mode ne LIT jamais `currentAmountCents` (voir `ResoudreMontantObjectifUseCase`), la
+     * valeur stockée ne redevient significative qu'après déliaison. Comme [existant] vient
+     * de l'`ObjectifUi` affiché (déjà résolu), rouvrir la feuille pré-remplit ce champ avec
+     * le solde du compte au moment de l'ouverture - c'est ce qui fige la valeur à la
+     * déliaison (Q2 du cadrage), sans logique dédiée ici.
      */
     fun upsertObjectif(
         existant: SavingsGoal?,
@@ -283,7 +303,9 @@ class SavingsViewModel @Inject constructor(
         currency: Currency,
         targetDate: LocalDate,
         color: GoalColor,
-        icon: GoalIcon
+        icon: GoalIcon,
+        sourceAccountId: Long?,
+        fundingMode: FundingMode
     ) {
         val target = targetStr.replace(',', '.').toDoubleOrNull()
             ?.let { (it * 100).roundToLong() }
@@ -299,7 +321,9 @@ class SavingsViewModel @Inject constructor(
             id = existant?.id ?: 0,
             name = name, targetAmountCents = target, currentAmountCents = current,
             targetDate = targetDate, monthlyContributionCents = monthly,
-            currency = currency, colorKey = color, iconKey = icon
+            currency = currency, colorKey = color, iconKey = icon,
+            sourceAccountId = sourceAccountId.takeIf { fundingMode == FundingMode.SOLDE_COMPTE },
+            fundingMode = fundingMode
         )
         viewModelScope.launch {
             runCatching { upsertSavingsGoal(goal) }

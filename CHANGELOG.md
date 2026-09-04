@@ -9,6 +9,18 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
+## [Non publié]
+
+### Ajouté
+- Objectifs d'épargne connectés à un compte source (socle F1+F2 de
+  CADRAGE_OBJECTIFS_CONNECTES.md) : un objectif peut être lié à un compte épargne
+  existant (`fundingMode = SOLDE_COMPTE`), sa progression suit alors le solde de ce
+  compte (converti si besoin - ex. objectif en XOF alimenté par un compte en EUR), en
+  lecture seule. `MANUEL`/`VERSEMENTS` gardent le comportement historique (montant saisi
+  à la main, éventuellement avancé par le bouton « Verser » déjà existant). Room v25 →
+  v26 : `SavingsGoal.sourceAccountId`/`fundingMode` (colonnes nullables, comportement
+  inchangé pour tout objectif existant). Nouveau `ResoudreMontantObjectifUseCase`.
+
 ## [4.5.0] - 2026-08-30
 
 ### Ajouté

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dibitara.app.domain.model.Child
 import com.dibitara.app.domain.model.Currency
+import com.dibitara.app.domain.model.FundingMode
 import com.dibitara.app.domain.model.GoalColor
 import com.dibitara.app.domain.model.GoalIcon
 import com.dibitara.app.domain.model.PlafondDefaut
@@ -175,12 +176,18 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
         )
     }
 
+    // Comptes épargne disponibles comme source d'un objectif (FundingMode.SOLDE_COMPTE) -
+    // même liste que celle affichée sur l'écran, casting nécessaire car ces feuilles
+    // vivent hors du `when (state)` (comme accountToEdit ci-dessus).
+    val savingsAccountsForObjectif = (uiState as? SavingsUiState.Success)?.accounts ?: emptyList()
+
     if (showAddObjectif) {
         ObjectifSheet(
             existant = null,
             defaultCurrency = defaultCurrency,
-            onSave = { name, target, current, monthly, currency, date, color, icon ->
-                viewModel.upsertObjectif(null, name, target, current, monthly, currency, date, color, icon)
+            comptesDisponibles = savingsAccountsForObjectif,
+            onSave = { name, target, current, monthly, currency, date, color, icon, sourceAccountId, fundingMode ->
+                viewModel.upsertObjectif(null, name, target, current, monthly, currency, date, color, icon, sourceAccountId, fundingMode)
             },
             onDismiss = { showAddObjectif = false }
         )
@@ -190,8 +197,9 @@ fun SavingsScreen(viewModel: SavingsViewModel = hiltViewModel()) {
         ObjectifSheet(
             existant = goal,
             defaultCurrency = goal.currency,
-            onSave = { name, target, current, monthly, currency, date, color, icon ->
-                viewModel.upsertObjectif(goal, name, target, current, monthly, currency, date, color, icon)
+            comptesDisponibles = savingsAccountsForObjectif,
+            onSave = { name, target, current, monthly, currency, date, color, icon, sourceAccountId, fundingMode ->
+                viewModel.upsertObjectif(goal, name, target, current, monthly, currency, date, color, icon, sourceAccountId, fundingMode)
             },
             onDismiss = { objectifToEdit = null }
         )
@@ -258,6 +266,7 @@ private fun SavingsContent(
             items(objectifs, key = { "objectif_${it.goal.id}" }) { objectif ->
                 ObjectifCard(
                     objectif = objectif,
+                    compteLie = state.accounts.firstOrNull { it.id == objectif.goal.sourceAccountId },
                     onEdit = { onEditObjectif(objectif.goal) },
                     onDelete = { onDeleteObjectif(objectif.goal) },
                     onVerser = { n -> onVerserObjectif(objectif.goal, n) }
@@ -430,6 +439,9 @@ private fun FondsUrgenceCard(state: SavingsUiState.Success) {
 @Composable
 private fun ObjectifCard(
     objectif: ObjectifUi,
+    // Compte source si l'objectif est en FundingMode.SOLDE_COMPTE - résolu par l'appelant
+    // (a la liste des comptes), null si non lié ou si le compte a été supprimé entre-temps.
+    compteLie: SavingsAccount?,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onVerser: (Int) -> Unit
@@ -503,6 +515,16 @@ private fun ObjectifCard(
                     style = MaterialTheme.typography.bodyMedium, color = accent)
             }
 
+            // Rappel visuel de la source en SOLDE_COMPTE : explique pourquoi il n'y a pas
+            // de bouton "Verser" juste en dessous (le montant suit le compte tout seul).
+            if (goal.fundingModeEffectif == FundingMode.SOLDE_COMPTE && compteLie != null) {
+                Text(
+                    "Lié à « ${compteLie.label} »",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             if (goal.monthlyContributionCents > 0) {
                 Text(
                     "+ ${goal.monthlyContributionCents.toCurrencyDisplay(goal.currency)}/mois",
@@ -539,7 +561,10 @@ private fun ObjectifCard(
 
             // Bouton versement : visible si une mensualité est définie. Mis en avant
             // (puce + bordure or) tant que le versement du mois n'est pas enregistré.
-            if (goal.monthlyContributionCents > 0) {
+            // Masqué en SOLDE_COMPTE (Q3 du cadrage) : le montant suit le compte lié tout
+            // seul, ce bouton n'y aurait aucun effet - piège UX identique à celui déjà vu
+            // sur le mouvement de capital CTO/immobilier (bouton qui ne fait rien).
+            if (goal.monthlyContributionCents > 0 && goal.fundingModeEffectif != FundingMode.SOLDE_COMPTE) {
                 val enAttente = objectif.versementEnAttente
                 OutlinedButton(
                     onClick = { showVersement = true },
@@ -1320,13 +1345,20 @@ private fun EditSavingsSheet(
  * les deux cas : [existant] non-null = édition (champs pré-remplis), null = création.
  * Calquée sur [AddSavingsSheet] (ModalBottomSheet, dropdown devise, DatePicker comme
  * dans InvestmentsScreen).
+ *
+ * [comptesDisponibles] alimente le sélecteur de compte source en FundingMode.SOLDE_COMPTE
+ * (§1 F1 du cadrage CADRAGE_OBJECTIFS_CONNECTES.md) - la liste complète des comptes
+ * épargne, sans filtre : lier un compte à un objectif n'empêche pas de le garder par
+ * ailleurs (une seule source par objectif - Q1 du cadrage - mais un compte peut être la
+ * source de plusieurs objectifs).
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ObjectifSheet(
     existant: SavingsGoal?,
     defaultCurrency: Currency,
-    onSave: (String, String, String, String, Currency, LocalDate, GoalColor, GoalIcon) -> Unit,
+    comptesDisponibles: List<SavingsAccount>,
+    onSave: (String, String, String, String, Currency, LocalDate, GoalColor, GoalIcon, Long?, FundingMode) -> Unit,
     onDismiss: () -> Unit
 ) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
@@ -1349,9 +1381,13 @@ private fun ObjectifSheet(
     var selectedIcon by remember { mutableStateOf(existant?.iconKey ?: GoalIcon.AUTRE) }
     var currencyExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var selectedFundingMode by remember { mutableStateOf(existant?.fundingModeEffectif ?: FundingMode.MANUEL) }
+    var selectedSourceAccountId by remember { mutableStateOf(existant?.sourceAccountId) }
+    var sourceAccountExpanded by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     val targetValide = target.replace(',', '.').toDoubleOrNull()?.let { it > 0.0 } == true
+    val sourceValide = selectedFundingMode != FundingMode.SOLDE_COMPTE || selectedSourceAccountId != null
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -1381,11 +1417,15 @@ private fun ObjectifSheet(
                 keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true, modifier = Modifier.fillMaxWidth())
 
-            OutlinedTextField(value = current, onValueChange = { current = it },
-                label = { Text("Montant déjà épargné (optionnel)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                singleLine = true, modifier = Modifier.fillMaxWidth())
+            // Masqué en SOLDE_COMPTE : le montant est dérivé du compte lié, pas saisi ici
+            // (voir le sélecteur "Alimenté par" plus bas).
+            if (selectedFundingMode != FundingMode.SOLDE_COMPTE) {
+                OutlinedTextField(value = current, onValueChange = { current = it },
+                    label = { Text("Montant déjà épargné (optionnel)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+            }
 
             OutlinedTextField(value = monthly, onValueChange = { monthly = it },
                 label = { Text("Versement mensuel (optionnel)") },
@@ -1469,11 +1509,51 @@ private fun ObjectifSheet(
                 }
             }
 
+            // Source de financement (§4 du cadrage) : MANUEL et VERSEMENTS se comportent
+            // IDENTIQUEMENT aujourd'hui (même champ "Montant déjà épargné", même bouton
+            // "Verser" s'il y a une mensualité) - VERSEMENTS ne fait qu'étiqueter l'usage
+            // déjà existant du bouton. Seul SOLDE_COMPTE change l'écran : montant dérivé,
+            // champ masqué, bouton "Verser" masqué sur la carte.
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Alimenté par", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = selectedFundingMode == FundingMode.MANUEL,
+                        onClick = { selectedFundingMode = FundingMode.MANUEL },
+                        label = { Text("Manuel") })
+                    FilterChip(selected = selectedFundingMode == FundingMode.VERSEMENTS,
+                        onClick = { selectedFundingMode = FundingMode.VERSEMENTS },
+                        label = { Text("Versements") })
+                    FilterChip(selected = selectedFundingMode == FundingMode.SOLDE_COMPTE,
+                        onClick = { selectedFundingMode = FundingMode.SOLDE_COMPTE },
+                        label = { Text("Solde d'un compte") })
+                }
+            }
+
+            if (selectedFundingMode == FundingMode.SOLDE_COMPTE) {
+                ExposedDropdownMenuBox(expanded = sourceAccountExpanded, onExpandedChange = { sourceAccountExpanded = it }) {
+                    OutlinedTextField(
+                        value = comptesDisponibles.firstOrNull { it.id == selectedSourceAccountId }?.label ?: "",
+                        onValueChange = {}, readOnly = true, label = { Text("Compte lié") },
+                        isError = !sourceValide,
+                        supportingText = { Text("La progression suit le solde de ce compte") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(sourceAccountExpanded) },
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = sourceAccountExpanded, onDismissRequest = { sourceAccountExpanded = false }) {
+                        comptesDisponibles.forEach { compte ->
+                            DropdownMenuItem(text = { Text(compte.label) },
+                                onClick = { selectedSourceAccountId = compte.id; sourceAccountExpanded = false })
+                        }
+                    }
+                }
+            }
+
             Button(
                 onClick = {
-                    onSave(name, target, current, monthly, selectedCurrency, targetDate, selectedColor, selectedIcon)
+                    onSave(name, target, current, monthly, selectedCurrency, targetDate, selectedColor, selectedIcon, selectedSourceAccountId, selectedFundingMode)
                 },
-                enabled = name.isNotBlank() && targetValide,
+                enabled = name.isNotBlank() && targetValide && sourceValide,
                 modifier = Modifier.fillMaxWidth()
             ) { Text(if (existant == null) "Créer l'objectif" else "Enregistrer") }
         }
