@@ -9,7 +9,12 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
-## [Non publié]
+## [4.6.0] - 2026-09-05
+
+> Numérotation propre à `florent/prive`, qui ne fusionne jamais avec `develop`
+> (voir la convention de branches) : `develop` a sa propre lignée `v4.5.0`/`v4.6.0`
+> taguée (vc16/vc17), sans rapport avec celle-ci (vc18 → vc19 ici). Les deux
+> coexistent sous les mêmes noms de version sans jamais se rencontrer.
 
 ### Ajouté
 - Objectifs d'épargne connectés à un compte source (socle F1+F2 de
@@ -20,6 +25,21 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
   à la main, éventuellement avancé par le bouton « Verser » déjà existant). Room v25 →
   v26 : `SavingsGoal.sourceAccountId`/`fundingMode` (colonnes nullables, comportement
   inchangé pour tout objectif existant). Nouveau `ResoudreMontantObjectifUseCase`.
+  Vérifié sur device sur 2 objectifs réels déjà liés (dont le doublon compte/objectif
+  « Cesar » qui avait déclenché ce cadrage).
+- Courbe d'évolution étendue à l'épargne salariale (4e et dernière carte d'actif
+  investissement à en bénéficier, après actif libre/SCPI/immobilier en 4.5.0).
+
+### Corrigé
+- Cartes « résumé » incohérentes avec le principe `HeroCard` (fond neutre + filet
+  doré) établi sur Patrimoine/Épargne : les cartes Épargne/Investissements et
+  Dettes & crédits du Détail du patrimoine restaient en `Card` plate entre les deux
+  `HeroCard` qui les encadrent - celle des dettes remplissait même en `errorContainer`
+  (rouge), contraire à la convention (le rouge est réservé aux vraies alertes, jamais
+  en fond de carte). Même correctif appliqué à la carte récap de l'écran Dettes &
+  crédits, à la carte réordonnable homonyme du Dashboard et à la carte de synthèse
+  Véhicule locatif (Placements) - ces deux dernières neutralisées en `surfaceVariant`
+  plutôt qu'en `HeroCard`, n'étant pas des cartes « résumé en tête d'écran ».
 
 ## [4.5.0] - 2026-08-30
 

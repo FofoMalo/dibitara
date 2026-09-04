@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Application bancaire Android à usage personnel, inspirée de **Finary**. L'objectif est de centraliser budget mensuel, suivi des dépenses, investissements et projections financières.
 
 **Stack cible :** Android natif (Kotlin), architecture MVVM + Clean Architecture.
-**Version courante :** v4.5.0 (versionCode 18) — Room v25 (branche `florent/prive`).
+**Version courante :** v4.6.0 (versionCode 19) — Room v26 (branche `florent/prive`).
 
 ## Fonctionnalités principales
 
@@ -110,6 +110,7 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 | v22 → v23 | `acquisitionValueCents`/`acquisitionDateEpochDay` sur les 4 types d'actifs investissement, pour le bloc "Acquisition → Aujourd'hui" |
 | v23 → v24 | `tauxAnnuelPct REAL` sur `savings_accounts` (intérêts annuels estimés, hero Épargne) |
 | v24 → v25 | Table `savings_goals` pour les objectifs d'épargne (écran Épargne §3) |
+| v25 → v26 | `sourceAccountId`/`fundingMode` sur `savings_goals`, objectifs connectés à un compte source (socle F1+F2) |
 
 ## Modèles métier clés (domain/model/)
 
