@@ -377,7 +377,8 @@ private fun InvestmentsContent(
                     onDelete = { onDeleteEmpSavings(savings) },
                     onVersement = { onAppliquerVersementEmpSavings(savings) },
                     getTrend = getTrend,
-                    getPerformance = getPerformance
+                    getPerformance = getPerformance,
+                    getHistorique = getHistorique
                 )
             }
         }
@@ -1916,13 +1917,16 @@ private fun EmployeeSavingsCard(
     onDelete: () -> Unit,
     onVersement: () -> Unit,
     getTrend: suspend (AssetValuationType, Long) -> Float?,
-    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?
+    getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?,
+    getHistorique: suspend (AssetValuationType, Long) -> List<AssetValuationSnapshot>
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var showVersementConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var trendPct by remember(savings.id, savings.updatedAt) { mutableStateOf<Float?>(null) }
     LaunchedEffect(savings.id, savings.updatedAt) { trendPct = getTrend(AssetValuationType.EMPLOYEE_SAVINGS, savings.id) }
+    var historique by remember(savings.id, savings.updatedAt) { mutableStateOf<List<AssetValuationSnapshot>>(emptyList()) }
+    LaunchedEffect(savings.id, savings.updatedAt) { historique = getHistorique(AssetValuationType.EMPLOYEE_SAVINGS, savings.id) }
     val acquisitionValue = savings.acquisitionValueCents
     val acquisitionDate = savings.acquisitionDate
     var performance by remember(savings.id, acquisitionValue, acquisitionDate, savings.currentBalanceCents) { mutableStateOf<PerformanceActif?>(null) }
@@ -1932,7 +1936,8 @@ private fun EmployeeSavingsCard(
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Pas de spacedBy ici : AssetEvolutionSection fournit ses propres écarts (voir sa doc).
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Column {
@@ -1974,10 +1979,13 @@ private fun EmployeeSavingsCard(
                 }
             }
 
+            AssetEvolutionSection(historique, savings.currency)
+
             // Bouton versement : visible uniquement si un abondement mensuel est configuré - même
             // logique que le versement SCPI (voir ScpiCard), utilisée pour neutraliser l'abondement
             // dans le calcul de performance depuis acquisition.
             if (savings.employerContributionCents > 0) {
+                Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = { showVersementConfirm = true },
                     modifier = Modifier.fillMaxWidth()

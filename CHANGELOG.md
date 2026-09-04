@@ -21,7 +21,7 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
   toute devise ajoutée à l'enum sans être traitée dans ses deux `when` est comptée comme si
   elle valait déjà des EUR, sans erreur de compilation pour le rappeler.
 - Courbe d'évolution sur les cartes d'actif de l'écran Placements (actif libre, SCPI,
-  immobilier), sous le bloc « Acquisition → Aujourd'hui » : trace la valeur mois par mois
+  immobilier, épargne salariale), sous le bloc « Acquisition → Aujourd'hui » : trace la valeur mois par mois
   à partir de l'historique déjà enregistré (`AssetValuationSnapshot`, un point par mois),
   pour un PEA ou compte-titres suivi manuellement dont l'intérêt est de voir la valeur
   bouger. Nouveaux composables `ValueHistorySparkline` (tracé repris de
