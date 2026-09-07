@@ -80,11 +80,11 @@ fun SettingsScreen(
     // L'activation de la capture live se fait dans les réglages système (hors de l'app) :
     // on revérifie l'état au retour sur l'écran plutôt qu'une seule fois à la composition.
     val lifecycleOwner = LocalLifecycleOwner.current
-    var captureLiveBredActivee by remember { mutableStateOf(viewModel.captureLiveBredActivee()) }
+    var captureLiveNotifActivee by remember { mutableStateOf(viewModel.captureLiveNotifActivee()) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                captureLiveBredActivee = viewModel.captureLiveBredActivee()
+                captureLiveNotifActivee = viewModel.captureLiveNotifActivee()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -476,8 +476,8 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            if (captureLiveBredActivee) "Capture live BRED activée ✓"
-                            else "Activer la capture live BRED (paiements carte)"
+                            if (captureLiveNotifActivee) "Capture live BRED / TradeRepublic activée ✓"
+                            else "Activer la capture live (paiements carte BRED / TradeRepublic)"
                         )
                     }
                     Spacer(Modifier.height(4.dp))

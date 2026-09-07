@@ -31,6 +31,10 @@ private const val NOM_FICHIER_DEBUG = "bred_notif_debug.log"
  * l'app officielle. BRED ne pousse pas de notification pour les virements/prélèvements : cette
  * capture reste partielle, complémentaire à l'import CSV mensuel (voir [BredNotificationParser]).
  *
+ * Limite côté banque, hors contrôle de l'app : l'alerte BRED (*Vie du compte > Alerte sur
+ * opération*) a un seuil déclencheur configuré à 30€ minimum - toute dépense en dessous ne
+ * pousse aucune notification et n'est donc jamais vue ici (confirmé par Florent, 2026-09-07).
+ *
  * L'utilisateur doit activer manuellement l'accès aux notifications dans les réglages Android
  * (bouton dédié dans Paramètres → ACTION_NOTIFICATION_LISTENER_SETTINGS) : impossible à demander
  * via une permission runtime classique, contrairement à POST_NOTIFICATIONS.

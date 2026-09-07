@@ -39,12 +39,13 @@ enum class BankProvider(val displayName: String) {
 /**
  * Déduit le [BankProvider] d'un compte à partir de la chaîne [Transaction.importSource]
  * posée par les parseurs d'import (voir BredCsvParser, BredPdfParser, BredNotificationParser,
- * TradeRepublicCsvParser). Retourne null si la source n'est pas reconnue ou absente
- * (ex. saisie manuelle) - dans ce cas, aucun compte n'est rattaché automatiquement.
+ * TradeRepublicCsvParser, TradeRepublicNotificationParser). Retourne null si la source n'est
+ * pas reconnue ou absente (ex. saisie manuelle) - dans ce cas, aucun compte n'est rattaché
+ * automatiquement.
  */
 fun BankProvider.Companion.fromImportSource(importSource: String?): BankProvider? = when {
     importSource == null -> null
     importSource.startsWith("bred") -> BankProvider.BRED
-    importSource == "trade_republic" -> BankProvider.TRADE_REPUBLIC
+    importSource.startsWith("trade_republic") -> BankProvider.TRADE_REPUBLIC
     else -> null
 }

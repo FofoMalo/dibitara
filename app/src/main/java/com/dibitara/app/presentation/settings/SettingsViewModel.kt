@@ -93,13 +93,16 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    // ─── Capture live BRED ────────────────────────────────────────────────────
+    // ─── Capture live BRED / TradeRepublic ────────────────────────────────────
 
     /**
      * L'activation se fait via un réglage système (Paramètres Android > Accès aux notifications),
-     * pas via une permission runtime classique - on ne peut donc que vérifier l'état, pas la demander.
+     * pas via une permission runtime classique - on ne peut donc que vérifier l'état, pas la
+     * demander. Vérification globale au paquet de l'app : ne distingue pas si seul le listener
+     * BRED ou seul celui de TradeRepublic est activé (chacun se coche indépendamment côté
+     * réglages système), un des deux suffit à retourner true.
      */
-    fun captureLiveBredActivee(): Boolean =
+    fun captureLiveNotifActivee(): Boolean =
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
     // ─── État de sécurité ─────────────────────────────────────────────────────

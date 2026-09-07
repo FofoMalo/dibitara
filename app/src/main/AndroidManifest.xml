@@ -85,6 +85,20 @@
             </intent-filter>
         </service>
 
+        <!--
+            Capture live des paiements carte TradeRepublic : lit les notifications push de
+            l'app officielle. Même principe que BredNotificationListenerService ci-dessus,
+            activation manuelle indépendante côté Android (Paramètres > Accès aux notifications).
+        -->
+        <service
+            android:name=".data.notification.TradeRepublicNotificationListenerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

@@ -12,8 +12,9 @@ class BankAccountTest {
     }
 
     @Test
-    fun `fromImportSource reconnaît TradeRepublic`() {
+    fun `fromImportSource reconnaît les sources TradeRepublic (csv, notification)`() {
         assertEquals(BankProvider.TRADE_REPUBLIC, BankProvider.fromImportSource("trade_republic"))
+        assertEquals(BankProvider.TRADE_REPUBLIC, BankProvider.fromImportSource("trade_republic_notification"))
     }
 
     @Test

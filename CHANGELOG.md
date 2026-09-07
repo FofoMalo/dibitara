@@ -9,6 +9,19 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
+## [4.7.0] - 2026-09-07
+
+### Ajouté
+- Capture live des paiements carte TradeRepublic via notification push, sur le même
+  principe que la capture live BRED existante (`TradeRepublicNotificationListenerService`
+  + `TradeRepublicNotificationParser`). Package `de.traderepublic.app` confirmé par
+  `adb shell pm list packages`. Contrairement aux captures BRED, le marchand fait partie
+  de la clé de déduplication (`externalId`) : les paiements carte TradeRepublic sont le
+  flux de dépense quotidien, pas un cas rare, donc une clé date+montant seule aurait
+  fait passer un deuxième achat du même montant le même jour pour un doublon. Bouton
+  d'activation des Paramètres généralisé (« Capture live BRED / TradeRepublic »),
+  `BankProvider.fromImportSource` étendu (`trade_republic_notification` → `TRADE_REPUBLIC`).
+
 ## [4.6.0] - 2026-09-05
 
 > Numérotation propre à `florent/prive`, qui ne fusionne jamais avec `develop`
