@@ -80,11 +80,11 @@ fun SettingsScreen(
     // L'activation de la capture live se fait dans les réglages système (hors de l'app) :
     // on revérifie l'état au retour sur l'écran plutôt qu'une seule fois à la composition.
     val lifecycleOwner = LocalLifecycleOwner.current
-    var captureLiveNotifActivee by remember { mutableStateOf(viewModel.captureLiveNotifActivee()) }
+    var captureLive by remember { mutableStateOf(viewModel.captureLiveState()) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                captureLiveNotifActivee = viewModel.captureLiveNotifActivee()
+                captureLive = viewModel.captureLiveState()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -475,9 +475,19 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        // Chaque listener se coche séparément côté Android : on affiche donc
+                        // l'état des deux, sinon un listener inactif passe inaperçu.
                         Text(
-                            if (captureLiveNotifActivee) "Capture live BRED / TradeRepublic activée ✓"
-                            else "Activer la capture live (paiements carte BRED / TradeRepublic)"
+                            when {
+                                captureLive.toutesActivees ->
+                                    "Capture live BRED + TradeRepublic activée ✓"
+                                captureLive.bredActivee ->
+                                    "Capture live : BRED ✓ · TradeRepublic ✗ — à activer"
+                                captureLive.tradeRepublicActivee ->
+                                    "Capture live : TradeRepublic ✓ · BRED ✗ — à activer"
+                                else ->
+                                    "Activer la capture live (paiements carte BRED / TradeRepublic)"
+                            }
                         )
                     }
                     Spacer(Modifier.height(4.dp))

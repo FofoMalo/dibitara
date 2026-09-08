@@ -9,7 +9,7 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
-## [4.7.0] - 2026-09-07
+## [4.7.0] - 2026-09-08
 
 ### Ajouté
 - Capture live des paiements carte TradeRepublic via notification push, sur le même
@@ -21,6 +21,23 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
   fait passer un deuxième achat du même montant le même jour pour un doublon. Bouton
   d'activation des Paramètres généralisé (« Capture live BRED / TradeRepublic »),
   `BankProvider.fromImportSource` étendu (`trade_republic_notification` → `TRADE_REPUBLIC`).
+
+### Corrigé
+- Capture live TradeRepublic silencieusement inactive : Android accorde l'accès aux
+  notifications **par composant** (chaque `NotificationListenerService` se coche
+  séparément), or l'écran Paramètres testait l'accès au niveau du paquet
+  (`getEnabledListenerPackages`) — le seul listener BRED activé suffisait à afficher
+  « activée ✓» pendant que le listener TradeRepublic, jamais coché, ne recevait rien.
+  L'écran affiche désormais l'état des deux listeners indépendamment
+  (`SettingsViewModel.captureLiveState`).
+- `TradeRepublicNotificationParser` : tolère l'espace insécable (U+00A0) et la fine
+  insécable (U+202F) que le formatage monétaire français insère avant le « € » et,
+  au-delà du millier, entre les groupes de chiffres — le `\s` ASCII des regex Java ne
+  les reconnaît pas, une notification correcte à l'écran échouait sans trace.
+- `TradeRepublicNotificationListenerService` : lit le titre, le corps et le corps
+  déplié de la notification (au lieu du seul `EXTRA_TEXT`) et trace chaque
+  notification reçue dans un fichier de diagnostic privé sur les builds debug
+  (`trade_republic_notif_debug.log`), comme le service BRED.
 
 ## [4.6.0] - 2026-09-05
 

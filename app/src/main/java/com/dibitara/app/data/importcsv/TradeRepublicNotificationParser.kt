@@ -22,13 +22,30 @@ import kotlin.math.roundToLong
  */
 internal object TradeRepublicNotificationParser {
 
+    // Espaces insécables du formatage monétaire français : U+00A0 (insécable) placée avant le
+    // « € », et U+202F (fine insécable) utilisée par certaines locales comme séparateur de
+    // milliers. Le \s des Regex Java est purement ASCII et n'en reconnaît aucune : sans les
+    // normaliser, un texte parfaitement correct à l'écran échoue silencieusement.
+    private const val ESPACE_INSECABLE = '\u00A0'
+    private const val ESPACE_FINE_INSECABLE = '\u202F'
+
+    // Le montant tolère une espace interne (séparateur de milliers), retirée avant conversion
+    // dans parseMontantCents. Le marchand est capturé jusqu'à la fin de ligne (« . » ne matche
+    // pas « \n ») : si le service concatène plusieurs champs sur des lignes distinctes, seul le
+    // segment « Dépensé X € à MARCHAND » est retenu.
     private val REGEX_DEPENSE = Regex(
-        """Dépensé\s+([\d,]+)\s*€\s*à\s*(.+)""",
+        """Dépensé\s+([\d ,]+)\s*€\s*à\s*(.+)""",
         RegexOption.IGNORE_CASE
     )
 
     fun parse(texteNotification: String): ImportedTransaction? {
-        val match = REGEX_DEPENSE.find(texteNotification) ?: return null
+        // On ramène les espaces insécables à une espace ordinaire avant tout matching (même
+        // principe que la normalisation d'apostrophe dans BredNotificationParser).
+        val texte = texteNotification
+            .replace(ESPACE_INSECABLE, ' ')
+            .replace(ESPACE_FINE_INSECABLE, ' ')
+
+        val match = REGEX_DEPENSE.find(texte) ?: return null
         val (montantStr, marchandBrut) = match.destructured
 
         val amountCents = parseMontantCents(montantStr) ?: return null
@@ -58,6 +75,7 @@ internal object TradeRepublicNotificationParser {
 
     // roundToLong() plutôt que toLong() : évite qu'une imprécision binaire double
     // (ex. 28.45 * 100 = 2844.9999999999995) tronque le montant d'un centime.
+    // replace(" ", "") retire le séparateur de milliers éventuel avant la conversion.
     private fun parseMontantCents(montantStr: String): Long? =
-        montantStr.replace(",", ".").toDoubleOrNull()?.let { (it * 100).roundToLong() }
+        montantStr.replace(" ", "").replace(",", ".").toDoubleOrNull()?.let { (it * 100).roundToLong() }
 }

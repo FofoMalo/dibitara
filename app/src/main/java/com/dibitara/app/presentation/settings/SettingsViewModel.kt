@@ -1,13 +1,16 @@
 package com.dibitara.app.presentation.settings
 
+import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
-import androidx.core.app.NotificationManagerCompat
+import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.dibitara.app.data.notification.BredNotificationListenerService
+import com.dibitara.app.data.notification.TradeRepublicNotificationListenerService
 import com.dibitara.app.data.worker.MonthlyReportNotificationWorker
 import com.dibitara.app.data.worker.WeeklyRecapWorker
 import com.dibitara.app.domain.model.Currency
@@ -98,12 +101,36 @@ class SettingsViewModel @Inject constructor(
     /**
      * L'activation se fait via un réglage système (Paramètres Android > Accès aux notifications),
      * pas via une permission runtime classique - on ne peut donc que vérifier l'état, pas la
-     * demander. Vérification globale au paquet de l'app : ne distingue pas si seul le listener
-     * BRED ou seul celui de TradeRepublic est activé (chacun se coche indépendamment côté
-     * réglages système), un des deux suffit à retourner true.
+     * demander.
+     *
+     * On teste chaque [NotificationListenerService] par son nom de classe complet et non par
+     * paquet : Android accorde l'accès par composant (chaque service se coche indépendamment
+     * côté réglages système). `NotificationManagerCompat.getEnabledListenerPackages()`, utilisé
+     * avant, renvoyait vrai dès qu'UN listener de l'app était coché - ce qui masquait un second
+     * listener resté inactif (le listener TradeRepublic n'avait jamais été activé alors que
+     * l'écran affichait « activée ✓», bug constaté le 2026-09-08).
      */
-    fun captureLiveNotifActivee(): Boolean =
-        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+    fun captureLiveState(): CaptureLiveState {
+        // Valeur système : liste de ComponentName "paquet/classe" séparés par ':'.
+        // La clé "enabled_notification_listeners" est stable depuis l'API 18 mais n'est pas
+        // exposée en constante publique (Settings.Secure.ENABLED_NOTIFICATION_LISTENERS est @hide).
+        val listenersActifs = Settings.Secure.getString(
+            context.contentResolver,
+            "enabled_notification_listeners"
+        ).orEmpty()
+
+        fun estActif(service: Class<*>): Boolean =
+            listenersActifs.split(':').any { entree ->
+                val composant = ComponentName.unflattenFromString(entree)
+                composant?.packageName == context.packageName &&
+                    composant.className == service.name
+            }
+
+        return CaptureLiveState(
+            bredActivee          = estActif(BredNotificationListenerService::class.java),
+            tradeRepublicActivee = estActif(TradeRepublicNotificationListenerService::class.java)
+        )
+    }
 
     // ─── État de sécurité ─────────────────────────────────────────────────────
 
@@ -360,6 +387,17 @@ class SettingsViewModel @Inject constructor(
             _event.emit(SettingsEvent.TotpDesactive)
         }
     }
+}
+
+/**
+ * État d'activation de la capture live, listener par listener (chacun se coche indépendamment
+ * côté réglages Android - voir [SettingsViewModel.captureLiveState]).
+ */
+data class CaptureLiveState(
+    val bredActivee: Boolean,
+    val tradeRepublicActivee: Boolean
+) {
+    val toutesActivees: Boolean get() = bredActivee && tradeRepublicActivee
 }
 
 /** État de la section Sécurité dans les Paramètres. */

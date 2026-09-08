@@ -30,6 +30,28 @@ class TradeRepublicNotificationParserTest {
     }
 
     @Test
+    fun `espace insécable avant l'euro est toléré`() {
+        // Le formatage monétaire français met souvent une espace insécable (U+00A0) ou fine
+        // insécable (U+202F) avant le « € » : invisible sur une capture d'écran, elle faisait
+        // échouer le \s ASCII de la regex.
+        val avecInsecable = TradeRepublicNotificationParser.parse("Dépensé 28,45\u00A0€ à FRANPRIX")
+        val avecFineInsecable = TradeRepublicNotificationParser.parse("Dépensé 28,45\u202F€ à FRANPRIX")
+
+        assertEquals(2845L, avecInsecable!!.amountCents)
+        assertEquals("FRANPRIX", avecInsecable.note)
+        assertEquals(2845L, avecFineInsecable!!.amountCents)
+    }
+
+    @Test
+    fun `montant avec séparateur de milliers est parsé`() {
+        val tx = TradeRepublicNotificationParser.parse("Dépensé 1\u202F234,56 € à IKEA")
+
+        assertNotNull(tx)
+        assertEquals(123456L, tx!!.amountCents)
+        assertEquals("IKEA", tx.note)
+    }
+
+    @Test
     fun `marchand sans mot-clé connu est catégorisé AUTRE`() {
         val texte = "Dépensé 13,50 € à MR LEMAITRE BENA"
 
