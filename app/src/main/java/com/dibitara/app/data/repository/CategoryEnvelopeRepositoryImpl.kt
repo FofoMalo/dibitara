@@ -6,14 +6,16 @@ import com.dibitara.app.domain.model.CategoryEnvelope
 import com.dibitara.app.domain.repository.CategoryEnvelopeRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import javax.inject.Inject
 
 class CategoryEnvelopeRepositoryImpl @Inject constructor(
-    private val dao: CategoryEnvelopeDao
+    private val dao: CategoryEnvelopeDao,
+    private val catalog: com.dibitara.app.domain.repository.CategoryCatalogRepository
 ) : CategoryEnvelopeRepository {
 
     override fun getAll(): Flow<List<CategoryEnvelope>> =
-        dao.getAll().map { entities -> entities.map { it.toDomain() } }
+        dao.getAll().combine(catalog.observe()) { entities,c -> entities.map { it.toDomain().let { e -> e.copy(category=c.category(e.category)) } } }
 
     override suspend fun upsert(envelope: CategoryEnvelope) =
         dao.upsert(envelope.toEntity())

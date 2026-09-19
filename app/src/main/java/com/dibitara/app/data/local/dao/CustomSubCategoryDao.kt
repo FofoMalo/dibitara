@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CustomSubCategoryDao {
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertNew(entity: CustomSubCategoryEntity): Long
+
 
     /** Toutes les sous-catégories, triées par parentCategory puis name. */
     @Query("SELECT * FROM custom_sub_categories ORDER BY parentCategory ASC, name ASC")

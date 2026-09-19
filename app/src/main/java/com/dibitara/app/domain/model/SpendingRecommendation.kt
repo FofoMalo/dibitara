@@ -44,6 +44,8 @@ val Category.bucket: BudgetBucket?
         // AUTRE et TRANSFERTS exclus volontairement - trop vagues pour une recommandation fiable
         Category.AUTRE,
         Category.TRANSFERTS      -> null
+        // Une catégorie personnelle n’est pas supposée être un besoin ou une envie.
+        else -> null
     }
 
 /**

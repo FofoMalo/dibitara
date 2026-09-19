@@ -154,8 +154,9 @@ internal fun EtapePreview(
     onAnnuler: () -> Unit,
     onModifierCategorie: (externalId: String, category: Category) -> Unit = { _, _ -> }
 ) {
-    val nouvelles = transactions.count { !it.alreadyImported }
+    val nouvelles = transactions.count { !it.alreadyImported && !it.captureLiveReconnue }
     val doublons  = transactions.count {  it.alreadyImported }
+    val actualisable = transactions.any { it.alreadyImported && it.reconciliationKey != null }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Résumé en haut
@@ -175,6 +176,10 @@ internal fun EtapePreview(
                     couleur = MaterialTheme.colorScheme.onPrimaryContainer)
             }
         }
+
+        val captures = transactions.count { it.captureLiveReconnue }
+        if (captures > 0) Text("$captures capture(s) seront rapprochée(s), sans nouvelle transaction.",
+            modifier = Modifier.padding(16.dp))
 
         // Liste des transactions
         LazyColumn(
@@ -205,10 +210,10 @@ internal fun EtapePreview(
                 }
                 Button(
                     onClick = onConfirmer,
-                    enabled = nouvelles > 0,
+                    enabled = nouvelles > 0 || captures > 0 || actualisable,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(if (nouvelles > 0) "Importer ($nouvelles)" else "Aucune nouvelle")
+                    Text(if (nouvelles > 0) "Importer ($nouvelles)" else if (captures > 0) "Rapprocher ($captures)" else if (actualisable) "Actualiser l’import" else "Aucune nouvelle")
                 }
             }
         }
@@ -223,11 +228,6 @@ internal fun StatChip(label: String, valeur: String, couleur: androidx.compose.u
         Text(label, style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
-}
-
-// Catégories proposables manuellement (on exclut INVESTISSEMENT et EPARGNE - auto-assignées)
-private val CATEGORIES_MANUELLES = Category.entries.filter {
-    it != Category.INVESTISSEMENT && it != Category.EPARGNE
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -270,7 +270,7 @@ internal fun LigneTransaction(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 // Catégorie éditable - chip tappable avec indicateur crayon
-                if (!tx.alreadyImported) {
+                if (!tx.alreadyImported && !tx.captureLiveReconnue) {
                     Box {
                         SuggestionChip(
                             onClick = { showCategoryMenu = true },
@@ -281,20 +281,9 @@ internal fun LigneTransaction(
                                 )
                             }
                         )
-                        DropdownMenu(
-                            expanded = showCategoryMenu,
-                            onDismissRequest = { showCategoryMenu = false }
-                        ) {
-                            CATEGORIES_MANUELLES.forEach { cat ->
-                                DropdownMenuItem(
-                                    text = { Text(cat.displayName) },
-                                    onClick = {
-                                        onModifierCategorie(cat)
-                                        showCategoryMenu = false
-                                    }
-                                )
-                            }
-                        }
+                        if(showCategoryMenu) com.dibitara.app.presentation.categories.CategoryPicker(
+                            onDismiss={showCategoryMenu=false},allowSubcategories=false,
+                            onChoose={onModifierCategorie(it.category);showCategoryMenu=false})
                     }
                 } else {
                     Text(
@@ -361,6 +350,9 @@ internal fun EtapeSucces(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+        if (resultat.reconciliees > 0) {
+            Text("${resultat.reconciliees} capture(s) rapprochée(s)", style = MaterialTheme.typography.bodyMedium)
         }
         Spacer(Modifier.height(32.dp))
         Button(

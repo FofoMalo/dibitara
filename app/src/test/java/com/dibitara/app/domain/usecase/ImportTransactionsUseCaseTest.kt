@@ -32,6 +32,8 @@ class ImportTransactionsUseCaseTest {
 
     @BeforeEach
     fun setUp() {
+        coEvery { repository.avecTransaction<Any?>(any()) } coAnswers { firstArg<suspend () -> Any?>().invoke() }
+        coEvery { repository.transactionsTradeRepublic() } returns emptyList()
         coEvery { bankAccountRepository.findByProvider(any()) } returns null
         useCase = ImportTransactionsUseCase(repository, userPreferencesRepository, bankAccountRepository)
     }

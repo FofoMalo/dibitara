@@ -4,8 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -22,27 +21,28 @@ import com.dibitara.app.presentation.navigation.Screen
 @Composable
 fun BottomNavBar(
     navController: NavController,
-    afficherEpargne: Boolean = true,
-    afficherInvestissements: Boolean = true
 ) {
     val items = listOf(
-        NavItem(Screen.Dashboard,   "Accueil",    Icons.Filled.Home),
-        NavItem(Screen.Budget,      "Budget",     Icons.Filled.AccountBalance),
-        NavItem(Screen.Expenses,    "Transactions", Icons.Filled.Receipt),
-        NavItem(Screen.Savings,     "Épargne",    Icons.Filled.Savings,
-            visible = afficherEpargne),
-        NavItem(Screen.Investments, "Placements", Icons.AutoMirrored.Filled.TrendingUp,
-            visible = afficherInvestissements),
-        NavItem(Screen.Settings,    "Paramètres", Icons.Filled.Settings),
-    ).filter { it.visible }
+        NavItem(Screen.Dashboard, "Accueil", Icons.Filled.Home),
+        NavItem(Screen.Budget, "Budget", Icons.Filled.AccountBalance),
+        NavItem(Screen.Expenses, "Activité", Icons.Filled.Receipt),
+        NavItem(Screen.PatrimoineDetail, "Patrimoine", Icons.AutoMirrored.Filled.TrendingUp),
+        NavItem(Screen.More, "Plus", Icons.Filled.MoreHoriz)
+    )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    val selectedRoute = when (currentRoute) {
+        Screen.Savings.route, Screen.Investments.route, Screen.Debts.route -> Screen.PatrimoineDetail.route
+        Screen.Settings.route -> Screen.More.route
+        else -> currentRoute
+    }
+
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
         items.forEach { item ->
             NavigationBarItem(
-                selected = currentRoute == item.screen.route,
+                selected = selectedRoute == item.screen.route,
                 onClick = {
                     if (item.screen == Screen.Dashboard) {
                         // Accueil : vider toute la pile et créer un Dashboard frais
@@ -58,7 +58,13 @@ fun BottomNavBar(
                         }
                     }
                 },
-                icon = { Icon(item.icon, contentDescription = item.label) }
+                icon = { Icon(item.icon, contentDescription = null) },
+                label = { Text(item.label, maxLines = 1) },
+                colors = NavigationBarItemDefaults.colors(
+                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary
+                )
             )
         }
     }
@@ -67,6 +73,5 @@ fun BottomNavBar(
 private data class NavItem(
     val screen: Screen,
     val label: String,
-    val icon: ImageVector,
-    val visible: Boolean = true
+    val icon: ImageVector
 )

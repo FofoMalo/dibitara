@@ -28,7 +28,11 @@ data class Transaction(
     val endDate: LocalDate? = null,                 // Date de fin de récurrence (null = indéfini)
     val importSource: String? = null,               // Ajouté en v11 : source de l'import ("trade_republic"), null si saisie manuelle
     val externalId: String? = null,                 // Ajouté en v11 : UUID externe pour la déduplication à l'import
-    val bankAccountId: Long? = null                 // Ajouté en v22 : référence au BankAccount rattaché (null si non déterminé)
+    val bankAccountId: Long? = null,                // Ajouté en v22 : référence au BankAccount rattaché (null si non déterminé)
+    val notificationExternalId: String? = null,     // Alias conservé après rapprochement avec un CSV
+    val categoryConfirmed: Boolean = false,
+    @Transient val categoryPath: String? = null,
+    val reconciliationKey: String? = null          // Nature + support/marchand, indépendante de la catégorie modifiable
 )
 
 enum class TransactionType { EXPENSE, INCOME, INVESTMENT }
@@ -42,25 +46,37 @@ enum class Currency(val symbol: String, val isoCode: String) {
     CAD("CA$", "CAD")
 }
 
-enum class Category(val displayName: String) {
-    ALIMENTATION  ("Alimentation"),
-    LOGEMENT      ("Logement"),
-    TRANSPORT     ("Transport"),
-    SANTE         ("Santé"),
-    LOISIRS       ("Loisirs"),         // inclut les vacances
-    ABONNEMENTS   ("Abonnements"),     // téléphonie, streaming, internet, logiciels
-    INVESTISSEMENT("Investissement"),
-    EPARGNE       ("Épargne"),
-    ENFANT             ("Enfant"),
-    EDUCATION          ("Éducation"),       // frais de scolarité, fournitures, formation
-    HABILLEMENT        ("Habillement"),
-    IMPOTS_CHARGES     ("Impôts & charges"),
-    ASSURANCES         ("Assurances"),
-    TRANSFERTS         ("Transferts"),
-    TRANSFERTS_FAMILIAUX("Transferts famille"), // envois famille élargie, tontines, njangi
-    TABAC              ("Tabac"),             // promue depuis une sous-catégorie AUTRE : usage assez
-                                               // fréquent et régulier pour justifier une enveloppe dédiée
-    AUTRE              ("Autre")            // toujours en dernier - fallback de safeValueOf
+/** Identité stable : les noms historiques restent inchangés en base. Les catégories
+ * personnelles ont un identifiant USER_UUID ; le catalogue porte leur présentation.
+ * L’égalité ignore le libellé pour préserver les regroupements après renommage. */
+class Category(val name: String, val displayName: String = "Catégorie personnelle", val icon: String = "DEFAULT", val color: String = "DEFAULT") {
+    override fun equals(other: Any?) = other is Category && name == other.name
+    override fun hashCode() = name.hashCode()
+    override fun toString() = name
+    companion object {
+        val ALIMENTATION = Category("ALIMENTATION", "Alimentation")
+        val LOGEMENT = Category("LOGEMENT", "Logement")
+        val TRANSPORT = Category("TRANSPORT", "Transport")
+        val SANTE = Category("SANTE", "Santé")
+        val LOISIRS = Category("LOISIRS", "Loisirs")
+        val ABONNEMENTS = Category("ABONNEMENTS", "Abonnements")
+        val INVESTISSEMENT = Category("INVESTISSEMENT", "Investissement")
+        val EPARGNE = Category("EPARGNE", "Épargne")
+        val ENFANT = Category("ENFANT", "Enfant")
+        val EDUCATION = Category("EDUCATION", "Éducation")
+        val HABILLEMENT = Category("HABILLEMENT", "Habillement")
+        val IMPOTS_CHARGES = Category("IMPOTS_CHARGES", "Impôts & charges")
+        val ASSURANCES = Category("ASSURANCES", "Assurances")
+        val TRANSFERTS = Category("TRANSFERTS", "Transferts")
+        val TRANSFERTS_FAMILIAUX = Category("TRANSFERTS_FAMILIAUX", "Transferts famille")
+        val TABAC = Category("TABAC", "Tabac")
+        val AUTRE = Category("AUTRE", "Autre")
+        val entries: List<Category> = listOf(ALIMENTATION,LOGEMENT,TRANSPORT,SANTE,LOISIRS,ABONNEMENTS,INVESTISSEMENT,EPARGNE,ENFANT,EDUCATION,HABILLEMENT,IMPOTS_CHARGES,ASSURANCES,TRANSFERTS,TRANSFERTS_FAMILIAUX,TABAC,AUTRE)
+        fun valueOf(name: String): Category = entries.firstOrNull { it.name == name }
+            ?: if (name.matches(Regex("USER_[a-f0-9-]{36}"))) Category(name)
+            else throw IllegalArgumentException("Catégorie inconnue : $name")
+        fun values(): Array<Category> = entries.toTypedArray()
+    }
 }
 
 // Sous-catégories prédéfinies, utilisées uniquement quand category == AUTRE

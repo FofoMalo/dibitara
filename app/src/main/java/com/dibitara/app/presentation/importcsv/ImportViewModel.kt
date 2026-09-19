@@ -73,8 +73,8 @@ class ImportViewModel @Inject constructor(
         val currentState = _uiState.value
         if (currentState !is ImportUiState.Preview) return
         val updated = currentState.transactions.map { tx ->
-            if (tx.externalId == externalId && !tx.alreadyImported) {
-                tx.copy(category = nouvelleCategorie)
+            if (tx.externalId == externalId && !tx.alreadyImported && !tx.captureLiveReconnue) {
+                tx.copy(category = nouvelleCategorie, subCategory=null, customSubCategoryId=null, categoryConfirmed=true)
             } else tx
         }
         _uiState.value = ImportUiState.Preview(updated)

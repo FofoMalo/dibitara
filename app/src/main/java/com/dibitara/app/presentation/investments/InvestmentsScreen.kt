@@ -641,6 +641,8 @@ private fun RealEstateCard(
                     }
                 }
             }
+            Text("Valeur suivie dans l’application · mise à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             AssetEvolutionSection(historique, asset.currency)
         }
     }
@@ -745,6 +747,8 @@ private fun ScpiCard(
                 }
             }
 
+            Text("Valeur suivie dans l’application · mise à jour le ${scpi.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             AssetEvolutionSection(historique, scpi.currency)
 
             // Bouton versement : visible uniquement si un montant mensuel est configuré
@@ -1838,13 +1842,14 @@ private fun EditVehicleRentalSheet(
 // ─── Cartes investissements personnalisés ─────────────────────────────────────
 
 @Composable
-private fun CustomAssetCard(
+internal fun LegacyCustomAssetCard(
     asset: CustomAsset,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     getTrend: suspend (AssetValuationType, Long) -> Float?,
     getPerformance: suspend (Long, Long, Long, LocalDate, CompteType?) -> PerformanceActif?,
-    getHistorique: suspend (AssetValuationType, Long) -> List<AssetValuationSnapshot>
+    getHistorique: suspend (AssetValuationType, Long) -> List<AssetValuationSnapshot>,
+    onConfigureEtf: () -> Unit
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -1893,6 +1898,7 @@ private fun CustomAssetCard(
                         Icon(Icons.Filled.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Suivre un ETF") }, onClick = { showMenu = false; onConfigureEtf() })
                         DropdownMenuItem(text = { Text("Modifier") },
                             leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                             onClick = { showMenu = false; onEdit() })
@@ -1902,6 +1908,8 @@ private fun CustomAssetCard(
                     }
                 }
             }
+            Text("Valeur suivie dans l’application · mise à jour le ${asset.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             AssetEvolutionSection(historique, asset.currency)
         }
     }
@@ -1981,6 +1989,8 @@ private fun EmployeeSavingsCard(
                 }
             }
 
+            Text("Valeur suivie dans l’application · mise à jour le ${savings.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             AssetEvolutionSection(historique, savings.currency)
 
             // Bouton versement : visible uniquement si un abondement mensuel est configuré - même

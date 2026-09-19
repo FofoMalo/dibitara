@@ -1,6 +1,8 @@
 package com.dibitara.app.presentation.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -160,6 +162,8 @@ private fun BankAccountRow(
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(compte.label, style = MaterialTheme.typography.bodyLarge)
+                Text("Solde saisi manuellement · ${compte.updatedAt.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     compte.provider.displayName,
                     style = MaterialTheme.typography.bodySmall,
@@ -213,7 +217,7 @@ private fun BankAccountDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (compteExistant != null) "Modifier le compte" else "Nouveau compte") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.imePadding()) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState()).imePadding()) {
                 ExposedDropdownMenuBox(expanded = expandedProvider, onExpandedChange = { expandedProvider = it }) {
                     OutlinedTextField(
                         value = selectedProvider.displayName,

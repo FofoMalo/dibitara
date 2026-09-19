@@ -45,7 +45,16 @@ import com.dibitara.app.domain.model.SavingsType
  * Réutilisé par : le donut Budget, le graphique "Valeur par actif" des
  * Placements et les icônes de ligne de l'écran Transactions.
  */
-fun Category.chartColor(): Color = when (this) {
+fun Category.chartColor(): Color = when (color) {
+    "GOLD" -> Color(0xFFF5C542)
+    "GREEN" -> Color(0xFFA8C7A0)
+    "BLUE" -> Color(0xFF7BA7D7)
+    "PURPLE" -> Color(0xFFB59BD5)
+    "TEAL" -> Color(0xFF7FB6B0)
+    "ROSE" -> Color(0xFFC79AB0)
+    else -> defaultChartColor()
+}
+private fun Category.defaultChartColor(): Color = when (this) {
     Category.ALIMENTATION          -> Color(0xFFA8C7A0) // sage
     Category.LOGEMENT              -> Color(0xFFF5C542) // or
     Category.TRANSPORT             -> Color(0xFF7FB6B0) // teal
@@ -62,10 +71,20 @@ fun Category.chartColor(): Color = when (this) {
     Category.TRANSFERTS            -> Color(0xFFFF5722)
     Category.TRANSFERTS_FAMILIAUX  -> Color(0xFF8BC34A)
     Category.TABAC                 -> Color(0xFF8D6E63) // brun, distinct du gris réservé à AUTRE
-    Category.AUTRE                 -> Color(0xFF9E9E9E)
+    else                           -> Color(0xFF9E9E9E)
 }
 
-fun Category.chartIcon(): ImageVector = when (this) {
+fun Category.chartIcon(): ImageVector = when (icon) {
+    "SHOP" -> Icons.Filled.ShoppingCart
+    "HOME" -> Icons.Filled.Home
+    "CAR" -> Icons.Filled.DirectionsCar
+    "HEART" -> Icons.Filled.LocalHospital
+    "GIFT" -> Icons.Filled.CardGiftcard
+    "STAR" -> Icons.Filled.Star
+    "BOOK" -> Icons.Filled.School
+    else -> defaultChartIcon()
+}
+private fun Category.defaultChartIcon(): ImageVector = when (this) {
     Category.ALIMENTATION          -> Icons.Filled.ShoppingCart
     Category.LOGEMENT              -> Icons.Filled.Home
     Category.TRANSPORT             -> Icons.Filled.DirectionsBus
@@ -82,7 +101,7 @@ fun Category.chartIcon(): ImageVector = when (this) {
     Category.TRANSFERTS            -> Icons.Filled.SwapHoriz
     Category.TRANSFERTS_FAMILIAUX  -> Icons.Filled.Groups
     Category.TABAC                 -> Icons.Filled.SmokingRooms
-    Category.AUTRE                 -> Icons.Filled.MoreHoriz
+    else                           -> Icons.Filled.MoreHoriz
 }
 
 /** Couleur et icône stables par [BankProvider], même logique que [Category.chartColor]/[chartIcon]. */

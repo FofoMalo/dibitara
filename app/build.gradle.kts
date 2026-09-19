@@ -28,8 +28,8 @@ android {
         applicationId = "com.dibitara.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20
-        versionName = "4.7.0"
+        versionCode = 28
+        versionName = "4.14.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -227,4 +227,18 @@ dependencies {
     androidTestImplementation(libs.coroutines.test)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
+}
+
+// Incident du 10/09/2026 : un test instrumenté sur le téléphone personnel a été suivi
+// d’une désinstallation et d’une perte de données. Bloquer avant toute tâche sur appareil.
+// Lever ce verrou exige un accord explicite et une sauvegarde externe vérifiée ; utiliser
+// de préférence un émulateur jetable. Les tests JVM et la compilation restent disponibles.
+gradle.taskGraph.whenReady {
+    val toucheAppareil = allTasks.any {
+        it.project == project && (it.name.startsWith("connected") ||
+            it.name.startsWith("install") || it.name.startsWith("uninstall"))
+    }
+    check(!toucheAppareil || project.findProperty("autoriserActionsAppareil") == "true") {
+        "Actions sur appareil bloquées. Accord explicite et sauvegarde externe vérifiée requis avant -PautoriserActionsAppareil=true."
+    }
 }

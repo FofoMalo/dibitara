@@ -4,6 +4,7 @@ import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.model.TradeRepublicReconciliation
 import java.io.InputStream
 import java.time.LocalDate
 import kotlin.math.abs
@@ -87,7 +88,8 @@ object TradeRepublicCsvParser {
 
         // Les achats TRADING sont toujours des dépenses (débit du compte)
         val type = when {
-            trCategory == "TRADING"   -> TransactionType.EXPENSE
+            trCategory == "TRADING" && trType == "SELL" -> TransactionType.INCOME
+            trCategory == "TRADING" && trType == "BUY" -> TransactionType.EXPENSE
             montantEffectif >= 0      -> TransactionType.INCOME
             else                      -> TransactionType.EXPENSE
         }
@@ -101,7 +103,19 @@ object TradeRepublicCsvParser {
             note          = determinerNote(trType, trCategory, champs),
             externalId    = externalId,
             rawType       = trType,
-            importSource  = "trade_republic"
+            importSource  = "trade_republic",
+            reconciliationKey = when {
+                trType == "CARD_TRANSACTION" -> TradeRepublicReconciliation.carte(champs[COL_NAME])
+                trCategory == "TRADING" && trType == "BUY" -> {
+                    val description = TradeRepublicReconciliation.normaliser(champs[COL_DESCRIPTION])
+                    when {
+                        Regex("\\bround ?up\\b").containsMatchIn(description) -> "roundup"
+                        description == "savings plan execution" -> TradeRepublicReconciliation.plan(champs[COL_NAME])
+                        else -> null // Un achat sans indication d’origine ne prouve pas un Roundup.
+                    }
+                }
+                else -> null
+            }
         )
     }
 

@@ -72,9 +72,12 @@ object DatabaseModule {
                 DibitaraDatabase.MIGRATION_22_23,
                 DibitaraDatabase.MIGRATION_23_24,
                 DibitaraDatabase.MIGRATION_24_25,
-                DibitaraDatabase.MIGRATION_25_26
+                DibitaraDatabase.MIGRATION_25_26,
+                DibitaraDatabase.MIGRATION_26_27,
+                DibitaraDatabase.MIGRATION_27_28,
+                DibitaraDatabase.MIGRATION_28_29,
+                DibitaraDatabase.MIGRATION_29_30
             )
-            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
 
     @Provides fun provideTransactionDao(db: DibitaraDatabase): TransactionDao = db.transactionDao()
@@ -101,6 +104,9 @@ object DatabaseModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds abstract fun bindEtfRepository(impl: EtfRepositoryImpl): EtfRepository
+    @Binds abstract fun bindCategoryCatalog(impl: CategoryCatalogRepositoryImpl): CategoryCatalogRepository
+    @Binds abstract fun bindTransactionActions(impl: TransactionActionsRepositoryImpl): TransactionActionsRepository
 
     @Binds abstract fun bindTransactionRepository(impl: TransactionRepositoryImpl): TransactionRepository
     @Binds abstract fun bindBudgetRepository(impl: BudgetRepositoryImpl): BudgetRepository

@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.dibitara.app.presentation.common.MetricExplanation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -70,6 +71,9 @@ private fun ProjectionDetailContent(projection: CashflowProjection) {
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            MetricExplanation("Projection à 30 jours", "Solde des comptes bancaires personnels saisi dans l’application (hors Qonto), augmenté des revenus récurrents et diminué des dépenses récurrentes, versements épargne/SCPI restant à faire et échéances de crédit. Les achats futurs non enregistrés ne sont pas prévus. Ce résultat dépend de la fraîcheur des soldes saisis ; il ne constitue pas un solde bancaire confirmé.")
+        }
         // Line chart
         item {
             Card(modifier = Modifier.fillMaxWidth()) {

@@ -5,15 +5,15 @@ import androidx.compose.ui.graphics.Color
 // ─── Palette de marque Dibitara ───────────────────────────────────────────────
 //
 // Philosophie : "fin de l'obscurantisme financier"
-//   → Noir profond (#0D0D0D) = clarté, sobriété, confiance
-//   → Or (#F5C542)           = valeur, ambition, lumière
+//   → Anthracite (#111416) = clarté, sobriété, confiance
+//   → Or (#E6C675)           = valeur, ambition, lumière
 //   → Blanc cassé (#FAFAFA)  = lisibilité, neutralité
 //
 // Les rôles Material 3 (primary, surface, error…) sont dérivés de cette base.
 
 // Couleurs source
-val DibitaraOr       = Color(0xFFF5C542)   // or principal - action, CTA
-val DibitaraNoir     = Color(0xFF0D0D0D)   // fond sombre
+val DibitaraOr       = Color(0xFFE6C675)   // or principal - action, CTA
+val DibitaraNoir     = Color(0xFF111416)   // fond sombre
 val DibitaraNeutre   = Color(0xFFFAFAFA)   // texte et surfaces claires
 
 // Teintes data-viz additionnelles (refonte UX/UI 2026-08) - pour palettes de
@@ -24,7 +24,7 @@ val DibitaraMauve    = Color(0xFFC79AB0)
 // ─── Rôles dark (utilisés par défaut) ────────────────────────────────────────
 
 // Primary - or Dibitara
-val md_dark_primary              = Color(0xFFF5C542)   // boutons, FAB, liens actifs
+val md_dark_primary              = Color(0xFFE6C675)   // boutons, FAB, liens actifs
 val md_dark_onPrimary            = Color(0xFF3D2E00)   // texte sur bouton doré
 val md_dark_primaryContainer     = Color(0xFF574400)   // chip, surface d'accent
 val md_dark_onPrimaryContainer   = Color(0xFFFFE08A)   // texte sur container doré
@@ -49,16 +49,16 @@ val md_dark_errorContainer       = Color(0xFF93000A)
 val md_dark_onErrorContainer     = Color(0xFFFFDAD6)
 
 // Background & Surface
-val md_dark_background           = Color(0xFF0D0D0D)   // fond global
+val md_dark_background           = Color(0xFF111416)   // fond global
 val md_dark_onBackground         = Color(0xFFFAFAFA)
-val md_dark_surface              = Color(0xFF161616)   // cartes, bottom sheets (refonte 2026-08, était #1A1A1A)
+val md_dark_surface              = Color(0xFF1B2023)   // cartes et feuilles V2
 val md_dark_onSurface            = Color(0xFFFAFAFA)
-val md_dark_surfaceVariant       = Color(0xFF2C2B26)   // variante tiède
-val md_dark_onSurfaceVariant     = Color(0xFFCEC6AA)   // texte secondaire
+val md_dark_surfaceVariant       = Color(0xFF282F32)   // surfaces secondaires neutres
+val md_dark_onSurfaceVariant     = Color(0xFFC1C8CB)   // texte secondaire
 
 // Outline
 val md_dark_outline              = Color(0xFF979080)
-val md_dark_outlineVariant       = Color(0xFF4B4839)
+val md_dark_outlineVariant       = Color(0xFF3C4549)
 
 // ─── Rôles light ─────────────────────────────────────────────────────────────
 

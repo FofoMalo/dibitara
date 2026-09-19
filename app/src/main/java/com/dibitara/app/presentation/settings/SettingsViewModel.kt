@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -69,8 +70,34 @@ class SettingsViewModel @Inject constructor(
     private val ucExporterDonnees: ExporterDonneesUseCase,
     private val ucRestaurerDonnees: RestaurerDonneesUseCase,
     private val credentialManager: CredentialManager,
-    private val totpManager: TotpManager
+    private val totpManager: TotpManager,
+    private val backups: com.dibitara.app.data.backup.BackupManager
 ) : ViewModel() {
+    val backupState = backups.state
+
+    fun choisirDossierSauvegarde(uri: Uri) {
+        runCatching { backups.choisirDossier(uri) }
+            .onFailure { _backupMessage.value = it.message }
+    }
+
+    private val _backupMessage = MutableStateFlow<String?>(null)
+    val backupMessage = _backupMessage.asStateFlow()
+
+    fun activerSauvegardeAutomatique(active: Boolean) {
+        runCatching { backups.activerAutomatique(active) }
+            .onFailure { _backupMessage.value = it.message }
+    }
+
+    fun sauvegarderMaintenant() {
+        viewModelScope.launch {
+            _backupMessage.value = null
+            try {
+                backups.sauvegarder()
+                _backupMessage.value = "Fichier écrit et relu. Vérifiez sa synchronisation dans Synology Drive."
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e
+            } catch (e: Exception) { _backupMessage.value = e.message }
+        }
+    }
 
     /** Préférences actuelles, mises à jour en temps réel depuis DataStore. */
     val preferences: StateFlow<UserPreferences> = ucGetPreferences()
@@ -174,14 +201,65 @@ class SettingsViewModel @Inject constructor(
      * Émet [RestoreEvent.Succes] avec le nombre d'entités restaurées,
      * ou [RestoreEvent.Erreur] si le fichier est invalide.
      */
+    private val _restorePreview = MutableStateFlow<String?>(null)
+    val restorePreview = _restorePreview.asStateFlow()
+    private var pendingRestoreUri: Uri? = null
+
+    fun preparerRestauration(uri: Uri) {
+        if (_restoreEnCours.value) return
+        viewModelScope.launch {
+            _restoreEnCours.value = true
+            try {
+                val preview = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val json = context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() }
+                        ?: error("Fichier illisible")
+                    val detail = com.dibitara.app.data.export.BackupJsonVerifier.inspecter(json).first
+                    val file = java.io.File(context.cacheDir, "exports/restore-preview.json")
+                    file.parentFile?.mkdirs()
+                    file.writeText(json)
+                    pendingRestoreUri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                    detail
+                }
+                _restorePreview.value = preview
+            } catch (e: Exception) {
+                _restoreEvent.emit(RestoreEvent.Erreur(e.message ?: "Fichier invalide"))
+            } finally { _restoreEnCours.value = false }
+        }
+    }
+
+    fun annulerRestauration() { pendingRestoreUri = null; _restorePreview.value = null }
+    fun confirmerRestauration() {
+        val uri = pendingRestoreUri ?: return
+        annulerRestauration()
+        restaurerDonnees(uri)
+    }
+
+    fun partagerCopieSecours() {
+        viewModelScope.launch {
+            try {
+                val uri = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val source = java.io.File(context.filesDir, "restore-safety").listFiles()?.maxByOrNull { it.lastModified() }
+                        ?: error("Aucune copie de secours : elle sera créée avant votre prochaine restauration.")
+                    val dest = java.io.File(context.cacheDir, "exports/${source.name}")
+                    dest.parentFile?.mkdirs()
+                    source.copyTo(dest, overwrite = true)
+                    androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", dest)
+                }
+                _exportEvent.emit(ExportEvent.Succes(uri, ExportFormat.JSON))
+            } catch (e: Exception) { _restoreEvent.emit(RestoreEvent.Erreur(e.message ?: "Copie indisponible")) }
+        }
+    }
+
     fun restaurerDonnees(uri: Uri) {
         viewModelScope.launch {
             _restoreEnCours.value = true
             try {
                 val result = ucRestaurerDonnees(uri)
                 when (result) {
-                    is com.dibitara.app.domain.repository.RestoreResult.Success ->
+                    is com.dibitara.app.domain.repository.RestoreResult.Success -> {
+                        mettreAJourNotificationsMensuelles(ucGetPreferences().first().notificationsMensuelles)
                         _restoreEvent.emit(RestoreEvent.Succes(result.nbElements))
+                    }
                     is com.dibitara.app.domain.repository.RestoreResult.Error ->
                         _restoreEvent.emit(RestoreEvent.Erreur(result.message))
                 }
@@ -275,6 +353,10 @@ class SettingsViewModel @Inject constructor(
     fun supprimerToutesDonnees(onTermine: () -> Unit) {
         viewModelScope.launch {
             ucSupprimerToutesDonnees()
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                java.io.File(context.filesDir, "restore-safety").deleteRecursively()
+                java.io.File(context.cacheDir, "exports").deleteRecursively()
+            }
             onTermine()
         }
     }

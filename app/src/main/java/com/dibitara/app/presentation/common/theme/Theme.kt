@@ -5,11 +5,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 // ─── Schéma dark - mode par défaut pour Dibitara ─────────────────────────────
 //
 // Finance apps + fond sombre = meilleur confort de lecture la nuit
-// et mise en valeur de l'or (#F5C542) sur noir (#0D0D0D).
+// et mise en valeur de l'or (#E6C675) sur noir (#111416).
 
 private val DibitaraDarkColorScheme = darkColorScheme(
     primary              = md_dark_primary,
@@ -36,6 +42,11 @@ private val DibitaraDarkColorScheme = darkColorScheme(
     onSurfaceVariant     = md_dark_onSurfaceVariant,
     outline              = md_dark_outline,
     outlineVariant       = md_dark_outlineVariant,
+    surfaceContainerLowest = md_dark_background,
+    surfaceContainerLow = md_dark_surface,
+    surfaceContainer = md_dark_surface,
+    surfaceContainerHigh = md_dark_surfaceVariant,
+    surfaceContainerHighest = md_dark_surfaceVariant,
 )
 
 // ─── Schéma light ─────────────────────────────────────────────────────────────
@@ -65,6 +76,11 @@ private val DibitaraLightColorScheme = lightColorScheme(
     onSurfaceVariant     = md_light_onSurfaceVariant,
     outline              = md_light_outline,
     outlineVariant       = md_light_outlineVariant,
+    surfaceContainerLowest = md_light_background,
+    surfaceContainerLow = md_light_surface,
+    surfaceContainer = md_light_surface,
+    surfaceContainerHigh = md_light_surfaceVariant,
+    surfaceContainerHighest = md_light_surfaceVariant,
 )
 
 // ─── Thème racine ─────────────────────────────────────────────────────────────
@@ -74,7 +90,20 @@ fun DibitaraTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
+    val base = Typography()
     MaterialTheme(
+        shapes = Shapes(
+            small = RoundedCornerShape(12.dp),
+            medium = RoundedCornerShape(18.dp),
+            large = RoundedCornerShape(24.dp),
+            extraLarge = RoundedCornerShape(28.dp)
+        ),
+        typography = base.copy(
+            headlineMedium = base.headlineMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.5).sp),
+            headlineSmall = base.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+            titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            bodyMedium = base.bodyMedium.copy(lineHeight = 22.sp)
+        ),
         colorScheme = if (darkTheme) DibitaraDarkColorScheme else DibitaraLightColorScheme,
         content = content
     )

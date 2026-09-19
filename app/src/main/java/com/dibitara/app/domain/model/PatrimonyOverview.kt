@@ -9,7 +9,8 @@ data class PatrimonyOverview(
     val dettesTotalCents: Long,
     val currency: Currency,
     /** True si au moins un montant agrégé ci-dessus a réellement été converti depuis une autre devise. */
-    val hasConvertedValues: Boolean = false
+    val hasConvertedValues: Boolean = false,
+    val budgetDefini: Boolean = true
 ) {
     // Airbnb, le véhicule locatif et les liquidités (reste de budget du mois) sont des flux,
     // pas des actifs (stock) - exclus du patrimoine brut, même principe pour les trois.

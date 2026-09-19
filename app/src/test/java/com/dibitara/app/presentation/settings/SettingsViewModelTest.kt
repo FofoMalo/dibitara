@@ -59,6 +59,7 @@ class SettingsViewModelTest {
     private val ucRestaurer: RestaurerDonneesUseCase = mockk(relaxed = true)
     private val credentialManager: CredentialManager = mockk(relaxed = true)
     private val totpManager: TotpManager = mockk(relaxed = true)
+    private val backups: com.dibitara.app.data.backup.BackupManager = mockk(relaxed = true)
 
     private lateinit var viewModel: SettingsViewModel
 
@@ -72,7 +73,8 @@ class SettingsViewModelTest {
         every { credentialManager.isTotpSetup()     } returns false
         // ucRates retourne un succès avec des taux fictifs pour ne pas bloquer init()
         coEvery { ucRates() } returns Result.success(ExchangeRates(1.09, 655.96, 0L))
-        viewModel = SettingsViewModel(context, ucGet, ucRates, ucSeuil, ucSeuilResteAVivreLogement, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucProchainsPaiements, ucTwoFactor, ucNotifications, ucRecommandations, ucThemeMode, ucSupprimerDonnees, ucExporter, ucRestaurer, credentialManager, totpManager)
+        every { backups.state } returns kotlinx.coroutines.flow.MutableStateFlow(com.dibitara.app.data.backup.BackupState())
+        viewModel = SettingsViewModel(context, ucGet, ucRates, ucSeuil, ucSeuilResteAVivreLogement, ucDevise, ucRapport, ucEpargne, ucInvestissements, ucProchainsPaiements, ucTwoFactor, ucNotifications, ucRecommandations, ucThemeMode, ucSupprimerDonnees, ucExporter, ucRestaurer, credentialManager, totpManager, backups)
     }
 
     @AfterEach

@@ -37,7 +37,10 @@ data class TransactionEntity(
     val endDateEpochDay: Long? = null,          // Ajouté en v8 : date de fin (null = indéfini)
     val importSource: String? = null,           // Ajouté en v11 : source de l'import ("trade_republic")
     val externalId: String? = null,             // Ajouté en v11 : UUID externe pour la déduplication
-    val bankAccountId: Long? = null             // Ajouté en v22 : référence à bank_accounts
+    val bankAccountId: Long? = null,            // Ajouté en v22 : référence à bank_accounts
+    val notificationExternalId: String? = null,
+    @androidx.room.ColumnInfo(defaultValue = "0") val categoryConfirmed: Boolean = false,
+    val reconciliationKey: String? = null
 ) {
     fun toDomain() = Transaction(
         id = id,
@@ -58,7 +61,10 @@ data class TransactionEntity(
         endDate = endDateEpochDay?.let { LocalDate.ofEpochDay(it) },
         importSource = importSource,
         externalId = externalId,
-        bankAccountId = bankAccountId
+        bankAccountId = bankAccountId,
+        notificationExternalId = notificationExternalId,
+        categoryConfirmed = categoryConfirmed,
+        reconciliationKey = reconciliationKey
     )
 
     companion object {
@@ -81,7 +87,10 @@ data class TransactionEntity(
             endDateEpochDay = t.endDate?.toEpochDay(),
             importSource = t.importSource,
             externalId = t.externalId,
-            bankAccountId = t.bankAccountId
+            bankAccountId = t.bankAccountId,
+            notificationExternalId = t.notificationExternalId,
+            categoryConfirmed = t.categoryConfirmed,
+            reconciliationKey = t.reconciliationKey
         )
     }
 }

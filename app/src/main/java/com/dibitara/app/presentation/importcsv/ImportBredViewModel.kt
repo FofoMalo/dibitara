@@ -71,7 +71,7 @@ class ImportBredViewModel @Inject constructor(
         if (currentState !is ImportUiState.Preview) return
         val updated = currentState.transactions.map { tx ->
             if (tx.externalId == externalId && !tx.alreadyImported) {
-                tx.copy(category = nouvelleCategorie)
+                tx.copy(category = nouvelleCategorie, subCategory=null, customSubCategoryId=null, categoryConfirmed=true)
             } else tx
         }
         _uiState.value = ImportUiState.Preview(updated)
@@ -96,7 +96,7 @@ class ImportBredViewModel @Inject constructor(
             if (!tx.alreadyImported && tx.category == Category.AUTRE) {
                 // 1. Règle apprise par l'utilisateur (priorité absolue - exact match)
                 val regle = ucGetRule(tx.note)
-                if (regle != null) return@map tx.copy(category = regle.category)
+                if (regle != null) return@map tx.copy(category = regle.category, subCategory=regle.subCategory, customSubCategoryId=regle.customSubCategoryId, categoryConfirmed=true)
                 // 2. Dictionnaire générique
                 val suggestion = CategoriseurLibelle.suggererCategorie(tx.note)
                 if (suggestion != null) tx.copy(category = suggestion) else tx

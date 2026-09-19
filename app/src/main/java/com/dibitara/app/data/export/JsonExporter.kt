@@ -21,6 +21,7 @@ import java.time.LocalDate
 object JsonExporter {
 
     private val gson = GsonBuilder()
+        .registerTypeAdapter(com.dibitara.app.domain.model.Category::class.java, com.dibitara.app.data.export.CategoryJsonAdapter())
         .registerTypeAdapter(LocalDate::class.java, AdaptateurLocalDate())
         .setPrettyPrinting()
         .create()

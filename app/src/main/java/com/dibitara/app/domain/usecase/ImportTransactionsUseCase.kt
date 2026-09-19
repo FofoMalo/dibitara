@@ -3,6 +3,8 @@ package com.dibitara.app.domain.usecase
 import com.dibitara.app.domain.model.BankProvider
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.fromImportSource
+import com.dibitara.app.domain.model.Transaction
+import com.dibitara.app.domain.model.TradeRepublicReconciliation
 import com.dibitara.app.domain.repository.BankAccountRepository
 import com.dibitara.app.domain.repository.ImportRepository
 import com.dibitara.app.domain.repository.UserPreferencesRepository
@@ -32,7 +34,26 @@ class ImportTransactionsUseCase @Inject constructor(
      */
     suspend fun verifierDoublons(transactions: List<ImportedTransaction>): List<ImportedTransaction> {
         val existants = repository.externalIdsExistants()
-        return transactions.map { it.copy(alreadyImported = it.externalId in existants) }
+        val rapprochements = preparerRapprochements(transactions.filter { it.externalId !in existants })
+        return transactions.distinctBy { it.externalId }.map {
+            it.copy(alreadyImported = it.externalId in existants, captureLiveReconnue = it.externalId in rapprochements)
+        }
+    }
+
+    /** Appariement un-à-un sur le lot complet : ne jamais consommer deux fois une capture. */
+    private suspend fun preparerRapprochements(transactions: List<ImportedTransaction>): Map<String, Transaction> {
+        val csv = transactions.filter { it.importSource == "trade_republic" }.distinctBy { it.externalId }
+        if (csv.isEmpty()) return emptyMap()
+        val captures = repository.transactionsTradeRepublic().filter { it.importSource == "trade_republic_notification" }
+        val resultats = csv.mapNotNull { ligne ->
+            val tx = ligne.toTransaction()
+            TradeRepublicReconciliation.verifierUnique(tx, TradeRepublicReconciliation.candidats(tx, captures))
+                ?.let { ligne.externalId to it }
+        }
+        require(resultats.map { it.second.id }.distinct().size == resultats.size) {
+            "Plusieurs lignes CSV correspondent à la même capture TradeRepublic. Vérifiez ces opérations avant l’import."
+        }
+        return resultats.toMap()
     }
 
     /**
@@ -48,28 +69,49 @@ class ImportTransactionsUseCase @Inject constructor(
      * (qui devient la version canonique) plutôt que d'être dupliquée.
      */
     suspend fun confirmer(transactions: List<ImportedTransaction>): Result<ImportResult> =
-        runCatching {
+        runCatching { repository.avecTransaction {
             val existants = repository.externalIdsExistants()
-            val nouvelles = transactions.filter { it.externalId !in existants }
+            val nouvelles = transactions.distinctBy { it.externalId }.filter { it.externalId !in existants }
+            val rapprochements = preparerRapprochements(nouvelles)
+
+            // Un réimport enrichit aussi les anciennes lignes CSV dont la clé n’était pas conservée.
+            if (transactions.any { it.importSource == "trade_republic" && it.externalId in existants }) {
+                val anciennes = repository.transactionsTradeRepublic().associateBy { it.externalId }
+                transactions.filter { it.importSource == "trade_republic" }.forEach { ligne ->
+                    anciennes[ligne.externalId]?.takeIf { it.reconciliationKey == null && ligne.reconciliationKey != null }
+                        ?.let { repository.mettreAJour(it.copy(reconciliationKey = ligne.reconciliationKey)) }
+                }
+            }
 
             val nouvellesAvecCorrespondance = nouvelles.map { imported ->
                 val captureLive = if (imported.importSource == "bred") {
                     repository.trouverCaptureLiveProche(imported.date, imported.amountCents)
-                } else null
+                } else rapprochements[imported.externalId]
                 imported to captureLive
             }
 
             val (aReconcilier, aInserer) = nouvellesAvecCorrespondance.partition { it.second != null }
 
             aReconcilier.forEach { (imported, captureLive) ->
-                repository.mettreAJour(
-                    captureLive!!.copy(
-                        note         = imported.note,
-                        category     = imported.category,
-                        importSource = imported.importSource,
-                        externalId   = imported.externalId
+                if (imported.importSource == "trade_republic") {
+                    // Garder l’id local et les corrections utilisateur (note, catégorie, sous-catégorie).
+                    repository.mettreAJour(captureLive!!.copy(
+                        externalId = imported.externalId,
+                        notificationExternalId = captureLive.externalId,
+                        importSource = "trade_republic",
+                        reconciliationKey = imported.reconciliationKey,
+                        bankAccountId = captureLive.bankAccountId ?: bankAccountRepository.findByProvider(BankProvider.TRADE_REPUBLIC)?.id
+                    ))
+                } else {
+                    repository.mettreAJour(
+                        captureLive!!.copy(
+                            note         = imported.note,
+                            category     = imported.category,
+                            importSource = imported.importSource,
+                            externalId   = imported.externalId
+                        )
                     )
-                )
+                }
             }
 
             repository.importerTransactions(aInserer.map { (imported, _) ->
@@ -79,12 +121,14 @@ class ImportTransactionsUseCase @Inject constructor(
                 imported.toTransaction(bankAccountId = bankAccountId)
             })
             userPreferencesRepository.updateDerniereImport(System.currentTimeMillis())
-            ImportResult(importees = aInserer.size, ignorees = transactions.size - aInserer.size)
-        }
+            ImportResult(importees = aInserer.size, ignorees = transactions.size - aInserer.size - rapprochements.size,
+                reconciliees = rapprochements.size)
+        } }
 }
 
 /** Résultat d'un import confirmé. */
 data class ImportResult(
     val importees: Int,  // transactions effectivement insérées en base
-    val ignorees: Int    // doublons ignorés, y compris les captures live réconciliées (mises à jour, pas insérées)
+    val ignorees: Int,   // doublons ignorés, y compris les rapprochements BRED historiques
+    val reconciliees: Int = 0
 )

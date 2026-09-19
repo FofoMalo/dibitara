@@ -25,6 +25,8 @@ class CapturerTransactionLiveUseCaseTest {
 
     @BeforeEach
     fun setUp() {
+        coEvery { repository.avecTransaction<Any?>(any()) } coAnswers { firstArg<suspend () -> Any?>().invoke() }
+        coEvery { repository.transactionsTradeRepublic() } returns emptyList()
         useCase = CapturerTransactionLiveUseCase(repository, bankAccountRepository)
     }
 

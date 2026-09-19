@@ -26,6 +26,8 @@ import java.time.LocalDate
 @Database(
     entities = [
         TransactionEntity::class,
+        TransactionTrashEntity::class,
+        CategoryDefinitionEntity::class,
         BudgetEntity::class,
         ChildEntity::class,
         DebtEntity::class,
@@ -36,6 +38,8 @@ import java.time.LocalDate
         CustomSubCategoryEntity::class,
         MonthlyVersementEntity::class,
         CustomAssetEntity::class,
+        EtfPlanEntity::class,
+        EtfPurchaseEntity::class,
         EmployeeSavingsEntity::class,
         PatrimoineSnapshotEntity::class,
         CategorizationRuleEntity::class,
@@ -45,11 +49,14 @@ import java.time.LocalDate
         BankAccountEntity::class,
         SavingsGoalEntity::class
     ],
-    version = 26,
+    version = 30,
     exportSchema = true
 )
 abstract class DibitaraDatabase : RoomDatabase() {
+    abstract fun etfDao(): EtfDao
+    abstract fun categoryDefinitionDao(): CategoryDefinitionDao
     abstract fun transactionDao(): TransactionDao
+    abstract fun transactionTrashDao(): TransactionTrashDao
     abstract fun budgetDao(): BudgetDao
     abstract fun childDao(): ChildDao
     abstract fun debtDao(): DebtDao
@@ -70,6 +77,36 @@ abstract class DibitaraDatabase : RoomDatabase() {
     abstract fun savingsGoalDao(): SavingsGoalDao
 
     companion object {
+        // Ajout uniquement : aucune valeur, aucun mouvement ni transaction existante n'est réécrit.
+        val MIGRATION_29_30 = object : Migration(29, 30) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS etf_plans (assetId INTEGER NOT NULL PRIMARY KEY, name TEXT NOT NULL, sourceAccountId INTEGER NOT NULL, initialInvestedCents INTEGER NOT NULL, referenceEpochDay INTEGER NOT NULL, weeklyAmountCents INTEGER NOT NULL, nextPurchaseEpochDay INTEGER NOT NULL, currency TEXT NOT NULL, FOREIGN KEY(assetId) REFERENCES custom_assets(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS etf_purchases (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, assetId INTEGER NOT NULL, dateEpochDay INTEGER NOT NULL, amountCents INTEGER NOT NULL, feesCents INTEGER NOT NULL, transactionId INTEGER, FOREIGN KEY(assetId) REFERENCES etf_plans(assetId) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_etf_purchases_assetId ON etf_purchases(assetId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_etf_purchases_transactionId ON etf_purchases(transactionId)")
+            }
+        }
+
+        val MIGRATION_28_29 = object : Migration(28, 29) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN categoryConfirmed INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE TABLE IF NOT EXISTS category_definitions (`key` TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, parentKey TEXT, archived INTEGER NOT NULL, icon TEXT NOT NULL, color TEXT NOT NULL)")
+            }
+        }
+
+        val MIGRATION_27_28 = object : Migration(27, 28) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS transaction_trash (transactionId INTEGER NOT NULL PRIMARY KEY, payload TEXT NOT NULL, deletedAtEpochMilli INTEGER NOT NULL)")
+            }
+        }
+
+        val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN notificationExternalId TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN reconciliationKey TEXT")
+            }
+        }
+
         // Migration v25 → v26 : objectifs d'épargne connectés au flux d'argent (§1 F1 du
         // cadrage CADRAGE_OBJECTIFS_CONNECTES.md). Colonnes nullables : les objectifs
         // existants ne perdent rien, `fundingMode` NULL se lit comme MANUEL côté domaine

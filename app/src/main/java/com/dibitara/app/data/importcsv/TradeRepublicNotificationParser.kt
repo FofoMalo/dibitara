@@ -4,6 +4,7 @@ import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.TransactionType
+import com.dibitara.app.domain.model.TradeRepublicReconciliation
 import java.time.LocalDate
 import kotlin.math.roundToLong
 
@@ -17,8 +18,8 @@ import kotlin.math.roundToLong
  * Contrairement à [BredNotificationParser], le texte ne porte pas de date : on retient la date
  * du jour ([LocalDate.now]), la notification étant reçue en temps quasi réel à chaque paiement.
  *
- * TradeRepublic ne pousse pas de notification pour les virements/versements programmés :
- * cette capture reste partielle, complémentaire à l'import CSV mensuel (TradeRepublicCsvParser).
+ * Roundup et plans exécutés : formats confirmés par la capture du 09/09/2026.
+ * Les virements attendent un exemple réel avant d’être reconnus.
  */
 internal object TradeRepublicNotificationParser {
 
@@ -38,18 +39,57 @@ internal object TradeRepublicNotificationParser {
         RegexOption.IGNORE_CASE
     )
 
-    fun parse(texteNotification: String): ImportedTransaction? {
+    private const val MONTANT = """(\d{1,3}(?: \d{3})*,\d{2}|\d+,\d{2})"""
+    private val REGEX_PLAN = Regex(
+        """^Votre plan d'épargne sur (.+?) de $MONTANT\s*€ a été exécuté[.!]?$""",
+        RegexOption.IGNORE_CASE
+    )
+    private val REGEX_ROUNDUP = Regex(
+        """^Vous avez économisé et investi $MONTANT\s*€ dans le Round up\s*!$""",
+        RegexOption.IGNORE_CASE
+    )
+
+    fun parse(
+        texteNotification: String,
+        date: LocalDate = LocalDate.now(),
+        notificationId: String? = null
+    ): ImportedTransaction? {
         // On ramène les espaces insécables à une espace ordinaire avant tout matching (même
         // principe que la normalisation d'apostrophe dans BredNotificationParser).
         val texte = texteNotification
             .replace(ESPACE_INSECABLE, ' ')
             .replace(ESPACE_FINE_INSECABLE, ' ')
+            .replace('’', '\'')
+
+        // Chaque champ Android est analysé séparément. Le corps développé peut être multiligne.
+        val corps = texte.trim().replace(Regex("\\s+"), " ")
+        val plan = REGEX_PLAN.matchEntire(corps)
+        val roundup = REGEX_ROUNDUP.matchEntire(corps)
+        if (plan != null || roundup != null) {
+            val montant = plan?.groupValues?.get(2) ?: roundup!!.groupValues[1]
+            val cents = runCatching {
+                montant.replace(" ", "").replace(",", ".").toBigDecimal()
+                    .movePointRight(2).longValueExact()
+            }.getOrNull()?.takeIf { it > 0 } ?: return null
+            val nature = if (plan != null) "SAVINGS_PLAN_NOTIF" else "ROUNDUP_NOTIF"
+            val note = if (plan != null) "Plan d’épargne · ${plan.groupValues[1].trim()}" else "Roundup investi"
+            return ImportedTransaction(
+                date = date, amountCents = cents, currency = Currency.EUR,
+                category = Category.INVESTISSEMENT, type = TransactionType.EXPENSE,
+                note = note,
+                // L’identité Android distingue deux exécutions identiques le même jour.
+                externalId = BredCategoriseur.genererExternalId(
+                    "trade_republic_notification", date, "$nature|${notificationId ?: note}", cents
+                ),
+                rawType = nature, importSource = "trade_republic_notification",
+                reconciliationKey = if (plan != null) TradeRepublicReconciliation.plan(plan.groupValues[1]) else "roundup"
+            )
+        }
 
         val match = REGEX_DEPENSE.find(texte) ?: return null
         val (montantStr, marchandBrut) = match.destructured
 
         val amountCents = parseMontantCents(montantStr) ?: return null
-        val date = LocalDate.now()
         val marchand = marchandBrut.trim()
         // BredCategoriseur est un classifieur générique par mots-clés (noms de marchands
         // français), pas spécifique à la banque BRED - réutilisé ici pour éviter de dupliquer
@@ -69,7 +109,8 @@ internal object TradeRepublicNotificationParser {
             // être confondus (voir BredCategoriseur.genererExternalId vs genererExternalIdMontantDate).
             externalId   = BredCategoriseur.genererExternalId("trade_republic_notification", date, marchand, amountCents),
             rawType      = "CARD_TRANSACTION_NOTIF",
-            importSource = "trade_republic_notification"
+            importSource = "trade_republic_notification",
+            reconciliationKey = TradeRepublicReconciliation.carte(marchand)
         )
     }
 

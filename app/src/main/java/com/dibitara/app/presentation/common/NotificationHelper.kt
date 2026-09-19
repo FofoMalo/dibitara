@@ -170,7 +170,7 @@ class NotificationHelper @Inject constructor(
         val taux     = if (plafondCents > 0) depenseCents.toFloat() / plafondCents else 0f
         val titre    = if (taux >= 1f) "Enveloppe dépassée" else "Enveloppe à ${(taux * 100).toInt()} %"
         val texte    = "${category.displayName} : ${depenseCents / 100}€ / ${plafondCents / 100}€"
-        val notifId  = 7000 + category.ordinal
+        val notifId  = 7000 + (com.dibitara.app.domain.model.Category.entries.indexOf(category).takeIf { it >= 0 } ?: (category.name.hashCode() and 0x0fffffff))
         val notification = NotificationCompat.Builder(context, CANAL_BUDGET)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(titre)
@@ -214,6 +214,18 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .build()
 
+        envoyerSiAutorise(NOTIF_ID_CAPTURE_LIVE, notification)
+    }
+
+    /** Une ambiguïté de rapprochement n’est pas une capture réussie. */
+    fun envoyerCaptureAVerifier(libelle: String) {
+        val notification = NotificationCompat.Builder(context, CANAL_CAPTURE_LIVE)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Capture TradeRepublic à vérifier")
+            .setContentText("$libelle : consultez les transactions avant un import de rattrapage.")
+            .setContentIntent(deepLinkPendingIntent("dibitara://expenses", NOTIF_ID_CAPTURE_LIVE))
+            .setAutoCancel(true)
+            .build()
         envoyerSiAutorise(NOTIF_ID_CAPTURE_LIVE, notification)
     }
 

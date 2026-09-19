@@ -147,6 +147,25 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[KEY_DERNIERE_ALERTE_DETTES] = epochDay }
     }
 
+    override suspend fun restaurerPreferences(preferences: UserPreferences) {
+        dataStore.edit { p ->
+            p[KEY_SEUIL_CENTS] = preferences.seuilFondsCents
+            p[KEY_SEUIL_RESTE_A_VIVRE_LOGEMENT] = preferences.seuilResteAVivreLogementCents
+            p[KEY_DEVISE] = preferences.deviseParDefaut.name
+            p[KEY_RAPPORT_MENSUEL] = preferences.afficherRapportMensuel
+            p[KEY_AFFICHER_EPARGNE] = preferences.afficherEpargne
+            p[KEY_AFFICHER_INVESTISSEMENTS] = preferences.afficherInvestissements
+            p[KEY_AFFICHER_PROCHAINS_PAIEMENTS] = preferences.afficherProchainsPaiements
+            p[KEY_DASHBOARD_CARD_ORDER] = preferences.dashboardCardOrder.serializeDashboardOrder()
+            p[KEY_NOTIFICATIONS_MENSUELLES] = preferences.notificationsMensuelles
+            p[KEY_AFFICHER_RECOMMANDATIONS] = preferences.afficherRecommandations
+            p[KEY_TAUX_EPARGNE_CIBLE] = preferences.tauxEpargneCiblePct
+            p[KEY_MASQUER_MONTANTS] = preferences.masquerMontants
+            p[KEY_THEME_MODE] = preferences.themeMode.name
+            preferences.derniereImportEpochMilli?.let { p[KEY_DERNIER_IMPORT] = it } ?: p.remove(KEY_DERNIER_IMPORT)
+        }
+    }
+
     override suspend fun clearAll() {
         dataStore.edit { it.clear() }
     }

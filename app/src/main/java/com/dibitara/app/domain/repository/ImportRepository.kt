@@ -9,6 +9,11 @@ import java.time.LocalDate
  * et éviter de polluer le repository principal avec des méthodes métier spécifiques.
  */
 interface ImportRepository {
+    /** Sérialise lecture/rapprochement/écriture et annule les écritures en cas d’erreur. */
+    suspend fun <T> avecTransaction(action: suspend () -> T): T
+
+    suspend fun transactionsTradeRepublic(): List<Transaction>
+
     /** Retourne l'ensemble des externalId déjà présents en base (toutes sources confondues). */
     suspend fun externalIdsExistants(): Set<String>
 

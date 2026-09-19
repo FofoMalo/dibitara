@@ -7,3 +7,7 @@ package com.dibitara.app.data.local.entity
  */
 inline fun <reified T : Enum<T>> safeValueOf(value: String, default: T): T =
     runCatching { enumValueOf<T>(value) }.getOrDefault(default)
+
+/** Les catégories sont extensibles, les autres identifiants restent des enums. */
+fun safeValueOf(value: String, fallback: com.dibitara.app.domain.model.Category): com.dibitara.app.domain.model.Category =
+    runCatching { com.dibitara.app.domain.model.Category.valueOf(value) }.getOrDefault(fallback)

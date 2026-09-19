@@ -85,7 +85,7 @@ class ExpensesViewModel @Inject constructor(
         ExpensesFilter(
             category = savedStateHandle.get<String>("category")
                 ?.let { runCatching { Category.valueOf(it) }.getOrNull() },
-            transactionType = savedStateHandle.get<String>("type")
+            transactionType = if (savedStateHandle.get<String>("type") == "ALL") null else savedStateHandle.get<String>("type")
                 ?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
                 ?: TransactionType.EXPENSE,
             bankAccountId = savedStateHandle.get<String>("bankAccountId")?.toLongOrNull()
@@ -196,7 +196,9 @@ class ExpensesViewModel @Inject constructor(
         subCategory: SubCategory? = null,
         customSubCategoryId: Long? = null,
         recurrenceFrequency: RecurrenceFrequency? = null,
-        endDate: LocalDate? = null
+        endDate: LocalDate? = null,
+        bankAccountId: Long? = null,
+        categoryConfirmed: Boolean = true
     ) {
         val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -208,6 +210,7 @@ class ExpensesViewModel @Inject constructor(
                     amountCents = cents,
                     currency = currency,
                     category = category,
+                    categoryConfirmed = categoryConfirmed,
                     type = type,
                     date = date,
                     note = note,
@@ -218,12 +221,13 @@ class ExpensesViewModel @Inject constructor(
                     customSubCategoryId = customSubCategoryId,
                     recurrenceFrequency = recurrenceFrequency,
                     firstPaymentDate = if (isRecurring) date else null,
-                    endDate = endDate
+                    endDate = endDate,
+                    bankAccountId = bankAccountId
                 )
             )
                 .onSuccess {
-                    ucUpsertRule(note, type, category, subCategory, customSubCategoryId)
                     _event.emit(ExpensesEvent.Saved)
+                    if(type==TransactionType.EXPENSE && note.isNotBlank()) _event.emit(ExpensesEvent.RuleSuggested(note,com.dibitara.app.domain.model.CategoryChoice(category,subCategory,customSubCategoryId)))
                 }
                 .onFailure { _event.emit(ExpensesEvent.Error(it.message ?: "Erreur")) }
         }
@@ -243,7 +247,9 @@ class ExpensesViewModel @Inject constructor(
         subCategory: SubCategory? = null,
         customSubCategoryId: Long? = null,
         recurrenceFrequency: RecurrenceFrequency? = null,
-        endDate: LocalDate? = null
+        endDate: LocalDate? = null,
+        bankAccountId: Long? = original.bankAccountId,
+        categoryConfirmed: Boolean = original.categoryConfirmed
     ) {
         val cents = amountStr.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() } ?: run {
             viewModelScope.launch { _event.emit(ExpensesEvent.Error("Montant invalide")) }
@@ -255,6 +261,7 @@ class ExpensesViewModel @Inject constructor(
                     amountCents = cents,
                     currency = currency,
                     category = category,
+                    categoryConfirmed = categoryConfirmed,
                     type = type,
                     date = date,
                     note = note,
@@ -265,32 +272,17 @@ class ExpensesViewModel @Inject constructor(
                     customSubCategoryId = customSubCategoryId,
                     recurrenceFrequency = recurrenceFrequency,
                     firstPaymentDate = original.firstPaymentDate ?: if (isRecurring) date else null,
-                    endDate = endDate
+                    endDate = endDate,
+                    bankAccountId = bankAccountId
                 )
             )
                 .onSuccess {
-                    ucUpsertRule(note, type, category, subCategory, customSubCategoryId)
                     _event.emit(ExpensesEvent.Saved)
-                    // Si la catégorie a changé et la note est identifiable, proposer de tout recatégoriser
-                    if (category != original.category && note.isNotBlank()) {
-                        val autres = ucGetAll().first()
-                            .filter { it.id != original.id && it.note.trim() == note.trim() && it.category != category }
-                        if (autres.isNotEmpty()) {
-                            _event.emit(ExpensesEvent.RecategorizationProposee(autres.size, note, category))
-                        }
+                    if(type==TransactionType.EXPENSE && note.isNotBlank() && (category!=original.category || subCategory!=original.subCategory || customSubCategoryId!=original.customSubCategoryId || note!=original.note)) {
+                        _event.emit(ExpensesEvent.RuleSuggested(note,com.dibitara.app.domain.model.CategoryChoice(category,subCategory,customSubCategoryId)))
                     }
                 }
                 .onFailure { _event.emit(ExpensesEvent.Error(it.message ?: "Erreur")) }
-        }
-    }
-
-    /** Applique [newCategory] à toutes les transactions ayant exactement la même note. */
-    fun recategoriserParNote(note: String, newCategory: Category) {
-        viewModelScope.launch {
-            val aModifier = ucGetAll().first()
-                .filter { it.note.trim() == note.trim() && it.category != newCategory }
-            aModifier.forEach { ucUpdate(it.copy(category = newCategory)) }
-            _event.emit(ExpensesEvent.RecategorizationTerminee(aModifier.size))
         }
     }
 
@@ -331,6 +323,8 @@ class ExpensesViewModel @Inject constructor(
 data class ExpensesFilter(
     val query             : String              = "",
     val category          : Category?           = null,
+    val subCategory: SubCategory? = null,
+    val customSubCategoryId: Long? = null,
     val period            : FilterPeriod        = FilterPeriod.CURRENT_MONTH,
     val transactionType   : TransactionType?    = TransactionType.EXPENSE,
     val sort              : SortOrder           = SortOrder.DATE_DESC,
@@ -344,10 +338,12 @@ data class ExpensesFilter(
         transactions
             .filter { transactionType == null || it.type == transactionType }
             .filter { category == null || it.category == category }
+            .filter { subCategory == null || it.subCategory == subCategory }
+            .filter { customSubCategoryId == null || it.customSubCategoryId == customSubCategoryId }
             .filter {
                 !uncategorizedOnly ||
                     (it.category == Category.AUTRE && it.type == TransactionType.EXPENSE &&
-                        it.subCategory == null && it.customSubCategoryId == null)
+                        it.subCategory == null && it.customSubCategoryId == null && !it.categoryConfirmed)
             }
             .filter { bankAccountId == null || it.bankAccountId == bankAccountId }
             .filter { query.isBlank() || it.note.contains(query, ignoreCase = true) }
@@ -384,6 +380,7 @@ sealed class ExpensesUiState {
 }
 
 sealed class ExpensesEvent {
+    data class RuleSuggested(val note: String,val choice: com.dibitara.app.domain.model.CategoryChoice): ExpensesEvent()
     data object Saved   : ExpensesEvent()
     data object Deleted : ExpensesEvent()
     data class Error(val message: String) : ExpensesEvent()

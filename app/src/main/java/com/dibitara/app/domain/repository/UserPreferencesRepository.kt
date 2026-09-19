@@ -33,5 +33,6 @@ interface UserPreferencesRepository {
     /** Enregistre le jour (epoch day) du dernier envoi des rappels d'échéance dette. */
     suspend fun updateDerniereAlerteDettes(epochDay: Long)
     /** Efface toutes les préférences stockées dans DataStore. */
+    suspend fun restaurerPreferences(preferences: UserPreferences)
     suspend fun clearAll()
 }

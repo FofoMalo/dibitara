@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.dibitara.app.presentation.common.MetricExplanation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,7 +43,7 @@ fun PatrimoineDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Détail du patrimoine") },
+                title = { Text("Patrimoine") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -95,6 +96,58 @@ private fun PatrimoineDetailContent(
             .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // ── Patrimoine net ───────────────────────────────────────────────────
+        val netPositif = overview.patrimoineNetCents >= 0
+        HeroCard {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Patrimoine net",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    overview.patrimoineNetCents.toCurrencyDisplay(overview.currency),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (netPositif) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.error
+                )
+                MetricExplanation("Périmètre du patrimoine", "Épargne + investissements − dettes. Les comptes bancaires ne sont pas ajoutés à ce total : un même argent peut déjà être enregistré en épargne. Le budget restant et les revenus locatifs sont des flux, pas des actifs. Les valeurs sont celles enregistrées dans l’application, converties dans la devise d’affichage si nécessaire.")
+                Text("Épargne et investissements, après dettes · hors comptes bancaires", style = MaterialTheme.typography.bodySmall)
+                // Barre de santé : part du brut non engagée dans des dettes
+                if (overview.patrimoineBrutCents > 0) {
+                    val ratio = (overview.patrimoineNetCents.toFloat() / overview.patrimoineBrutCents.toFloat())
+                        .coerceIn(0f, 1f)
+                    val barreColor = if (netPositif)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error
+                    LinearProgressIndicator(
+                        progress = { ratio },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color      = barreColor,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    Text(
+                        "${(ratio * 100).toInt()}% du brut non endetté",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    "= Patrimoine brut − Dettes",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         // ── Patrimoine brut ──────────────────────────────────────────────────
         HeroCard {
             Column(
@@ -138,7 +191,7 @@ private fun PatrimoineDetailContent(
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 LigneActif(
-                    label      = "Investissements (immobilier + SCPI)",
+                    label      = "Investissements",
                     valueCents = overview.investissementsCents,
                     currency   = overview.currency,
                     color      = MaterialTheme.colorScheme.tertiary,
@@ -167,55 +220,7 @@ private fun PatrimoineDetailContent(
             }
         }
 
-        // ── Patrimoine net ───────────────────────────────────────────────────
-        val netPositif = overview.patrimoineNetCents >= 0
-        HeroCard {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    "Patrimoine net",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    overview.patrimoineNetCents.toCurrencyDisplay(overview.currency),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (netPositif) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error
-                )
-                // Barre de santé : part du brut non engagée dans des dettes
-                if (overview.patrimoineBrutCents > 0) {
-                    val ratio = (overview.patrimoineNetCents.toFloat() / overview.patrimoineBrutCents.toFloat())
-                        .coerceIn(0f, 1f)
-                    val barreColor = if (netPositif)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.error
-                    LinearProgressIndicator(
-                        progress = { ratio },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                        color      = barreColor,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    Text(
-                        "${(ratio * 100).toInt()}% du brut non endetté",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Text(
-                    "= Patrimoine brut − Dettes",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+
     }
 }
 

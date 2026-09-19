@@ -44,7 +44,7 @@ import java.time.LocalDate
  * (seules 11 des 18 tables étaient couvertes). Ce test fait un aller-retour
  * export → restauration et vérifie que ces collections survivent.
  */
-class RestoreRoundTripTest : RoomIntegrationTestBase() {
+class RestoreRoundTripTest : BackupIntegrationTestBase() {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
 
@@ -134,7 +134,7 @@ class RestoreRoundTripTest : RoomIntegrationTestBase() {
 
         // ── 3. On simule une base repartie de zéro puis on restaure ──
         db.clearAllTables()
-        val restore = RestoreRepositoryImpl(context, db)
+        val restore = RestoreRepositoryImpl(context, db, testPreferences)
         val result = restore.restaurer(Uri.fromFile(fichier))
 
         // ── 4. Vérifs ──
@@ -201,7 +201,7 @@ class RestoreRoundTripTest : RoomIntegrationTestBase() {
             writeText(JsonExporter.generer(exportData, "test"))
         }
 
-        val result = RestoreRepositoryImpl(context, db).restaurer(Uri.fromFile(fichier))
+        val result = RestoreRepositoryImpl(context, db, testPreferences).restaurer(Uri.fromFile(fichier))
 
         assertTrue("restauration en échec : $result", result is RestoreResult.Success)
         val objectifs = db.savingsGoalDao().getAll().first()
@@ -244,7 +244,7 @@ class RestoreRoundTripTest : RoomIntegrationTestBase() {
             writeText(JsonExporter.generer(exportData, "test"))
         }
 
-        val result = RestoreRepositoryImpl(context, db).restaurer(Uri.fromFile(fichier))
+        val result = RestoreRepositoryImpl(context, db, testPreferences).restaurer(Uri.fromFile(fichier))
 
         assertTrue("attendu RestoreResult.Error, obtenu $result", result is RestoreResult.Error)
         // La base d'origine n'a pas été touchée

@@ -67,7 +67,10 @@ sealed class Screen(val route: String) {
     data object Savings    : Screen("savings")
     data object Investments: Screen("investments")
     data object Debts      : Screen("debts")
-    data object Settings          : Screen("settings")
+    data object Categories : Screen("categories")
+    data object Reconciliation : Screen("reconciliation")
+    data object More              : Screen("more")
+    data object Settings          : Screen("settings?page={page}")
     data object Report            : Screen("report")
     data object PatrimoineDetail  : Screen("patrimoine_detail")
     data object ImportTR          : Screen("import_tr")
@@ -90,7 +93,10 @@ private val bottomNavScreens = setOf(
     Screen.Expenses.route,
     Screen.Savings.route,
     Screen.Investments.route,
-    Screen.Settings.route
+    Screen.Settings.route,
+    Screen.PatrimoineDetail.route,
+    Screen.Debts.route,
+    Screen.More.route
 )
 
 @Composable
@@ -104,13 +110,12 @@ fun DibitaraNavGraph(
     // Préférences de navigation - lues ici pour filtrer la nav bar en temps réel
     val settingsVm: SettingsViewModel = hiltViewModel()
     val prefs by settingsVm.preferences.collectAsState()
+    val backupStatus by settingsVm.backupState.collectAsState()
 
     Scaffold(
         bottomBar = {
             if (showBottomBar) BottomNavBar(
-                navController           = navController,
-                afficherEpargne         = prefs.afficherEpargne,
-                afficherInvestissements = prefs.afficherInvestissements
+                navController = navController
             )
         }
     ) { innerPadding ->
@@ -145,8 +150,20 @@ fun DibitaraNavGraph(
                 )
             }
 
+            composable(Screen.More.route) {
+                MoreScreen(
+                    afficherEpargne = prefs.afficherEpargne,
+                    afficherInvestissements = prefs.afficherInvestissements,
+                    onNavigate = { navController.navigate(if (it == Screen.Settings) "settings" else it.route) }
+                )
+            }
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
+                    dataStatus = {
+                        if (backupStatus.error != null) androidx.compose.material3.TextButton(onClick = { navController.navigate("settings?page=SAUVEGARDES") }) {
+                            androidx.compose.material3.Text("Sauvegarde à vérifier", color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                        }
+                    },
                     onNavigateToDebts        = { navController.navigate(Screen.Debts.route) },
                     onNavigateToReport       = { navController.navigate(Screen.Report.route) },
                     onNavigateToBudget       = { navController.navigate(Screen.Budget.route) },
@@ -186,7 +203,7 @@ fun DibitaraNavGraph(
                 )
             }
             composable(Screen.ScenarioLogement.route) {
-                ScenarioLogementScreen(onNavigateBack = { navController.popBackStack() })
+                ScenarioLogementScreen(onNavigateBack = { navController.popBackStack() }, onSettings = { navController.navigate("settings?page=LOGEMENT") })
             }
             composable(Screen.ConseillerPatrimoine.route) {
                 ConseillerPatrimoineScreen(onNavigateBack = { navController.popBackStack() })
@@ -205,7 +222,16 @@ fun DibitaraNavGraph(
                     navArgument("bankAccountId") { type = NavType.StringType; nullable = true; defaultValue = null }
                 ),
                 deepLinks = listOf(navDeepLink { uriPattern = "dibitara://expenses?category={category}" })
-            ) { ExpensesScreen() }
+            ) { ExpensesScreen(
+                onImports = { navController.navigate("settings?page=IMPORTS") },
+                onReconciliation = { navController.navigate(Screen.Reconciliation.route) }
+            ) }
+            composable(Screen.Reconciliation.route) {
+                com.dibitara.app.presentation.reconciliation.ReconciliationScreen(
+                    onBack = { navController.popBackStack() },
+                    onTransactions = { id, month, year -> navController.navigate(Screen.Expenses.withFilter(type = "ALL", bankAccountId = id, month = month, year = year)) }
+                )
+            }
             composable(
                 route = Screen.Savings.route,
                 deepLinks = listOf(navDeepLink { uriPattern = "dibitara://savings" })
@@ -219,13 +245,17 @@ fun DibitaraNavGraph(
             }
             composable(
                 route = Screen.Settings.route,
+                arguments = listOf(navArgument("page") { type = NavType.StringType; nullable = true; defaultValue = null }),
                 deepLinks = listOf(navDeepLink { uriPattern = "dibitara://settings" })
-            ) {
+            ) { entry ->
                 SettingsScreen(
+                    initialPage = entry.arguments?.getString("page"),
+                    onNavigateBack = { navController.popBackStack() },
                     onNavigateToImportTR         = { navController.navigate(Screen.ImportTR.route) },
                     onNavigateToImportBred       = { navController.navigate(Screen.ImportBred.route) },
                     onNavigateToImportBredPdf    = { navController.navigate(Screen.ImportBredPdf.route) },
                     onNavigateToDuplicateCleanup = { navController.navigate(Screen.DuplicateCleanup.route) },
+                    onCategories = { navController.navigate(Screen.Categories.route) },
                     onNavigateToBankAccounts     = { navController.navigate(Screen.BankAccounts.route) },
                     onSupprimerDonnees           = {
                         // Le PIN n'existe plus - on repart sur l'écran de configuration
@@ -249,11 +279,12 @@ fun DibitaraNavGraph(
                     onNavigateBack = { navController.navigateUp() }
                 )
             }
+            composable(Screen.Categories.route) { com.dibitara.app.presentation.categories.CategoryManagementScreen(onBack={navController.popBackStack()}) }
             composable(Screen.BankAccounts.route) {
                 BankAccountsScreen(
                     onNavigateBack = { navController.navigateUp() },
                     onNavigateToTransactions = { bankAccountId ->
-                        navController.navigate(Screen.Expenses.withFilter(bankAccountId = bankAccountId))
+                        navController.navigate(Screen.Expenses.withFilter(type = "ALL", bankAccountId = bankAccountId))
                     }
                 )
             }

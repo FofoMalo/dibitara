@@ -4,9 +4,14 @@ import android.content.Intent
 import android.provider.Settings
 import com.dibitara.app.BuildConfig
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.clickable
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -26,7 +31,9 @@ import androidx.compose.material3.*
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -43,8 +50,12 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
+    initialPage: String? = null,
+    onCategories: () -> Unit = {},
+    onNavigateBack: () -> Unit = {},
     onNavigateToImportTR: () -> Unit = {},
     onNavigateToImportBred: () -> Unit = {},
     onNavigateToImportBredPdf: () -> Unit = {},
@@ -53,12 +64,20 @@ fun SettingsScreen(
     onSupprimerDonnees: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
+    var page by rememberSaveable(initialPage) { mutableStateOf(initialPage?.takeIf { it in settingsPages }) }
+    BackHandler(page != null) { if (initialPage != null) onNavigateBack() else page = null }
+    val restorePreview by viewModel.restorePreview.collectAsState()
     val prefs by viewModel.preferences.collectAsState()
     val security by viewModel.securityState.collectAsState()
     val totpSetupState by viewModel.totpSetupState.collectAsState()
     val tauxDeChange by viewModel.tauxDeChange.collectAsState()
     val exportEnCours by viewModel.exportEnCours.collectAsState()
     val restoreEnCours by viewModel.restoreEnCours.collectAsState()
+    val backup by viewModel.backupState.collectAsState()
+    val backupMessage by viewModel.backupMessage.collectAsState()
+    val backupFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) viewModel.choisirDossierSauvegarde(uri)
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -66,7 +85,7 @@ fun SettingsScreen(
     val restaurerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        if (uri != null) viewModel.restaurerDonnees(uri)
+        if (uri != null) viewModel.preparerRestauration(uri)
     }
 
     var seuilEuros by remember(prefs.seuilFondsCents) {
@@ -89,6 +108,20 @@ fun SettingsScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (restorePreview != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::annulerRestauration,
+            title = { Text("Vérifier avant de restaurer") },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(restorePreview.orEmpty())
+                Spacer(Modifier.height(16.dp))
+                Text("Ces données remplaceront les données actuelles. Une copie de secours sera créée sur cet appareil avant le remplacement.")
+            } },
+            confirmButton = { TextButton(onClick = viewModel::confirmerRestauration) { Text("Remplacer et restaurer") } },
+            dismissButton = { TextButton(onClick = viewModel::annulerRestauration) { Text("Annuler") } }
+        )
     }
 
     // Dialogues de sécurité
@@ -140,26 +173,48 @@ fun SettingsScreen(
         }
     }
 
+    val pageScroll = rememberScrollState()
+    LaunchedEffect(page) { pageScroll.scrollTo(0) }
+
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(pageScroll)
                 .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Paramètres", style = MaterialTheme.typography.headlineMedium)
+            if (page != null) TextButton(onClick = { if (initialPage != null) onNavigateBack() else page = null }) { Text("Retour") }
+            Text(if (page == null) "Paramètres" else settingsPages[page] ?: "Paramètres", style = MaterialTheme.typography.headlineMedium)
+            if (page == null) {
+                TextButton(onClick=onCategories,modifier=Modifier.fillMaxWidth()) { Text("Catégories et sous-catégories") }
+                settingsPages.filterKeys { it != "LOGEMENT" && it != "IMPORTS" }.forEach { (key, label) ->
+                    Column(Modifier.fillMaxWidth().clickable { page = key }.padding(vertical = 16.dp)) {
+                        Text(label, style = MaterialTheme.typography.titleMedium)
+                    }
+                    HorizontalDivider()
+                }
+                // Version affichée en pied de page - aucun autre endroit de l'app ne la montre,
+                // indispensable pour un retour de bug ou pour vérifier qu'une mise à jour a pris.
+                Text(
+                    "Dibitara ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
 
             // ─── Section apparence ─────────────────────────────────────────────
-            SectionCard(titre = "Apparence") {
+            if (page == "APPARENCE") SectionCard(titre = "Apparence") {
                 Text(
                     "Système suit le réglage clair/sombre de l'appareil.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ThemeMode.entries.forEach { mode ->
                         FilterChip(
                             selected = prefs.themeMode == mode,
@@ -171,7 +226,7 @@ fun SettingsScreen(
             }
 
             // ─── Section notifications ────────────────────────────────────────
-            SectionCard(titre = "Notifications") {
+            if (page == "NOTIFICATIONS") SectionCard(titre = "Notifications") {
                 Text("Seuil d'alerte - liquidités insuffisantes", style = MaterialTheme.typography.titleSmall)
                 Text(
                     "Une alerte est envoyée si le solde de tes comptes bancaires passe sous ce montant.",
@@ -222,7 +277,7 @@ fun SettingsScreen(
             }
 
             // ─── Section Scénario logement ─────────────────────────────────────
-            SectionCard(titre = "Scénario logement") {
+            if (page == "LOGEMENT") SectionCard(titre = "Scénario logement") {
                 Text("Reste à vivre minimum", style = MaterialTheme.typography.titleSmall)
                 Text(
                     "Marge mensuelle minimale en-dessous de laquelle un scénario immobilier est " +
@@ -253,7 +308,7 @@ fun SettingsScreen(
             }
 
             // ─── Section tableau de bord ──────────────────────────────────────
-            SectionCard(titre = "Tableau de bord") {
+            if (page == "APPARENCE") SectionCard(titre = "Tableau de bord") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -313,7 +368,7 @@ fun SettingsScreen(
             }
 
             // ─── Section navigation ───────────────────────────────────────────
-            SectionCard(titre = "Navigation") {
+            if (page == "APPARENCE") SectionCard(titre = "Navigation") {
                 Text(
                     "Masquer un onglet le retire de la barre de navigation. Il reste accessible depuis le tableau de bord.",
                     style = MaterialTheme.typography.bodySmall,
@@ -346,27 +401,53 @@ fun SettingsScreen(
             }
 
             // ─── Section devise ───────────────────────────────────────────────
-            SectionCard(titre = "Devise par défaut") {
+            if (page == "DEVISES") Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Devise par défaut", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
                 Text(
                     "Devise utilisée à la saisie des nouvelles transactions.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
-                val devises = listOf(Currency.EUR, Currency.USD, Currency.XOF, Currency.CAD)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    devises.forEach { devise ->
-                        FilterChip(
-                            selected = prefs.deviseParDefaut == devise,
-                            onClick  = { viewModel.mettreAJourDevise(devise) },
-                            label    = { Text("${devise.symbol} ${devise.isoCode}") }
-                        )
+                val devises = listOf(
+                    Currency.EUR to "Euro",
+                    Currency.USD to "Dollar américain",
+                    Currency.XOF to "Franc CFA",
+                    Currency.CAD to "Dollar canadien"
+                )
+                // Une ligne par devise laisse les noms revenir à la ligne sur petit écran.
+                Column(modifier = Modifier.fillMaxWidth().selectableGroup()) {
+                    devises.forEach { (devise, nom) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp)
+                                .selectable(
+                                    selected = prefs.deviseParDefaut == devise,
+                                    onClick = { viewModel.mettreAJourDevise(devise) },
+                                    role = Role.RadioButton
+                                )
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = prefs.deviseParDefaut == devise, onClick = null)
+                            Spacer(Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(nom, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "${devise.isoCode} · ${devise.symbol}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             }
 
             // ─── Section taux de change ───────────────────────────────────────
-            SectionCard(titre = "Taux de change") {
+            if (page == "DEVISES") SectionCard(titre = "Taux de change") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -399,12 +480,54 @@ fun SettingsScreen(
                         // "%.4f" utilise la locale système → virgule sur téléphone français (correct)
                         Text("1 € = ${"%.4f".format(taux.usdParEur)} $", style = MaterialTheme.typography.bodyMedium)
                         Text("1 € = ${"%.2f".format(taux.xofParEur)} FCFA", style = MaterialTheme.typography.bodyMedium)
+                        Text("1 € = ${"%.4f".format(taux.cadParEur)} CA$", style = MaterialTheme.typography.bodyMedium)
+                        Text(if (taux.horodatage > 0) "Taux mis à jour le ${Instant.ofEpochMilli(taux.horodatage).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))}" else "Taux de secours · date de mise à jour indisponible",
+                            style = MaterialTheme.typography.bodySmall)
+
                     }
                 }
             }
 
+            if (page == "SAUVEGARDES") SectionCard(titre = "Sauvegardes externes") {
+                Text("Choisissez un dossier Documents/Dibitara-Sauvegardes, puis synchronisez-le vers votre NAS avec Synology Drive.",
+                    style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = { backupFolderLauncher.launch(null) }, enabled = !backup.busy,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(if (backup.folder == null) "Choisir le dossier de sauvegarde" else "Changer le dossier de sauvegarde")
+                }
+                backup.folder?.let { folder ->
+                    val nom = android.provider.DocumentsContract.getTreeDocumentId(android.net.Uri.parse(folder)).substringAfter(':')
+                    Text("Dossier : $nom", style = MaterialTheme.typography.bodySmall)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Sauvegarde quotidienne", modifier = Modifier.weight(1f))
+                    Switch(checked = backup.automatic, onCheckedChange = viewModel::activerSauvegardeAutomatique,
+                        enabled = backup.folder != null && !backup.busy)
+                }
+                Button(onClick = viewModel::sauvegarderMaintenant,
+                    enabled = backup.folder != null && !backup.busy && !restoreEnCours,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(if (backup.busy) "Écriture et vérification…" else "Sauvegarder maintenant")
+                }
+                if (backup.lastSuccess > 0) {
+                    val date = Instant.ofEpochMilli(backup.lastSuccess).atZone(ZoneId.systemDefault())
+                        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                    Text("Dernier fichier vérifié : $date", style = MaterialTheme.typography.bodySmall)
+                } else Text("Aucune sauvegarde vérifiée dans ce dossier", style = MaterialTheme.typography.bodySmall)
+                (backup.error ?: backupMessage)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                Text("Synchronisation NAS à vérifier dans Synology Drive. Android peut différer l’exécution quotidienne. Les anciennes sauvegardes sont conservées.",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("Contenu JSON : données financières, enfants, historiques, corbeille et réglages. Les secrets de connexion et autorisations Android restent propres à cet appareil. Fichier non chiffré par Dibitara.",
+                    style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = { viewModel.exporterDonnees(ExportFormat.JSON) },
+                    enabled = !exportEnCours && !backup.busy, modifier = Modifier.fillMaxWidth()) {
+                    Text("Partager une copie JSON · Proton Drive")
+                }
+            }
+
             // ─── Section données ──────────────────────────────────────────────
-            SectionCard(titre = "Données") {
+            if (page == "SAUVEGARDES") SectionCard(titre = "Données") {
                 Text(
                     "Exportez toutes vos données dans un fichier CSV (compatible Excel) ou JSON.",
                     style = MaterialTheme.typography.bodySmall,
@@ -448,6 +571,11 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = viewModel::partagerCopieSecours, modifier = Modifier.fillMaxWidth()) {
+                    Text("Partager la dernière copie avant restauration")
+                }
+            }
+            if (page == "IMPORTS") SectionCard(titre = "Imports et capture bancaire") {
                 prefs.derniereImportEpochMilli?.let { epochMilli ->
                     val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
                     val derniereImport = Instant.ofEpochMilli(epochMilli)
@@ -486,7 +614,7 @@ fun SettingsScreen(
                                 captureLive.tradeRepublicActivee ->
                                     "Capture live : TradeRepublic ✓ · BRED ✗ — à activer"
                                 else ->
-                                    "Activer la capture live (paiements carte BRED / TradeRepublic)"
+                                    "Activer la capture live (BRED / TradeRepublic : carte, Roundup, plans)"
                             }
                         )
                     }
@@ -522,7 +650,7 @@ fun SettingsScreen(
             }
 
             // ─── Section sécurité ─────────────────────────────────────────────
-            SectionCard(titre = "Sécurité") {
+            if (page == "SECURITE") SectionCard(titre = "Sécurité") {
                 // PIN
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -590,7 +718,7 @@ fun SettingsScreen(
             }
 
             // ─── Section confidentialité ──────────────────────────────────────
-            SectionCard(titre = "Confidentialité") {
+            if (page == "SECURITE") SectionCard(titre = "Confidentialité") {
                 Text(
                     "Conformément au RGPD (Art. 17), vous pouvez demander la suppression " +
                         "de toutes vos données personnelles stockées sur cet appareil.",
@@ -959,14 +1087,19 @@ private fun DialogueChangerMotDePasse(
 
 @Composable
 private fun SectionCard(titre: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(titre, style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(12.dp))
-            content()
-        }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(titre, style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
+        content()
     }
 }
+
+private val settingsPages = linkedMapOf(
+    "APPARENCE" to "Apparence et accueil",
+    "DEVISES" to "Devises et taux de change",
+    "NOTIFICATIONS" to "Notifications",
+    "SAUVEGARDES" to "Sauvegardes et restauration",
+    "SECURITE" to "Sécurité et confidentialité",
+    "IMPORTS" to "Imports et capture bancaire",
+    "LOGEMENT" to "Réglage du scénario logement"
+)

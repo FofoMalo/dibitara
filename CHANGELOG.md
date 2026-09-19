@@ -9,6 +9,101 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
+## 4.14.0 — 2026-09-16
+
+- Suivi d’un ETF depuis un actif libre : valeur, capital investi, gain et calendrier hebdomadaire Trade Republic.
+- Achats importés à valider, saisie manuelle et association sans double comptage ; frais additionnels explicites.
+- Historique Valeur / Investi, actualisation manuelle de la valeur, conservation du capital de référence et des anciennes données.
+- Room 30 : deux tables ajoutées ; sauvegarde complète format 4 avec contrôle des liens ETF avant restauration.
+- Validation des tests catégories sous JUnit 5 ; ventes Trade Republic distinguées des achats pour les nouveaux imports.
+
+## 4.13.0 — 14 septembre 2026
+
+- Catalogue de catégories personnalisables et sous-catégories unifiées ; recherche, choix récents et sélecteur commun.
+- Création, renommage, icône/couleur, archivage ; fusion et déplacement avec aperçu des opérations, règles, enveloppes et corbeille.
+- Classement multiple jusqu’à la sous-catégorie ; proposition explicite de règle et aperçu du reclassement historique.
+- Distinction entre « Autre » confirmé et opérations à catégoriser ; catégories personnelles distinctes dans les rapports et enveloppes.
+- Migration additive Room 28 → 29 et sauvegarde format 3 comprenant le catalogue ; anciens exports compatibles.
+
+## [4.12.0] - 2026-09-13
+
+### Amélioré
+- Accueil centré sur les actions et échéances ; détails accessibles à la demande, état sans budget explicite et erreur de sauvegarde visible.
+- Montants expliqués : budget, bilan du mois, projection et périmètre du patrimoine ; budget et répartition partagent conversion et exclusion des virements internes identifiés.
+- Activité en lignes lisibles avec libellé principal, accès direct, provenance en édition et sélection multiple pour catégoriser.
+- Paramètres en pages courtes ; imports et capture depuis Activité ; réglage logement depuis son scénario ; analyses regroupées entre passé et avenir.
+- Dates des soldes et valorisations visibles, taux CAD et fraîcheur des taux, dispositions adaptatives pour texte agrandi.
+
+### Ajouté
+- Corbeille persistante des transactions, restauration sans écrasement d’identifiants existants ; migration Room 27 → 28 ajoutant uniquement une table.
+- Rapprochement mensuel par compte avec soldes de relevé, solde calculé, écart et accès aux opérations ; aucune correction automatique.
+- Sauvegarde JSON format 2 incluant historiques, corbeille et réglages fonctionnels ; lecture des anciens exports, aperçu avant remplacement et copie de secours locale vérifiée.
+
+### Périmètre
+- Les secrets d’authentification et les autorisations Android ne sont pas transférés par JSON. Les fichiers JSON restent non chiffrés.
+- Le patrimoine affiche explicitement son périmètre hors comptes bancaires ; aucun solde potentiellement déjà inclus en épargne n’est additionné automatiquement.
+- Les opérations en autre devise sont signalées dans le rapprochement ; les investissements nécessitent une vérification du sens du mouvement.
+
+## [4.11.1] - 2026-09-13
+
+### Amélioré
+- Choix de la devise par défaut sans carte, en liste verticale à boutons radio : noms complets, lignes cliquables et retour à la ligne sur les petits écrans.
+
+## [4.11.0] - 2026-09-11
+
+### Amélioré
+- Socle UX/UI V2 : cinq onglets nommés Accueil, Budget, Activité, Patrimoine et Plus.
+- Menu Plus regroupant gestion, analyses, projections et paramètres/sauvegardes.
+- Thème anthracite, accents or doux, surfaces neutres, typographie et formes communes.
+- Budget restant en tête d’accueil, projection à 30 jours explicitement séparée ; patrimoine net en tête de Patrimoine.
+- Épargne organisée en Comptes, Enfants et Objectifs. Accès aux comptes, versements et objectifs liés depuis chaque enfant.
+- Fonctions métier et données conservées, aucune migration de base pour la refonte.
+
+## [4.10.0] - 2026-09-10
+
+### Ajouté
+- Sauvegarde JSON manuelle et quotidienne optionnelle dans un dossier choisi avec Android,
+  destiné à être synchronisé vers Synology Drive. Copies datées, contrôle des collections
+  exportées, relecture du fichier écrit, aucun effacement automatique des anciennes copies.
+- Affichage de la dernière écriture vérifiée et des erreurs ; la synchronisation NAS reste
+  à vérifier dans Synology Drive. Partage d’une copie JSON pour Proton Drive.
+
+### Limites
+- Réutilise le JSON financier existant : historiques de valorisation et préférences non inclus.
+- JSON non chiffré par Dibitara. Synchronisation Synology à configurer séparément ; Proton
+  reçoit une copie via le partage/import de fichier, pas par une synchronisation native.
+- Aucun test sur téléphone personnel : compilation et tests unitaires sur ordinateur uniquement.
+
+## [4.9.0] - 2026-09-10
+
+### Ajouté
+- Réconciliation TradeRepublic CSV/CaptureLive dans les deux ordres : correspondance unique
+  par montant, devise, sens, date à ±1 jour et nature/marchand/support. Conservation des deux
+  identifiants et des corrections utilisateur ; import et capture sérialisés dans Room.
+- Prévisualisation et bilan des captures rapprochées. Les correspondances multiples ou
+  insuffisamment documentées bloquent l’import avant écriture ; les captures ambiguës
+  déclenchent une notification de vérification lorsque les notifications sont autorisées.
+- Migration Room 26 → 27 : alias notification et clé de rapprochement nullable, sans perte de données.
+
+### Limites
+- Les Roundup ne sont reconnus dans le CSV que si sa description les identifie explicitement.
+  Un achat sans origine identifiable exige une vérification. Les anciens CSV peuvent être
+  réimportés pour compléter les informations de rapprochement.
+- Les doublons déjà présents avant cette version ne sont pas supprimés automatiquement.
+
+## [4.8.0] - 2026-09-10
+
+### Ajouté
+- CaptureLive TradeRepublic : Roundup investi et plan d’épargne exécuté, d’après les
+  messages réels du 09/09/2026. Le support du plan est conservé dans le libellé.
+- Lecture séparée des champs Android, date d’émission, exclusion des résumés de groupe
+  et sérialisation des captures pour limiter les doublons de notification.
+
+### Limites
+- Virements en attente de messages réels ; validation sur appareil à effectuer.
+- La réconciliation CaptureLive/CSV TradeRepublic reste à traiter : les identifiants
+  Android ne correspondent pas aux identifiants bancaires du CSV.
+
 ## [4.7.0] - 2026-09-08
 
 ### Ajouté

@@ -50,7 +50,8 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
     private val debtRepository             : DebtRepository,
     private val transactionRepository      : TransactionRepository,
     private val userPreferencesRepository  : UserPreferencesRepository,
-    private val exchangeRateRepository     : ExchangeRateRepository
+    private val exchangeRateRepository     : ExchangeRateRepository,
+    private val calculerBilan: CalculerBilanMensuelUseCase = CalculerBilanMensuelUseCase()
 ) {
     operator fun invoke(month: Int, year: Int): Flow<PatrimonyOverview> {
 
@@ -95,9 +96,8 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
                 return CurrencyConverter.convertCents(this, from, targetCurrency, rates)
             }
 
-            val depensesDuMois = raw.a.transactions
-                .filter { it.type == TransactionType.EXPENSE }
-                .sumOf { it.amountCents.cvt(it.currency) }
+            val depensesDuMois = calculerBilan(raw.a.transactions, targetCurrency, rates).depensesCents
+            if (raw.a.transactions.any { !CurrencyConverter.isSameCurrency(it.currency, targetCurrency) }) hasConversion = true
             val budgetAlloue = raw.a.budget?.let { it.allocatedCents.cvt(it.currency) } ?: 0L
 
             val liquiditesCents = budgetAlloue - depensesDuMois
@@ -122,7 +122,8 @@ class GetPatrimonyOverviewUseCase @Inject constructor(
                 vehicleRentalNetRevenueCents = vehicleRentalNetRevenueCents,
                 dettesTotalCents             = dettesTotalCents,
                 currency                     = targetCurrency,
-                hasConvertedValues           = hasConversion
+                hasConvertedValues           = hasConversion,
+                budgetDefini                 = raw.a.budget != null
             )
         }
     }

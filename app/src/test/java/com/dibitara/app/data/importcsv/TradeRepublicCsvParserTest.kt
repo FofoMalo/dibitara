@@ -27,6 +27,15 @@ class TradeRepublicCsvParserTest {
             .joinToString("\n")
             .byteInputStream(Charsets.UTF_8)
 
+    @Test fun `vente ETF reste revenu et ne devient pas achat a valider`() {
+        val fields = MutableList(23) { "" }
+        fields[1] = "2026-09-16"; fields[3] = "TRADING"; fields[4] = "SELL"
+        fields[6] = "MSCI World"; fields[10] = "100.00"; fields[13] = "EUR"; fields[18] = "sell-1"
+        val result = TradeRepublicCsvParser.parse(csvStream(fields.joinToString(",") { "\"$it\"" })).single()
+        assertEquals(TransactionType.INCOME, result.type)
+        assertEquals(Category.INVESTISSEMENT, result.category)
+    }
+
     // ─── Cas limites ───────────────────────────────────────────────────────────
 
     @Test
@@ -201,6 +210,18 @@ class TradeRepublicCsvParserTest {
         assertEquals(1000L, tx.amountCents)
         assertEquals("Core MSCI World USD (Acc)", tx.note)
         assertEquals("BUY", tx.rawType)
+        assertEquals("plan:core msci world usd acc", tx.reconciliationKey)
+    }
+
+    @Test
+    fun `description Roundup explicite fournit une clé et achat inconnu reste sans clé`() {
+        fun ligne(description: String) = List(23) { index -> when (index) {
+            1 -> "2026-09-09"; 3 -> "TRADING"; 4 -> "BUY"; 6 -> "Core MSCI World USD (Acc)"
+            10 -> "-48.66"; 13 -> "EUR"; 17 -> description; 18 -> "roundup-csv"
+            else -> ""
+        } }.joinToString(",") { "\"$it\"" }
+        assertEquals("roundup", TradeRepublicCsvParser.parse(csvStream(ligne("Round up"))).single().reconciliationKey)
+        assertNull(TradeRepublicCsvParser.parse(csvStream(ligne("Achat"))).single().reconciliationKey)
     }
 
     // ─── Conversion des montants ───────────────────────────────────────────────

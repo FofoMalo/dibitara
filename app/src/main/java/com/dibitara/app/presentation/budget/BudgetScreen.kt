@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.dibitara.app.presentation.common.MetricExplanation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -193,6 +194,7 @@ private fun BudgetContent(
     onEditerEnveloppe           : (EnveloppeStatus) -> Unit = {},
     onSupprimerEnveloppe        : (CategoryEnvelope) -> Unit = {}
 ) {
+    var showBreakdown by remember { mutableStateOf(false) }
     val monthName = Month.of(state.month).getDisplayName(TextStyle.FULL, Locale.FRENCH)
         .replaceFirstChar { it.uppercase() }
 
@@ -203,6 +205,7 @@ private fun BudgetContent(
         // chevaucher le dernier élément (légende du donut) - 96.dp testé insuffisant sur appareil réel
         contentPadding = PaddingValues(top = 16.dp, bottom = 160.dp)
     ) {
+        item { Text("Budget", style = MaterialTheme.typography.headlineMedium) }
         item {
             // Navigateur de mois
             Row(
@@ -250,7 +253,10 @@ private fun BudgetContent(
 
         // Section dépenses - donut interactif + répartition par catégorie cliquable
         val depenses = state.transactions.filter { it.type == TransactionType.EXPENSE }
-        if (depenses.isNotEmpty()) {
+        if (depenses.isNotEmpty()) item {
+            TextButton(onClick = { showBreakdown = !showBreakdown }) { Text(if (showBreakdown) "Masquer la répartition" else "Voir la répartition des dépenses") }
+        }
+        if (depenses.isNotEmpty() && showBreakdown) {
             item {
                 CategoryDonutChart(
                     transactions        = depenses,
@@ -343,8 +349,9 @@ private fun BudgetContent(
  * et l'objectif budget (barre de progression + restant).
  * Remplace les anciennes cartes BilanReelCard et BudgetObjectifCard.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun BilanBudgetCard(
+internal fun BilanBudgetCard(
     revenusCents    : Long,
     depensesCents   : Long,
     soldeCents      : Long,
@@ -357,24 +364,16 @@ private fun BilanBudgetCard(
 
     HeroCard {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Ligne bilan : Revenus | Dépenses | Solde, séparés par des filets verticaux
-            Row(
+            // Les colonnes passent à la ligne si la police ou les montants demandent plus de place.
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 BilanColonne("Revenus",  revenusCents,  currency, MaterialTheme.colorScheme.primary)
-                VerticalDivider(
-                    modifier = Modifier.height(32.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
                 BilanColonne("Dépenses", depensesCents, currency, MaterialTheme.colorScheme.error)
-                VerticalDivider(
-                    modifier = Modifier.height(32.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
                 BilanColonne(
-                    label      = "Solde",
+                    label      = "Bilan du mois",
                     valueCents = soldeCents,
                     currency   = currency,
                     color      = if (soldePositif) MaterialTheme.colorScheme.primary
@@ -383,6 +382,7 @@ private fun BilanBudgetCard(
                 )
             }
 
+            MetricExplanation("Bilan et budget du mois", "Bilan du mois = revenus enregistrés − dépenses enregistrées. Budget restant = objectif de dépenses − dépenses enregistrées. Ces deux montants concernent le mois sélectionné et ne sont pas le solde de vos comptes. Les virements internes identifiés sont exclus ; les montants en devises sont convertis dans la devise d’affichage.")
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             if (budget != null) {
@@ -398,10 +398,11 @@ private fun BilanBudgetCard(
                     Text(
                         "Budget ${budget.allocatedCents.toCurrencyDisplay(currency)} · " +
                             "${(progress.coerceIn(0f, 1f) * 100).toInt()}% utilisé",
+                        modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    IconButton(onClick = onDeleteBudget, modifier = Modifier.size(28.dp)) {
+                    IconButton(onClick = onDeleteBudget, modifier = Modifier.size(48.dp)) {
                         Icon(
                             Icons.Filled.Delete,
                             contentDescription = "Supprimer le budget",
@@ -432,10 +433,9 @@ private fun BilanBudgetCard(
                     )
                 }
             } else {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         "Aucun objectif budget ce mois",
@@ -844,39 +844,15 @@ private fun SetEnveloppeDialog(
     var expandedCat      by remember { mutableStateOf(false) }
     var expandedDev      by remember { mutableStateOf(false) }
     val focusManager     = LocalFocusManager.current
+    if(expandedCat) com.dibitara.app.presentation.categories.CategoryPicker(onDismiss={expandedCat=false},allowSubcategories=false,onChoose={selectedCategory=it.category;expandedCat=false})
+
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (enveloppeExistante != null) "Modifier l'enveloppe" else "Nouvelle enveloppe") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.imePadding()) {
-                // Sélecteur de catégorie (verrouillé en édition)
-                ExposedDropdownMenuBox(expanded = expandedCat, onExpandedChange = {
-                    if (enveloppeExistante == null) expandedCat = it
-                }) {
-                    OutlinedTextField(
-                        value         = selectedCategory.displayName,
-                        onValueChange = {},
-                        readOnly      = true,
-                        label         = { Text("Catégorie") },
-                        trailingIcon  = {
-                            if (enveloppeExistante == null) ExposedDropdownMenuDefaults.TrailingIcon(expandedCat)
-                        },
-                        modifier      = Modifier
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                            .fillMaxWidth()
-                    )
-                    if (enveloppeExistante == null) {
-                        ExposedDropdownMenu(expanded = expandedCat, onDismissRequest = { expandedCat = false }) {
-                            categoriesDisponibles.forEach { cat ->
-                                DropdownMenuItem(
-                                    text    = { Text(cat.displayName) },
-                                    onClick = { selectedCategory = cat; expandedCat = false }
-                                )
-                            }
-                        }
-                    }
-                }
+                OutlinedButton(onClick={expandedCat=true},enabled=enveloppeExistante==null,modifier=Modifier.fillMaxWidth()) { Text(selectedCategory.displayName) }
 
                 // Montant
                 OutlinedTextField(

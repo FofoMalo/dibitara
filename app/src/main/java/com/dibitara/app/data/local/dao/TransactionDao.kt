@@ -32,8 +32,11 @@ interface TransactionDao {
     suspend fun countBySourceAndRange(recurringId: Long, fromEpoch: Long, toEpoch: Long): Int
 
     // Retourne tous les externalId non-null - utilisé pour la déduplication à l'import
-    @Query("SELECT externalId FROM transactions WHERE externalId IS NOT NULL")
+    @Query("SELECT externalId FROM transactions WHERE externalId IS NOT NULL UNION SELECT notificationExternalId FROM transactions WHERE notificationExternalId IS NOT NULL")
     suspend fun getAllExternalIds(): List<String>
+
+    @Query("SELECT * FROM transactions WHERE importSource IN ('trade_republic', 'trade_republic_notification') AND isRecurring = 0")
+    suspend fun getTradeRepublicTransactions(): List<TransactionEntity>
 
     // Cherche une capture live (notification) déjà en base pour réconcilier avec l'import CSV
     // du même mouvement (montant exact, date ±1 jour - le libellé n'est jamais comparable entre les deux sources)

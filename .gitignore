@@ -9,6 +9,7 @@
 .cxx
 local.properties
 .kotlin
+/archive/
 
 # Fichiers de clés — NE JAMAIS committer
 *.jks

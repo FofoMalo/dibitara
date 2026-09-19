@@ -100,7 +100,7 @@ class ImportBredPdfViewModel @Inject constructor(
         if (currentState !is ImportBredPdfUiState.Preview) return
         val updated = currentState.transactions.map { tx ->
             if (tx.externalId == externalId && !tx.alreadyImported) {
-                tx.copy(category = nouvelleCategorie)
+                tx.copy(category = nouvelleCategorie, subCategory=null, customSubCategoryId=null, categoryConfirmed=true)
             } else tx
         }
         _uiState.value = currentState.copy(transactions = updated)

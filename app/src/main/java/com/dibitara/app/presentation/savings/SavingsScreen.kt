@@ -34,6 +34,7 @@ import java.util.Locale
 import kotlin.math.roundToLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -222,9 +223,10 @@ private fun SavingsContent(
     onAssocierComptes: (Child, Set<Long>) -> Unit,
     getTrend: suspend (Long) -> Float?
 ) {
+    var section by rememberSaveable { mutableStateOf("Comptes") }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
@@ -234,48 +236,63 @@ private fun SavingsContent(
         // Résumé global
         item { SavingsHeroCard(state) }
 
-        // Fonds d'urgence (§2) : mois de charges courantes couverts par l'épargne liquide.
-        // Repris tel quel du Conseiller patrimoine - masqué s'il n'y a pas de données de charges.
-        if (state.chargesMensuellesCents > 0) {
-            item { FondsUrgenceCard(state) }
-        }
-
-        // Objectifs d'épargne (§3) : projets nommés avec progression et échéance projetée.
-        // L'en-tête (titre + "Ajouter") est toujours affiché - même sans objectif, c'est le
-        // seul point d'entrée (la section Comptes, elle, a la FAB).
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Objectifs", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = onAddObjectif) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Ajouter")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Comptes", "Enfants", "Objectifs").forEach { label ->
+                    FilterChip(
+                        selected = section == label,
+                        onClick = { section = label },
+                        label = { Text(label) }
+                    )
                 }
             }
         }
-        if (objectifs.isEmpty()) {
+
+        // Fonds d'urgence (§2) : mois de charges courantes couverts par l'épargne liquide.
+        // Repris tel quel du Conseiller patrimoine - masqué s'il n'y a pas de données de charges.
+        if (section == "Comptes" && state.chargesMensuellesCents > 0) {
+            item { FondsUrgenceCard(state) }
+        }
+
+        if (section == "Objectifs") {
+            // Objectifs d'épargne (§3) : projets nommés avec progression et échéance projetée.
+            // L'en-tête (titre + "Ajouter") est toujours affiché - même sans objectif, c'est le
+            // seul point d'entrée (la section Comptes, elle, a la FAB).
             item {
-                Text("Aucun objectif d'épargne.", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Objectifs", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = onAddObjectif) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Ajouter")
+                    }
+                }
             }
-        } else {
-            items(objectifs, key = { "objectif_${it.goal.id}" }) { objectif ->
-                ObjectifCard(
-                    objectif = objectif,
-                    compteLie = state.accounts.firstOrNull { it.id == objectif.goal.sourceAccountId },
-                    onEdit = { onEditObjectif(objectif.goal) },
-                    onDelete = { onDeleteObjectif(objectif.goal) },
-                    onVerser = { n -> onVerserObjectif(objectif.goal, n) }
-                )
+            if (objectifs.isEmpty()) {
+                item {
+                    Text("Aucun objectif d'épargne.", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                items(objectifs, key = { "objectif_${it.goal.id}" }) { objectif ->
+                    ObjectifCard(
+                        objectif = objectif,
+                        compteLie = state.accounts.firstOrNull { it.id == objectif.goal.sourceAccountId },
+                        onEdit = { onEditObjectif(objectif.goal) },
+                        onDelete = { onDeleteObjectif(objectif.goal) },
+                        onVerser = { n -> onVerserObjectif(objectif.goal, n) }
+                    )
+                }
             }
+
         }
 
         // Comptes par type
-        if (state.accounts.isNotEmpty()) {
+        if (section == "Comptes" && state.accounts.isNotEmpty()) {
             item { Text("Comptes", style = MaterialTheme.typography.titleMedium) }
             items(state.accounts, key = { "compte_${it.id}" }) { account ->
                 SavingsAccountCard(
@@ -290,38 +307,69 @@ private fun SavingsContent(
             }
         }
 
-        // Section enfants
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Enfants", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = onAddChild) {
-                    Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Ajouter")
+        if (section == "Comptes" && state.accounts.isEmpty()) {
+            item { Text("Ajoutez votre premier compte avec le bouton +.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        if (section == "Enfants") {
+            // Section enfants
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Enfants", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = onAddChild) {
+                        Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Ajouter")
+                    }
                 }
             }
-        }
 
-        if (state.children.isEmpty()) {
-            item {
-                Text("Aucun enfant enregistré.", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            items(state.children, key = { "enfant_${it.id}" }) { child ->
-                ChildCard(
-                    child = child,
-                    savingsAccounts = state.accounts.filter { it.childId == child.id },
-                    tousLesComptes = state.accounts,
-                    totalCents = state.totauxParEnfantCents[child.id] ?: 0L,
-                    summaryCurrency = state.summaryCurrency,
-                    onDelete = { onDeleteChild(child) },
-                    onAssocierComptes = { selectionnes -> onAssocierComptes(child, selectionnes) }
-                )
+            if (state.children.isEmpty()) {
+                item {
+                    Text("Aucun enfant enregistré.", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                items(state.children, key = { "enfant_${it.id}" }) { child ->
+                    Column {
+                        ChildCard(
+                            child = child,
+                            savingsAccounts = state.accounts.filter { it.childId == child.id },
+                            tousLesComptes = state.accounts,
+                            totalCents = state.totauxParEnfantCents[child.id] ?: 0L,
+                            summaryCurrency = state.summaryCurrency,
+                            onDelete = { onDeleteChild(child) },
+                            onAssocierComptes = { selectionnes -> onAssocierComptes(child, selectionnes) }
+                        )
+                        // Accès aux actions du compte sans devoir quitter la section de l'enfant.
+                        state.accounts.filter { it.childId == child.id }.forEach { account ->
+                            Spacer(Modifier.height(12.dp))
+                            SavingsAccountCard(
+                                account = account,
+                                childName = child.name,
+                                versementEnAttente = account.id in state.comptesVersementEnAttente,
+                                onEdit = { onEditAccount(account) },
+                                onDelete = { onDeleteAccount(account) },
+                                onVersement = { onAppliquerVersement(account) },
+                                getTrend = getTrend
+                            )
+                        }
+                        val comptesEnfant = state.accounts.filter { it.childId == child.id }.map { it.id }.toSet()
+                        objectifs.filter { it.goal.sourceAccountId in comptesEnfant }.forEach { objectif ->
+                            Spacer(Modifier.height(12.dp))
+                            ObjectifCard(
+                                objectif = objectif,
+                                compteLie = state.accounts.firstOrNull { it.id == objectif.goal.sourceAccountId },
+                                onEdit = { onEditObjectif(objectif.goal) },
+                                onDelete = { onDeleteObjectif(objectif.goal) },
+                                onVerser = { n -> onVerserObjectif(objectif.goal, n) }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -341,7 +389,7 @@ private fun SavingsHeroCard(state: SavingsUiState.Success) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Total épargne", style = MaterialTheme.typography.labelMedium,
+                    Text("Épargne familiale", style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(state.totalEpargneCents.toCurrencyDisplay(state.summaryCurrency),
                         style = MaterialTheme.typography.titleLarge)
@@ -362,6 +410,10 @@ private fun SavingsHeroCard(state: SavingsUiState.Success) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(8.dp))
 
+            HeroDetailRow("Dont enfants", state.totauxParEnfantCents.values.sum().toCurrencyDisplay(state.summaryCurrency))
+            Text("Les comptes des enfants restent identifiés séparément.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
             HeroDetailRow("Versé ce mois-ci", state.totalVerseMoisCents.toCurrencyDisplay(state.summaryCurrency))
 
             val tauxLabel = state.tauxEpargneReel
@@ -679,6 +731,9 @@ private fun SavingsAccountCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Text("Solde suivi · mis à jour le ${account.updatedAt.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

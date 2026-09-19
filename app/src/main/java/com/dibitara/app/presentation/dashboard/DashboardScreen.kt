@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.dibitara.app.presentation.common.MetricExplanation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +68,7 @@ import com.patrykandpatrick.vico.core.entry.entryOf
 
 @Composable
 fun DashboardScreen(
+    dataStatus: @Composable () -> Unit = {},
     onNavigateToDebts        : () -> Unit = {},
     onNavigateToReport       : () -> Unit = {},
     onNavigateToBudget       : () -> Unit = {},
@@ -92,6 +94,7 @@ fun DashboardScreen(
             is DashboardUiState.Success -> {
                 val isEditMode by viewModel.isEditMode.collectAsState()
                 DashboardContent(
+                    dataStatus = dataStatus,
                     overview                    = state.overview,
                     spendingHistory             = state.spendingHistory,
                     upcomingPayments            = state.upcomingPayments,
@@ -126,8 +129,10 @@ fun DashboardScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DashboardContent(
+    dataStatus: @Composable () -> Unit = {},
     overview                    : PatrimonyOverview,
     spendingHistory             : List<MonthlyExpense>,
     upcomingPayments            : List<UpcomingPayment>             = emptyList(),
@@ -157,6 +162,10 @@ private fun DashboardContent(
     masquerMontants             : Boolean                           = false,
     onToggleMasquerMontants     : () -> Unit                        = {}
 ) {
+    var showDetails by remember { mutableStateOf(false) }
+    val priorityCards = setOf(DashboardCard.PROCHAINS_PAIEMENTS, DashboardCard.ENVELOPPES_ALERTE, DashboardCard.SUGGESTIONS_RECATEGORISATION)
+    val visibleCards = if (isEditMode) cardOrder else if (showDetails) cardOrder.sortedBy { if (it in priorityCards) 0 else 1 }
+        else cardOrder.filter { it in priorityCards }.sortedBy { if (it == DashboardCard.PROCHAINS_PAIEMENTS) 1 else 0 }
     val lazyListState = rememberLazyListState()
     val reorderState  = rememberReorderableLazyListState(lazyListState) { from, to ->
         onMoveCard(from.key as String, to.key as String)
@@ -170,10 +179,10 @@ private fun DashboardContent(
     ) {
         // ─── En-tête fixe (non reordonnable) ──────────────────────────────────
         item(key = "header") {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("Dibitara", style = MaterialTheme.typography.headlineMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -197,17 +206,43 @@ private fun DashboardContent(
                 }
             }
         }
-        item(key = "patrimoine") {
-            PatrimonyNetCard(overview = overview, trendPct = patrimoineTrendPct, onClick = onNavigateToPatrimoine)
+        item(key = "budget_resume") {
+            HeroCard(onClick = onNavigateToBudget) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Budget restant", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (!overview.budgetDefini) "À définir" else if (masquerMontants) "••••" else overview.liquiditesCents.toCurrencyDisplay(overview.currency),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text("${java.time.YearMonth.now()} · Consulter les dépenses du mois",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    MetricExplanation("Budget restant", "Objectif de dépenses du mois − dépenses enregistrées du mois, hors virements internes identifiés. Ce montant ne correspond pas au solde bancaire. Les opérations en devises sont converties dans la devise d’affichage.")
+                    cashflowProjection?.let { projection ->
+                        HorizontalDivider()
+                        Text("Estimation bancaire à 30 jours",
+                            style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            if (masquerMontants) "••••" else projection.soldeProjecte30jCents.toCurrencyDisplay(projection.currency),
+                            modifier = Modifier.clickable(onClick = onVoirDetailProjection),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = if (projection.soldeProjecte30jCents < 0) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
         }
-        item(key = "scenarios_entry") {
-            TextButton(onClick = onNavigateToScenarios, modifier = Modifier.fillMaxWidth()) {
-                Text("Scénarios →")
+        item(key = "data_status") { dataStatus() }
+        item(key = "details") {
+            TextButton(onClick = { showDetails = !showDetails }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showDetails) "Afficher uniquement les priorités" else "Voir les comptes et les analyses")
             }
         }
 
         // ─── Cartes reordonnables ──────────────────────────────────────────────
-        items(cardOrder, key = { it.name }) { card ->
+        items(visibleCards, key = { it.name }) { card ->
             ReorderableItem(reorderState, key = card.name) { isDragging ->
                 val elevation by androidx.compose.animation.core.animateDpAsState(
                     if (isDragging) 8.dp else 0.dp, label = "drag_elevation"
@@ -238,6 +273,10 @@ private fun DashboardContent(
                     )
                 }
             }
+        }
+        if (showDetails) {
+            item(key = "patrimoine") { PatrimonyNetCard(overview, patrimoineTrendPct, onNavigateToPatrimoine) }
+            item(key = "scenarios_entry") { TextButton(onClick = onNavigateToScenarios) { Text("Préparer un scénario") } }
         }
     }
 }

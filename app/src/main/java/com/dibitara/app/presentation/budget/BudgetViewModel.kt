@@ -39,7 +39,8 @@ class BudgetViewModel @Inject constructor(
     private val upsertEnveloppe       : UpsertCategoryEnvelopeUseCase,
     private val deleteEnveloppe       : DeleteCategoryEnvelopeUseCase,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val exchangeRateRepository   : ExchangeRateRepository
+    private val exchangeRateRepository   : ExchangeRateRepository,
+    private val calculerBilan: com.dibitara.app.domain.usecase.CalculerBilanMensuelUseCase = com.dibitara.app.domain.usecase.CalculerBilanMensuelUseCase()
 ) : ViewModel() {
 
     private val now = LocalDate.now()
@@ -68,18 +69,13 @@ class BudgetViewModel @Inject constructor(
             ) { budget, transactions, customSubCats, enveloppes, (target, rates) ->
                 fun Long.cvt(from: Currency) = CurrencyConverter.convertCents(this, from, target, rates)
 
-                val depensesCents = transactions
-                    .filter { it.type == TransactionType.EXPENSE }
-                    .sumOf { it.amountCents.cvt(it.currency) }
-                val revenusCents = transactions
-                    .filter { it.type == TransactionType.INCOME }
-                    .sumOf { it.amountCents.cvt(it.currency) }
-
-                // Calcule le taux dépensé par catégorie pour croiser avec les enveloppes
-                val depenseParCategorie = transactions
+                val bilan = calculerBilan(transactions, target, rates)
+                val depensesCents = bilan.depensesCents
+                val revenusCents = bilan.revenusCents
+                val depenseParCategorie = bilan.transactions
                     .filter { it.type == TransactionType.EXPENSE }
                     .groupBy { it.category }
-                    .mapValues { entry -> entry.value.sumOf { it.amountCents.cvt(it.currency) } }
+                    .mapValues { (_, entries) -> entries.sumOf { it.amountCents } }
 
                 // Les enveloppes ne sont affichées que pour le mois courant et les mois futurs.
                 // Pour les mois passés, les plafonds n'existaient pas encore - les afficher
@@ -106,7 +102,7 @@ class BudgetViewModel @Inject constructor(
                         spentCents     = depensesCents,
                         currency       = target
                     ),
-                    transactions        = transactions,
+                    transactions        = bilan.transactions,
                     customSubCategories = customSubCats,
                     month               = month,
                     year                = year,

@@ -4,7 +4,7 @@ import com.dibitara.app.domain.model.Category
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionType
-import com.dibitara.app.domain.repository.TransactionRepository
+import com.dibitara.app.domain.repository.TransactionActionsRepository
 import io.mockk.coJustRun
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -16,7 +16,7 @@ import java.time.LocalDate
 
 class DeleteTransactionUseCaseTest {
 
-    private val repository: TransactionRepository = mockk()
+    private val repository: TransactionActionsRepository = mockk()
     private lateinit var useCase: DeleteTransactionUseCase
 
     @BeforeEach
@@ -29,11 +29,11 @@ class DeleteTransactionUseCaseTest {
             category = Category.ALIMENTATION, type = TransactionType.EXPENSE,
             date = LocalDate.now()
         )
-        coJustRun { repository.delete(transaction) }
+        coJustRun { repository.supprimer(transaction.id) }
 
         val result = useCase(transaction)
 
         assertTrue(result.isSuccess)
-        coVerify(exactly = 1) { repository.delete(transaction) }
+        coVerify(exactly = 1) { repository.supprimer(transaction.id) }
     }
 }

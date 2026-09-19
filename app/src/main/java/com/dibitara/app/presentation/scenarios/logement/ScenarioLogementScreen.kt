@@ -29,6 +29,7 @@ private val VertTenable = Color(0xFF2E7D32)
 @Composable
 fun ScenarioLogementScreen(
     onNavigateBack: () -> Unit,
+    onSettings: () -> Unit = {},
     viewModel: ScenarioLogementViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -37,6 +38,7 @@ fun ScenarioLogementScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Scénario logement") },
+                actions = { TextButton(onClick = onSettings) { Text("Seuil") } },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")

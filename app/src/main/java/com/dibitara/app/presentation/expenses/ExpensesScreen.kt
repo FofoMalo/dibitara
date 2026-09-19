@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
@@ -23,14 +22,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.dibitara.app.presentation.categories.*
+import com.dibitara.app.domain.model.CategoryChoice
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -45,8 +42,6 @@ import com.dibitara.app.domain.model.SubCategory
 import com.dibitara.app.domain.model.Transaction
 import com.dibitara.app.domain.model.TransactionSuggestion
 import com.dibitara.app.domain.model.TransactionType
-import com.dibitara.app.presentation.common.chartColor
-import com.dibitara.app.presentation.common.chartIcon
 import com.dibitara.app.presentation.common.maskIban
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 import java.time.LocalDate
@@ -55,20 +50,42 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
+fun ExpensesScreen(
+    onImports: () -> Unit = {},
+    onReconciliation: () -> Unit = {},
+    viewModel: ExpensesViewModel = hiltViewModel(),
+    actions: TransactionActionsViewModel = hiltViewModel(),
+    categories: CategoryCatalogViewModel = hiltViewModel()
+) {
+    val catalog by categories.catalog.collectAsState()
+    val categoryError by categories.error.collectAsState()
+    var bulkChoice by remember { mutableStateOf<CategoryChoice?>(null) }
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    var showCategories by remember { mutableStateOf(false) }
+    var showTrash by remember { mutableStateOf(false) }
+    val trash by actions.corbeille.collectAsState()
+    val actionMessage by actions.message.collectAsState()
+    val actionBusy by actions.busy.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val filter by viewModel.filter.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val selectedYear  by viewModel.selectedYear.collectAsState()
+    LaunchedEffect(filter, selectedMonth, selectedYear) { selectedIds = emptySet() }
     val defaultCurrency by viewModel.defaultCurrency.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     val bankAccounts by viewModel.bankAccounts.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<Transaction?>(null) }
-    var recatProposee by remember { mutableStateOf<ExpensesEvent.RecategorizationProposee?>(null) }
+    var ruleProposed by remember { mutableStateOf<ExpensesEvent.RuleSuggested?>(null) }
+    var matchingRows by remember { mutableStateOf<List<Transaction>?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(actionMessage, showTrash, showCategories) {
+        if (!showTrash && !showCategories) actionMessage?.let { snackbarHostState.showSnackbar(it); actions.effacerMessage() }
+    }
     val transactionToOpen by viewModel.transactionToOpen.collectAsState()
 
     // Sous-catégories personnalisées - disponibles dès que le state est chargé
@@ -88,9 +105,10 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             when (event) {
                 is ExpensesEvent.Saved   -> { showAddSheet = false; editingExpense = null
                     snackbarHostState.showSnackbar("Transaction enregistrée") }
-                is ExpensesEvent.Deleted -> snackbarHostState.showSnackbar("Transaction supprimée")
+                is ExpensesEvent.Deleted -> snackbarHostState.showSnackbar("Transaction déplacée dans la corbeille")
                 is ExpensesEvent.Error   -> snackbarHostState.showSnackbar(event.message)
-                is ExpensesEvent.RecategorizationProposee -> recatProposee = event
+                is ExpensesEvent.RecategorizationProposee -> Unit
+                is ExpensesEvent.RuleSuggested -> ruleProposed = event
                 is ExpensesEvent.RecategorizationTerminee ->
                     snackbarHostState.showSnackbar("${event.count} transaction(s) recatégorisée(s)")
             }
@@ -106,6 +124,22 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+
+            Text("Activité", style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp))
+
+            FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                TextButton(onClick = onImports) { Text("Imports et capture") }
+                TextButton(onClick = onReconciliation) { Text("Rapprocher") }
+                TextButton(onClick = { showTrash = true }) { Text("Corbeille (${trash.size})") }
+                TextButton(onClick = { selectionMode = !selectionMode; selectedIds = emptySet() }) {
+                    Text(if (selectionMode) "Terminer" else "Sélectionner")
+                }
+            }
+            if (selectionMode) {
+                Button(onClick = { showCategories = true }, enabled = selectedIds.isNotEmpty() && !actionBusy,
+                    modifier = Modifier.padding(horizontal = 16.dp)) { Text("Catégoriser ${selectedIds.size} dépenses") }
+            }
 
             // Barre de recherche + bouton filtre
             Row(
@@ -161,7 +195,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
             val autreCount = currentExpenses.count {
                 // Ne compte que les dépenses sans aucune sous-catégorie (prédéfinie ou custom)
                 // Les revenus sont exclus : ils sont stockés en AUTRE par design mais ne sont pas catégorisables
-                it.category == Category.AUTRE
+                it.category == Category.AUTRE && !it.categoryConfirmed
                     && it.type == TransactionType.EXPENSE
                     && it.subCategory == null
                     && it.customSubCategoryId == null
@@ -217,6 +251,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                         } else {
                             ExpensesList(
                                 expenses            = state.expenses,
+                                selectionMode = selectionMode,
+                                selectedIds = selectedIds,
+                                onToggle = { id -> selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id },
                                 customSubCategories = state.customSubCategories,
                                 virementsInternesIds = state.virementsInternesIds,
                                 // Le regroupement par jour n'a de sens que si la liste est déjà
@@ -227,6 +264,30 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+
+    if (showCategories) CategoryPicker(onDismiss={showCategories=false},onChoose={bulkChoice=it;showCategories=false},viewModel=categories)
+    bulkChoice?.let { choice -> AlertDialog(onDismissRequest={bulkChoice=null},title={Text("Classer la sélection")},text={Column {
+        Text("${selectedIds.size} dépenses seront classées dans ${catalog.label(choice)}. Les anciennes sous-catégories seront remplacées.")
+        categoryError?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+    }},confirmButton={TextButton(onClick={categories.classify(selectedIds,choice){bulkChoice=null;selectedIds=emptySet();selectionMode=false}}){Text("Appliquer")}},dismissButton={TextButton(onClick={bulkChoice=null}){Text("Annuler")}}) }
+    if (showTrash) {
+        ModalBottomSheet(onDismissRequest = { showTrash = false }) {
+            LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(20.dp)) {
+                item { Text("Corbeille", style = MaterialTheme.typography.headlineSmall) }
+                actionMessage?.let { item { Text(it) } }
+                item { Text("Les opérations restent récupérables après fermeture de l’application. Elles sont exclues des totaux et des récurrences tant qu’elles sont ici.") }
+                if (trash.isEmpty()) item { Text("Aucune opération dans la corbeille.", Modifier.padding(vertical = 16.dp)) }
+                items(trash, key = { it.transaction.id }) { entry ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                        Text(entry.transaction.note.ifBlank { entry.transaction.category.displayName }.maskIban())
+                        Text("${entry.transaction.date} · ${entry.transaction.amountCents.toCurrencyDisplay(entry.transaction.currency)}")
+                        TextButton(enabled = !actionBusy, onClick = { actions.restaurer(entry.transaction.id) }) { Text("Restaurer") }
+                    }
+                    HorizontalDivider()
                 }
             }
         }
@@ -247,11 +308,12 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
         ExpenseSheet(
             expense                   = null,
             defaultCurrency           = defaultCurrency,
+            bankAccounts = bankAccounts,
             customSubCategories       = customSubCategories,
             suggestions               = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
             onDeleteCustomSubCategory = viewModel::supprimerCustomSubCategory,
-            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate ->
+            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate, bankAccountId, categoryConfirmed ->
                 viewModel.addExpense(amount, category, currency, note,
                     date = date,
                     type = type,
@@ -259,7 +321,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                     subCategory = subCategory,
                     customSubCategoryId = customSubCategoryId,
                     recurrenceFrequency = freq,
-                    endDate = endDate)
+                    endDate = endDate, bankAccountId = bankAccountId, categoryConfirmed = categoryConfirmed)
             },
             onDismiss = { showAddSheet = false }
         )
@@ -270,11 +332,12 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
         ExpenseSheet(
             expense                   = expense,
             defaultCurrency           = defaultCurrency,
+            bankAccounts = bankAccounts,
             customSubCategories       = customSubCategories,
             suggestions               = suggestions,
             onCreateCustomSubCategory = viewModel::creerCustomSubCategory,
             onDeleteCustomSubCategory = viewModel::supprimerCustomSubCategory,
-            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate ->
+            onSave = { amount, category, currency, note, date, isRecurring, recurrenceDay, subCategory, type, customSubCategoryId, freq, endDate, bankAccountId, categoryConfirmed ->
                 viewModel.updateExpense(expense, amount, category, currency, note,
                     date = date,
                     type = type,
@@ -282,33 +345,25 @@ fun ExpensesScreen(viewModel: ExpensesViewModel = hiltViewModel()) {
                     subCategory = subCategory,
                     customSubCategoryId = customSubCategoryId,
                     recurrenceFrequency = freq,
-                    endDate = endDate)
+                    endDate = endDate, bankAccountId = bankAccountId, categoryConfirmed = categoryConfirmed)
             },
             onDismiss = { editingExpense = null }
         )
     }
 
-    // Dialog de recatégorisation en masse
-    recatProposee?.let { proposition ->
-        AlertDialog(
-            onDismissRequest = { recatProposee = null },
-            title = { Text("Recatégoriser") },
-            text  = {
-                Text(
-                    "${proposition.count} autre(s) transaction(s) ont la même note.\n" +
-                    "Appliquer « ${proposition.newCategory.displayName} » à toutes ?"
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.recategoriserParNote(proposition.note, proposition.newCategory)
-                    recatProposee = null
-                }) { Text("Appliquer à toutes") }
-            },
-            dismissButton = {
-                TextButton(onClick = { recatProposee = null }) { Text("Non") }
+    ruleProposed?.let { proposition ->
+        AlertDialog(onDismissRequest={ruleProposed=null;matchingRows=null},title={Text("Simplifier les prochains classements")},text={Column {
+            Text("Toujours classer ce libellé dans ${catalog.label(proposition.choice)} ?")
+            Text(proposition.note)
+            Text("La règle correspond au libellé exact, sans tenir compte de la casse.",style=MaterialTheme.typography.bodySmall)
+            TextButton(onClick={categories.matches(proposition.note,proposition.choice){matchingRows=it}}){Text("Voir les anciennes opérations correspondantes")}
+            matchingRows?.let { rows ->
+                Text("${rows.size} opérations à reclasser")
+                rows.take(5).forEach { Text("${it.date} · ${it.amountCents.toCurrencyDisplay(it.currency)}") }
+                if(rows.isNotEmpty())TextButton(onClick={categories.classify(rows.map { it.id }.toSet(),proposition.choice){matchingRows=null;ruleProposed=null}}){Text("Reclasser ces ${rows.size} opérations")}
             }
-        )
+            categoryError?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+        }},confirmButton={TextButton(onClick={categories.remember(proposition.note,proposition.choice){ruleProposed=null;matchingRows=null}}){Text("Créer la règle")}},dismissButton={TextButton(onClick={ruleProposed=null;matchingRows=null}){Text("Pas maintenant")}})
     }
 }
 
@@ -369,6 +424,8 @@ private fun FilterSheet(
     onFilterChange: (ExpensesFilter) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var chooseCategory by remember { mutableStateOf(false) }
+    if(chooseCategory) CategoryPicker(onDismiss={chooseCategory=false},includeArchived=true,onChoose={onFilterChange(filter.copy(category=it.category,subCategory=it.subCategory,customSubCategoryId=it.customSubCategoryId,uncategorizedOnly=false));chooseCategory=false})
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -414,27 +471,9 @@ private fun FilterSheet(
                 }
             }
 
-            // Catégorie
-            Text("Catégorie", style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item {
-                    FilterChip(
-                        selected = filter.category == null,
-                        onClick = { onFilterChange(filter.copy(category = null)) },
-                        label = { Text("Toutes") }
-                    )
-                }
-                items(Category.entries) { cat ->
-                    FilterChip(
-                        selected = filter.category == cat,
-                        // uncategorizedOnly est exclusif avec category (voir ExpensesFilter.apply) :
-                        // le désactiver évite une combinaison contradictoire qui viderait la liste
-                        onClick = { onFilterChange(filter.copy(category = cat, uncategorizedOnly = false)) },
-                        label = { Text(cat.displayName) }
-                    )
-                }
-            }
+            Text("Catégorie",style=MaterialTheme.typography.labelLarge)
+            OutlinedButton(onClick={chooseCategory=true},modifier=Modifier.fillMaxWidth()) { Text(filter.category?.displayName ?: "Toutes les catégories") }
+            if(filter.category!=null) TextButton(onClick={onFilterChange(filter.copy(category=null,subCategory=null,customSubCategoryId=null))}) { Text("Effacer le filtre catégorie") }
 
             // Compte bancaire (uniquement si des comptes sont configurés)
             if (bankAccounts.isNotEmpty()) {
@@ -490,6 +529,9 @@ private fun ExpensesList(
     customSubCategories: List<CustomSubCategory>,
     virementsInternesIds: Set<Long> = emptySet(),
     groupByDay: Boolean,
+    selectionMode: Boolean = false,
+    selectedIds: Set<Long> = emptySet(),
+    onToggle: (Long) -> Unit = {},
     onEdit: (Transaction) -> Unit,
     onDelete: (Transaction) -> Unit
 ) {
@@ -514,6 +556,9 @@ private fun ExpensesList(
                 items(expensesDuJour, key = { it.id }) { expense ->
                     ExpenseItem(
                         expense                 = expense,
+                        selectionMode = selectionMode,
+                        selected = expense.id in selectedIds,
+                        onToggle = { onToggle(expense.id) },
                         customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
                         virementInterne         = expense.id in virementsInternesIds,
                         onEdit                  = { onEdit(expense) },
@@ -525,6 +570,9 @@ private fun ExpensesList(
             items(expenses, key = { it.id }) { expense ->
                 ExpenseItem(
                     expense                 = expense,
+                        selectionMode = selectionMode,
+                        selected = expense.id in selectedIds,
+                        onToggle = { onToggle(expense.id) },
                     customSubCategoryName   = expense.customSubCategoryId?.let { customSubCatById[it]?.name },
                     virementInterne         = expense.id in virementsInternesIds,
                     onEdit                  = { onEdit(expense) },
@@ -578,138 +626,57 @@ private fun dayLabel(date: LocalDate): String {
 }
 
 @Composable
-private fun ExpenseItem(
+internal fun ExpenseItem(
     expense: Transaction,
     customSubCategoryName: String?,
     virementInterne: Boolean = false,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
+    onToggle: () -> Unit = {},
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val formatter = DateTimeFormatter.ofPattern("dd/MM")
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     val estRevenu = expense.type == TransactionType.INCOME
-    val couleurCategorie = if (estRevenu) MaterialTheme.colorScheme.tertiary else expense.category.chartColor()
-
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val selectable = expense.type == TransactionType.EXPENSE
+    Column(Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            Modifier.fillMaxWidth().clickable(enabled = !selectionMode || selectable) {
+                if (selectionMode) onToggle() else onEdit()
+            }.padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(couleurCategorie.copy(alpha = 0.14f), RoundedCornerShape(11.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (estRevenu) Icons.Filled.Payments else expense.category.chartIcon(),
-                    contentDescription = null,
-                    tint = couleurCategorie,
-                    modifier = Modifier.size(19.dp)
-                )
+            if (selectionMode) Checkbox(checked = selected, onCheckedChange = null, enabled = selectable)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(expense.note.ifBlank { if (estRevenu) "Revenu" else expense.category.displayName }.maskIban(),
+                    style = MaterialTheme.typography.bodyLarge)
+                val category = expense.categoryPath ?: customSubCategoryName ?: expense.subCategory?.displayName ?: expense.category.displayName
+                Text("${expense.date.format(DateTimeFormatter.ofPattern("dd/MM"))} · ${if (virementInterne) "Virement interne" else category}",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${if (estRevenu) "+" else "−"} ${expense.amountCents.toCurrencyDisplay(expense.currency)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (estRevenu) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface)
+                if (expense.isRecurring) Text("Récurrente", style = MaterialTheme.typography.labelSmall)
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // Pour un revenu, la note est plus significative que la catégorie (stockée AUTRE)
-                    val labelPrincipal = if (estRevenu)
-                        expense.note.ifBlank { "Revenu" }.maskIban()
-                    else
-                        expense.category.displayName
-                    Text(labelPrincipal, style = MaterialTheme.typography.bodyLarge)
-                    if (expense.isRecurring) {
-                        Icon(
-                            imageVector = Icons.Filled.Refresh,
-                            contentDescription = "Récurrente",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                // Virement interne détecté (voir IdentifierVirementsInternesUseCase) : exclu des
-                // totaux revenus/dépenses mais toujours visible ici, avec l'indication du pourquoi.
-                if (virementInterne) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Icon(
-                            imageVector = Icons.Filled.SwapHoriz,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            "Virement interne",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                // Affiche la sous-catégorie enum (AUTRE) ou la sous-catégorie personnalisée
-                val subCatLabel = when {
-                    customSubCategoryName != null -> customSubCategoryName
-                    expense.subCategory != null   -> expense.subCategory.displayName
-                    else                          -> null
-                }
-                if (expense.type == TransactionType.EXPENSE && subCatLabel != null) {
-                    Text(subCatLabel, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary)
-                }
-                Text(expense.date.format(formatter), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                // Pour les revenus, la note est déjà utilisée comme label principal
-                if (expense.type == TransactionType.EXPENSE && expense.note.isNotBlank()) {
-                    Text(expense.note.maskIban(), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            Text(
-                "${if (expense.type == TransactionType.EXPENSE) "-" else "+"} ${expense.amountCents.toCurrencyDisplay(expense.currency)}",
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (expense.type == TransactionType.EXPENSE)
-                    MaterialTheme.colorScheme.error
-                else
-                    MaterialTheme.colorScheme.primary
-            )
-            // Un seul bouton "..." plutôt que deux IconButton (Modifier + Supprimer) : avec la
-            // pastille de catégorie ajoutée par la refonte, les deux boutons laissaient trop peu
-            // de largeur à la colonne de libellé (retour au texte qui passait à la ligne).
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Actions",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            if (!selectionMode) Box {
+                IconButton(onClick = { showMenu = true }) { Icon(Icons.Filled.MoreVert, "Actions") }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Modifier") },
-                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary) },
-                        onClick = { showMenu = false; onEdit() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error) },
-                        onClick = { showMenu = false; showDeleteConfirm = true }
-                    )
+                    DropdownMenuItem(text = { Text("Modifier") }, onClick = { showMenu = false; onEdit() })
+                    DropdownMenuItem(text = { Text("Mettre à la corbeille") }, onClick = { showMenu = false; showDeleteConfirm = true })
                 }
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     }
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Supprimer la transaction ?") },
-            text = { Text("Cette action est irréversible.") },
-            confirmButton = {
-                TextButton(onClick = { onDelete(); showDeleteConfirm = false }) { Text("Supprimer") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Annuler") }
-            }
-        )
-    }
+    if (showDeleteConfirm) AlertDialog(
+        onDismissRequest = { showDeleteConfirm = false },
+        title = { Text("Mettre à la corbeille ?") },
+        text = { Text("Vous pourrez restaurer cette opération depuis la corbeille. Une opération récurrente mise à la corbeille ne générera plus de nouvelles échéances.") },
+        confirmButton = { TextButton(onClick = { onDelete(); showDeleteConfirm = false }) { Text("Confirmer") } },
+        dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Annuler") } }
+    )
 }
 
 @Composable
@@ -729,21 +696,29 @@ private fun EmptyExpenses(modifier: Modifier = Modifier) {
 private fun ExpenseSheet(
     expense: Transaction?,
     defaultCurrency: Currency = Currency.EUR,
+    bankAccounts: List<BankAccount> = emptyList(),
     customSubCategories: List<CustomSubCategory>,
     suggestions: List<TransactionSuggestion> = emptyList(),
     onCreateCustomSubCategory: (String, Category) -> Unit,
     onDeleteCustomSubCategory: (CustomSubCategory) -> Unit,
-    onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?, com.dibitara.app.domain.model.RecurrenceFrequency?, LocalDate?) -> Unit,
-    onDismiss: () -> Unit
+    onSave: (String, Category, Currency, String, LocalDate, Boolean, Int?, SubCategory?, TransactionType, Long?, com.dibitara.app.domain.model.RecurrenceFrequency?, LocalDate?, Long?, Boolean) -> Unit,
+    onDismiss: () -> Unit,
+    categories: CategoryCatalogViewModel = hiltViewModel()
 ) {
+    val catalog by categories.catalog.collectAsState()
+    var showCategoryPicker by remember { mutableStateOf(false) }
+    val ruleSuggestion by categories.suggestion.collectAsState()
     // Toujours formater avec un point - "%.2f" utilise la locale système (virgule sur FR)
     var amount by remember { mutableStateOf(expense?.let { "%.2f".format(it.amountCents / 100.0).replace(',', '.') } ?: "") }
     var note by remember { mutableStateOf(expense?.note ?: "") }
+    LaunchedEffect(note) { categories.suggest(note) }
+    var selectedAccountId by remember { mutableStateOf(expense?.bankAccountId) }
+    var accountExpanded by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf(expense?.category ?: Category.ALIMENTATION) }
+    var categoryConfirmed by remember { mutableStateOf(expense?.categoryConfirmed ?: true) }
     var selectedCurrency by remember { mutableStateOf(expense?.currency ?: defaultCurrency) }
     var selectedDate by remember { mutableStateOf(expense?.date ?: LocalDate.now()) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var categoryExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
     var isRecurring by remember { mutableStateOf(expense?.isRecurring ?: false) }
     var recurrenceDayStr by remember { mutableStateOf(expense?.recurrenceDay?.toString() ?: "") }
@@ -758,9 +733,6 @@ private fun ExpenseSheet(
     var selectedCustomSubCategory by remember {
         mutableStateOf(expense?.customSubCategoryId?.let { id -> customSubCategories.find { it.id == id } })
     }
-    var subCategoryExpanded by remember { mutableStateOf(false) }
-    var showCreateSubCatDialog by remember { mutableStateOf(false) }
-    var customSubCatASupprimer by remember { mutableStateOf<CustomSubCategory?>(null) }
     // Dépense par défaut ; on relit le type si on édite une transaction existante
     var selectedType by remember { mutableStateOf(expense?.type ?: TransactionType.EXPENSE) }
     val focusManager = LocalFocusManager.current
@@ -828,113 +800,9 @@ private fun ExpenseSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Catégorie + sous-catégorie - sans sens pour un revenu, masquées
             if (selectedType == TransactionType.EXPENSE) {
-                ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = it }) {
-                    OutlinedTextField(
-                        value = selectedCategory.displayName, onValueChange = {},
-                        readOnly = true, label = { Text("Catégorie") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(categoryExpanded) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
-                        Category.entries.forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat.displayName) },
-                                onClick = {
-                                    selectedCategory = cat
-                                    // Réinitialise les deux types de sous-catégorie au changement de catégorie
-                                    selectedSubCategory = null
-                                    selectedCustomSubCategory = null
-                                    categoryExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Sous-catégorie - visible pour toute catégorie avec des custom subcats, ou pour AUTRE
-                val customSubCatsForCategory = customSubCategories.filter { it.parentCategory == selectedCategory }
-                val hasSubCategories = customSubCatsForCategory.isNotEmpty() || selectedCategory == Category.AUTRE
-
-                if (hasSubCategories) {
-                    val displayValue = selectedCustomSubCategory?.name
-                        ?: selectedSubCategory?.displayName
-                        ?: "Aucune"
-
-                    ExposedDropdownMenuBox(expanded = subCategoryExpanded, onExpandedChange = { subCategoryExpanded = it }) {
-                        OutlinedTextField(
-                            value = displayValue,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Sous-catégorie (optionnel)") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(subCategoryExpanded) },
-                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(expanded = subCategoryExpanded, onDismissRequest = { subCategoryExpanded = false }) {
-                            // Entrée "Aucune" pour désélectionner
-                            DropdownMenuItem(
-                                text = { Text("Aucune", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                                onClick = {
-                                    selectedSubCategory = null
-                                    selectedCustomSubCategory = null
-                                    subCategoryExpanded = false
-                                }
-                            )
-                            HorizontalDivider()
-                            // Sous-catégories prédéfinies (seulement pour AUTRE)
-                            if (selectedCategory == Category.AUTRE) {
-                                SubCategory.entries.forEach { sub ->
-                                    DropdownMenuItem(
-                                        text = { Text(sub.displayName) },
-                                        onClick = {
-                                            selectedSubCategory = sub
-                                            selectedCustomSubCategory = null
-                                            subCategoryExpanded = false
-                                        }
-                                    )
-                                }
-                                if (customSubCatsForCategory.isNotEmpty()) HorizontalDivider()
-                            }
-                            // Sous-catégories personnalisées pour la catégorie sélectionnée
-                            customSubCatsForCategory.forEach { custom ->
-                                DropdownMenuItem(
-                                    text = { Text(custom.name) },
-                                    trailingIcon = {
-                                        IconButton(onClick = {
-                                            subCategoryExpanded = false
-                                            customSubCatASupprimer = custom
-                                        }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Supprimer ${custom.name}",
-                                                tint = MaterialTheme.colorScheme.error
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        selectedCustomSubCategory = custom
-                                        selectedSubCategory = null
-                                        subCategoryExpanded = false
-                                    }
-                                )
-                            }
-                            HorizontalDivider()
-                            // Option de création inline
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "＋ Créer une sous-catégorie…",
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                onClick = {
-                                    subCategoryExpanded = false
-                                    showCreateSubCatDialog = true
-                                }
-                            )
-                        }
-                    }
+                OutlinedButton(onClick={showCategoryPicker=true},modifier=Modifier.fillMaxWidth()) {
+                    Text(catalog.label(CategoryChoice(selectedCategory,selectedSubCategory,selectedCustomSubCategory?.id)))
                 }
             }
 
@@ -953,6 +821,30 @@ private fun ExpenseSheet(
                         )
                     }
                 }
+            }
+
+            ExposedDropdownMenuBox(expanded = accountExpanded, onExpandedChange = { accountExpanded = it }) {
+                OutlinedTextField(
+                    value = bankAccounts.firstOrNull { it.id == selectedAccountId }?.label ?: "Non rattachée",
+                    onValueChange = {}, readOnly = true, label = { Text("Compte bancaire") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(accountExpanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = accountExpanded, onDismissRequest = { accountExpanded = false }) {
+                    DropdownMenuItem(text = { Text("Non rattachée") }, onClick = { selectedAccountId = null; accountExpanded = false })
+                    bankAccounts.forEach { account ->
+                        DropdownMenuItem(text = { Text(account.label) }, onClick = { selectedAccountId = account.id; accountExpanded = false })
+                    }
+                }
+            }
+            if (expense != null) {
+                Text(
+                    when {
+                        expense.importSource?.contains("notification") == true -> "Origine : capture de notification"
+                        expense.importSource != null -> "Origine : import bancaire (${expense.importSource})"
+                        else -> "Origine : saisie manuelle"
+                    }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             OutlinedTextField(
@@ -980,6 +872,7 @@ private fun ExpenseSheet(
                                 // Pré-remplit tous les champs en un seul tap
                                 note = suggestion.label
                                 amount = "%.2f".format(suggestion.amountCents / 100.0).replace(',', '.')
+                                categoryConfirmed=true
                                 selectedCategory = suggestion.category
                                 selectedCurrency = suggestion.currency
                                 selectedType = suggestion.type
@@ -1092,17 +985,20 @@ private fun ExpenseSheet(
 
             val recurrenceDay = recurrenceDayStr.toIntOrNull()
             val monthlyValid = selectedFrequency != com.dibitara.app.domain.model.RecurrenceFrequency.MONTHLY || recurrenceDay != null
-            val saveEnabled = amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true
+            val currentChoice = CategoryChoice(selectedCategory,selectedSubCategory,selectedCustomSubCategory?.id)
+            val originalChoice = expense?.let { CategoryChoice(it.category,it.subCategory,it.customSubCategoryId) }
+            val categoryAvailable = selectedType!=TransactionType.EXPENSE || currentChoice==originalChoice || catalog.node(currentChoice.key)?.let { catalog.selectable(it) }==true
+            if(!categoryAvailable) Text("Choisissez une catégorie active.",color=MaterialTheme.colorScheme.error)
+            val saveEnabled = categoryAvailable && amount.replace(',', '.').toDoubleOrNull()?.let { it > 0 } == true
                     && (!isRecurring || monthlyValid)
 
             Button(
                 onClick = {
                     // Pour un revenu, la catégorie n'a pas de sens sémantique - on stocke AUTRE en base
                     val catFinale = if (selectedType == TransactionType.INCOME) Category.AUTRE else selectedCategory
-                    // subCategory enum : uniquement pour AUTRE, et seulement si aucune custom n'est sélectionnée
+                    // Les anciennes sous-catégories peuvent maintenant appartenir à tous les parents.
                     val subCatFinale = selectedSubCategory.takeIf {
                         selectedType == TransactionType.EXPENSE
-                                && selectedCategory == Category.AUTRE
                                 && selectedCustomSubCategory == null
                     }
                     val customSubCatIdFinale = selectedCustomSubCategory?.id.takeIf {
@@ -1111,7 +1007,7 @@ private fun ExpenseSheet(
                     val freqFinale = if (isRecurring) selectedFrequency else null
                     onSave(amount, catFinale, selectedCurrency, note, selectedDate,
                         isRecurring, recurrenceDay, subCatFinale, selectedType, customSubCatIdFinale,
-                        freqFinale, endDate)
+                        freqFinale, endDate, selectedAccountId, categoryConfirmed)
                 },
                 enabled = saveEnabled,
                 modifier = Modifier.fillMaxWidth()
@@ -1166,80 +1062,13 @@ private fun ExpenseSheet(
         }
     }
 
-    // Dialogue de création de sous-catégorie inline
-    customSubCatASupprimer?.let { subCat ->
-        AlertDialog(
-            onDismissRequest = { customSubCatASupprimer = null },
-            title = { Text("Supprimer la sous-catégorie ?") },
-            text  = { Text("« ${subCat.name} » sera supprimée. Les transactions liées ne sont pas modifiées.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDeleteCustomSubCategory(subCat)
-                    if (selectedCustomSubCategory?.id == subCat.id) selectedCustomSubCategory = null
-                    customSubCatASupprimer = null
-                }) { Text("Supprimer", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { customSubCatASupprimer = null }) { Text("Annuler") }
-            }
-        )
-    }
-
-    if (showCreateSubCatDialog) {
-        DialogueCreerSousCategorie(
-            categoryParente = if (selectedType == TransactionType.INCOME) Category.AUTRE else selectedCategory,
-            onCreate = { name, category ->
-                onCreateCustomSubCategory(name, category)
-                showCreateSubCatDialog = false
-            },
-            onDismiss = { showCreateSubCatDialog = false }
-        )
-    }
+    if(showCategoryPicker) CategoryPicker(onDismiss={showCategoryPicker=false},onChoose={choice ->
+        categoryConfirmed=true;selectedCategory=choice.category;selectedSubCategory=choice.subCategory
+        selectedCustomSubCategory=choice.customSubCategoryId?.let { id ->
+            CustomSubCategory(id,catalog.node("u:$id")?.name ?: "Sous-catégorie",choice.category)
+        };showCategoryPicker=false
+    },suggestion=ruleSuggestion,viewModel=categories)
 }
-
-// ─── Dialogue création de sous-catégorie ──────────────────────────────────────
-
-@Composable
-private fun DialogueCreerSousCategorie(
-    categoryParente: Category,
-    onCreate: (String, Category) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var nom by remember { mutableStateOf("") }
-    val focusManager = LocalFocusManager.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Nouvelle sous-catégorie") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Catégorie parente : ${categoryParente.displayName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = nom,
-                    onValueChange = { nom = it },
-                    label = { Text("Nom") },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { if (nom.isNotBlank()) onCreate(nom.trim(), categoryParente) },
-                enabled = nom.isNotBlank()
-            ) { Text("Créer") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
-    )
-}
-
-// ─── Extensions d'affichage ───────────────────────────────────────────────────
 
 private fun TransactionType.label(): String = when (this) {
     TransactionType.EXPENSE    -> "Dépenses"

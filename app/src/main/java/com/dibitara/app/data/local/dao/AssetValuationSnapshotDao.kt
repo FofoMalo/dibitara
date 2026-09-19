@@ -9,6 +9,15 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AssetValuationSnapshotDao {
+    @Query("SELECT * FROM asset_valuation_snapshots ORDER BY snapshotEpochDay, id")
+    fun observeAll(): Flow<List<AssetValuationSnapshotEntity>>
+
+    @Query("DELETE FROM asset_valuation_snapshots WHERE assetType = :assetType AND assetId = :assetId AND snapshotEpochDay = :epochDay")
+    suspend fun deleteForDay(assetType: String, assetId: Long, epochDay: Long)
+
+    @Query("SELECT * FROM asset_valuation_snapshots ORDER BY snapshotEpochDay ASC")
+    suspend fun getAll(): List<AssetValuationSnapshotEntity>
+
 
     @Query("SELECT * FROM asset_valuation_snapshots WHERE assetType = :assetType AND assetId = :assetId ORDER BY snapshotEpochDay ASC")
     fun getForAsset(assetType: String, assetId: Long): Flow<List<AssetValuationSnapshotEntity>>

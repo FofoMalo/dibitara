@@ -69,9 +69,9 @@ class GetMonthlyReportUseCase @Inject constructor(
                 .filter { it.type == TransactionType.EXPENSE }
                 .groupBy { tx ->
                     when {
-                        tx.category == Category.AUTRE && tx.subCategory != null ->
+                        tx.subCategory != null ->
                             "subcat_${tx.subCategory.name}"
-                        tx.category == Category.AUTRE && tx.customSubCategoryId != null ->
+                        tx.customSubCategoryId != null ->
                             "custom_${tx.customSubCategoryId}"
                         else -> "cat_${tx.category.name}"
                     }
@@ -81,9 +81,9 @@ class GetMonthlyReportUseCase @Inject constructor(
                     val firstTx    = transactions.first()
                     val label = when {
                         key.startsWith("subcat_") ->
-                            firstTx.subCategory!!.displayName
+                            firstTx.categoryPath ?: firstTx.subCategory!!.displayName
                         key.startsWith("custom_") ->
-                            customSubCats.find { it.id == firstTx.customSubCategoryId }?.name
+                            firstTx.categoryPath ?: customSubCats.find { it.id == firstTx.customSubCategoryId }?.name
                                 ?: Category.AUTRE.displayName
                         else -> firstTx.category.displayName
                     }

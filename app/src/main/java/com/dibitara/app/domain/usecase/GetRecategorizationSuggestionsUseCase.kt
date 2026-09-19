@@ -37,7 +37,7 @@ class GetRecategorizationSuggestionsUseCase @Inject constructor(
                 // Les revenus ne peuvent pas être recatégorisés depuis l'UI (champs masqués)
                 .filter {
                     it.category == Category.AUTRE && it.type == TransactionType.EXPENSE &&
-                        it.subCategory == null && it.customSubCategoryId == null
+                        it.subCategory == null && it.customSubCategoryId == null && !it.categoryConfirmed
                 }
                 .mapNotNull { trouverSuggestion(it) }
                 .distinctBy { it.transaction.id }

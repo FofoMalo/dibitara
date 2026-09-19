@@ -22,7 +22,12 @@ data class ImportedTransaction(
     val externalId: String,                     // clé de déduplication - UUID (TR) ou hash calculé (BRED)
     val rawType: String,                        // type brut de l'opération selon la banque source
     val importSource: String = "trade_republic",
-    val alreadyImported: Boolean = false
+    val alreadyImported: Boolean = false,
+    val reconciliationKey: String? = null,
+    val captureLiveReconnue: Boolean = false,
+    val subCategory: SubCategory? = null,
+    val customSubCategoryId: Long? = null,
+    val categoryConfirmed: Boolean = false
 ) {
     /**
      * Convertit vers [Transaction] prêt à être sauvegardé en base.
@@ -34,11 +39,15 @@ data class ImportedTransaction(
         amountCents   = amountCents,
         currency      = currency,
         category      = category,
+        subCategory = subCategory,
+        customSubCategoryId = customSubCategoryId,
+        categoryConfirmed = categoryConfirmed,
         type          = type,
         date          = date,
         note          = note,
         importSource  = importSource,
         externalId    = externalId,
-        bankAccountId = bankAccountId
+        bankAccountId = bankAccountId,
+        reconciliationKey = reconciliationKey
     )
 }

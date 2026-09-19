@@ -56,6 +56,15 @@ import java.lang.reflect.Type
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.dibitara.app.data.export.BackupJsonVerifier
+import com.dibitara.app.data.local.entity.AssetValuationSnapshotEntity
+import com.dibitara.app.data.local.entity.PatrimoineSnapshotEntity
+import com.dibitara.app.data.local.entity.TransactionTrashEntity
+import com.dibitara.app.domain.model.validate
+import com.dibitara.app.domain.model.UserPreferences
+import com.dibitara.app.domain.repository.UserPreferencesRepository
+import kotlinx.coroutines.flow.first
+import java.io.File
 
 /**
  * Implémentation de [RestoreRepository].
@@ -69,19 +78,18 @@ import javax.inject.Singleton
  *     childId, debtId, bankAccountId, customSubCategoryId… restent cohérentes). Si une
  *     insertion échoue, la transaction est annulée et la base d'origine reste intacte.
  *
- * Couvre 17 des 19 tables. Volontairement exclues : `patrimoine_snapshots` et
- * `asset_valuation_snapshots` (historiques qui se reconstruisent d'eux-mêmes et
- * gonfleraient le fichier). Un fichier de sauvegarde antérieur à 2026-08 n'a pas les
- * clés `versements_mensuels`, `sous_categories_perso`, `objectifs_epargne`, etc. :
- * [parseList] renvoie alors une liste vide, sans erreur.
+ * Les historiques, la corbeille et les réglages fonctionnels sont inclus depuis le format 2.
+ * Une copie de sécurité locale est conservée avant tout remplacement.
  */
 @Singleton
 class RestoreRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val database: DibitaraDatabase
+    private val database: DibitaraDatabase,
+    private val preferences: UserPreferencesRepository
 ) : RestoreRepository {
 
     private val gson = GsonBuilder()
+        .registerTypeAdapter(com.dibitara.app.domain.model.Category::class.java, com.dibitara.app.data.export.CategoryJsonAdapter())
         .registerTypeAdapter(LocalDate::class.java, AdaptateurLocalDate())
         .create()
 
@@ -97,6 +105,7 @@ class RestoreRepositoryImpl @Inject constructor(
             }
 
             // ── Étape 2 : désérialiser la racine ─────────────────────────────
+            BackupJsonVerifier.inspecter(json)
             val jsonObj = gson.fromJson(json, JsonObject::class.java)
 
             val enfants      = parseList<Child>(jsonObj, "enfants")
@@ -117,8 +126,41 @@ class RestoreRepositoryImpl @Inject constructor(
             val versements   = parseList<MonthlyVersement>(jsonObj, "versements_mensuels")
             val objectifs    = parseList<SavingsGoal>(jsonObj, "objectifs_epargne")
 
+            val etfPlans = parseList<com.dibitara.app.data.local.entity.EtfPlanEntity>(jsonObj, "etf_plans")
+            val etfPurchases = parseList<com.dibitara.app.data.local.entity.EtfPurchaseEntity>(jsonObj, "etf_purchases")
+            com.dibitara.app.data.export.EtfBackupValidator.validate(etfPlans, etfPurchases, actifs)
+            val categoryDefinitions = parseList<com.dibitara.app.data.local.entity.CategoryDefinitionEntity>(jsonObj, "category_definitions")
+            require(categoryDefinitions.map { it.key }.distinct().size == categoryDefinitions.size) { "Identifiants de catégories dupliqués" }
+            val categoryNodes = (com.dibitara.app.domain.model.CategoryCatalog.defaults() + sousCategories.map {
+                com.dibitara.app.domain.model.CategoryNode("u:${it.id}",it.name,"c:${it.parentCategory.name}")
+            }).associateBy { it.key }.toMutableMap()
+            categoryDefinitions.forEach { categoryNodes[it.key]=it.toDomain() }
+            val restoredCatalog=com.dibitara.app.domain.model.CategoryCatalog(categoryNodes.values.toList())
+            restoredCatalog.validate()
+            (transactions.map { it.category } + enveloppes.map { it.category } + regles.map { it.category }).forEach {
+                require(restoredCatalog.node("c:${it.name}") != null) { "Une catégorie personnelle manque dans la sauvegarde." }
+            }
+            val patrimoine = parseList<PatrimoineSnapshotEntity>(jsonObj, "patrimoine_snapshots")
+            val valorisations = parseList<AssetValuationSnapshotEntity>(jsonObj, "asset_valuation_snapshots")
+            val corbeille = parseList<TransactionTrashEntity>(jsonObj, "transaction_trash")
+            val prefs = jsonObj.get("preferences")?.let { gson.fromJson(it, UserPreferences::class.java) }
+            // Valider les préférences avant de remplacer les données.
+            prefs?.let {
+                require(it.deviseParDefaut != null && it.themeMode != null && it.dashboardCardOrder != null) { "Réglages invalides" }
+                require(it.seuilFondsCents >= 0 && it.seuilResteAVivreLogementCents >= 0 && it.tauxEpargneCiblePct in 0..100) { "Seuils invalides" }
+            }
+            val avantPreferences = preferences.get().first()
             // ── Étape 3 : tout dans une transaction (rollback si une insertion échoue) ──
+            try {
             database.withTransaction {
+                // Les captures attendent la fin du remplacement ; la copie inclut l'état exact précédent.
+                val secours = File(context.filesDir, "restore-safety").also { it.mkdirs() }
+                val fichierSecours = File(secours, "avant-restauration-${java.util.UUID.randomUUID()}.json")
+                val jsonSecours = com.dibitara.app.data.export.CompleteBackup.generer(database, preferences)
+                fichierSecours.writeText(jsonSecours)
+                check(fichierSecours.readText() == jsonSecours) { "Copie de secours non vérifiée" }
+                BackupJsonVerifier.verifier(jsonSecours)
+
                 TABLES_A_VIDER.forEach { table ->
                     database.openHelper.writableDatabase.execSQL("DELETE FROM $table")
                 }
@@ -126,6 +168,7 @@ class RestoreRepositoryImpl @Inject constructor(
                 // Ordre : les "parents" avant ce qui les référence (childId, bankAccountId,
                 // customSubCategoryId). Les FK ne sont pas déclarées en base mais l'ordre
                 // garde les données cohérentes à la lecture.
+                categoryDefinitions.forEach { database.categoryDefinitionDao().save(it) }
                 enfants.forEach          { database.childDao().insert(ChildEntity.fromDomain(it)) }
                 comptesBancaires.forEach { database.bankAccountDao().upsert(BankAccountEntity.fromDomain(it)) }
                 sousCategories.forEach   { database.customSubCategoryDao().upsert(CustomSubCategoryEntity.fromDomain(it)) }
@@ -138,14 +181,27 @@ class RestoreRepositoryImpl @Inject constructor(
                 vehiculeLocatif.forEach  { database.vehicleRentalEntryDao().insert(VehicleRentalEntryEntity.fromDomain(it)) }
                 dettes.forEach           { database.debtDao().insert(DebtEntity.fromDomain(it)) }
                 actifs.forEach           { database.customAssetDao().insert(CustomAssetEntity.fromDomain(it)) }
+                etfPlans.forEach { database.etfDao().savePlan(it) }
+                etfPurchases.forEach { database.etfDao().insert(it) }
                 epargneSal.forEach       { database.employeeSavingsDao().insert(EmployeeSavingsEntity.fromDomain(it)) }
                 enveloppes.forEach       { database.categoryEnvelopeDao().upsert(CategoryEnvelopeEntity.fromDomain(it)) }
                 regles.forEach           { database.categorizationRuleDao().upsert(CategorizationRuleEntity.fromDomain(it)) }
                 versements.forEach       { database.monthlyVersementDao().insert(MonthlyVersementEntity.fromDomain(it)) }
                 objectifs.forEach        { database.savingsGoalDao().upsert(SavingsGoalEntity.fromDomain(it)) }
+                patrimoine.forEach { database.patrimoineSnapshotDao().insert(it) }
+                valorisations.forEach { database.assetValuationSnapshotDao().insert(it) }
+                corbeille.forEach { database.transactionTrashDao().insert(it) }
+                prefs?.let { preferences.restaurerPreferences(it) }
             }
 
-            val total = enfants.size + transactions.size + budgets.size + epargne.size +
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    preferences.restaurerPreferences(avantPreferences)
+                }
+                throw e
+            }
+
+            val total = etfPlans.size + etfPurchases.size + categoryDefinitions.size + patrimoine.size + valorisations.size + corbeille.size + enfants.size + transactions.size + budgets.size + epargne.size +
                 immobilier.size + scpi.size + airbnb.size + vehiculeLocatif.size + dettes.size +
                 actifs.size + epargneSal.size + sousCategories.size + comptesBancaires.size +
                 enveloppes.size + regles.size + versements.size + objectifs.size
@@ -163,7 +219,7 @@ class RestoreRepositoryImpl @Inject constructor(
      */
     private inline fun <reified T> parseList(jsonObj: JsonObject, key: String): List<T> {
         val element = jsonObj.get(key) ?: return emptyList()
-        if (!element.isJsonArray) return emptyList()
+        require(element.isJsonArray) { "Collection invalide : $key" }
         val type = object : TypeToken<List<T>>() {}.type
         return gson.fromJson(element, type) ?: emptyList()
     }
@@ -182,15 +238,16 @@ class RestoreRepositoryImpl @Inject constructor(
          * Toutes les tables de [DibitaraDatabase], vidées avant réinsertion pour repartir
          * d'une base propre (même sémantique que l'ancien clearAllTables, mais dans la même
          * transaction que les inserts). `patrimoine_snapshots` et `asset_valuation_snapshots`
-         * sont vidées aussi : le fichier ne les contient pas, elles se reconstruisent ensuite.
+         * sont restaurées quand le fichier les contient.
          */
         val TABLES_A_VIDER = listOf(
+            "etf_purchases", "etf_plans",
             "transactions", "budgets", "children", "debts", "savings_accounts",
             "real_estate_assets", "scpi_investments", "airbnb_rentals",
             "custom_sub_categories", "monthly_versements", "custom_assets",
             "employee_savings", "patrimoine_snapshots", "categorization_rules",
             "category_envelopes", "vehicle_rental_entries", "asset_valuation_snapshots",
-            "bank_accounts", "savings_goals"
+            "bank_accounts", "savings_goals", "transaction_trash", "category_definitions"
         )
     }
 }

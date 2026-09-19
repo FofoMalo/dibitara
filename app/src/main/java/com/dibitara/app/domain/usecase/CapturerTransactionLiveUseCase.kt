@@ -3,6 +3,7 @@ package com.dibitara.app.domain.usecase
 import com.dibitara.app.domain.model.BankProvider
 import com.dibitara.app.domain.model.ImportedTransaction
 import com.dibitara.app.domain.model.fromImportSource
+import com.dibitara.app.domain.model.TradeRepublicReconciliation
 import com.dibitara.app.domain.repository.BankAccountRepository
 import com.dibitara.app.domain.repository.ImportRepository
 import javax.inject.Inject
@@ -18,14 +19,26 @@ class CapturerTransactionLiveUseCase @Inject constructor(
     private val bankAccountRepository: BankAccountRepository
 ) {
     /** Retourne true si la transaction a été insérée, false si c'était un doublon. */
-    suspend operator fun invoke(transaction: ImportedTransaction): Boolean {
+    suspend operator fun invoke(transaction: ImportedTransaction): Boolean = repository.avecTransaction {
         val existants = repository.externalIdsExistants()
-        if (transaction.externalId in existants) return false
+        if (transaction.externalId in existants) return@avecTransaction false
 
         val bankAccountId = BankProvider.fromImportSource(transaction.importSource)
             ?.let { bankAccountRepository.findByProvider(it) }
             ?.id
+        if (transaction.importSource == "trade_republic_notification") {
+            // Un CSV peut avoir été importé avant la réception (ou rediffusion) de la notification.
+            val csv = repository.transactionsTradeRepublic().filter {
+                it.importSource == "trade_republic" && it.notificationExternalId == null
+            }
+            val tx = transaction.toTransaction(bankAccountId)
+            val correspondance = TradeRepublicReconciliation.verifierUnique(tx, TradeRepublicReconciliation.candidats(tx, csv))
+            if (correspondance != null) {
+                repository.mettreAJour(correspondance.copy(notificationExternalId = transaction.externalId))
+                return@avecTransaction false
+            }
+        }
         repository.importerTransactions(listOf(transaction.toTransaction(bankAccountId = bankAccountId)))
-        return true
+        true
     }
 }
