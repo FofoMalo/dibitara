@@ -168,6 +168,46 @@ class GetSpendingRecommendationsUseCaseTest {
     }
 
     @Test
+    fun `poche recommandée signale une concentration quand 1-2 transactions dominent le trimestre`() = runTest {
+        // Reproduit le cas réel constaté (2026-09-19) : un frais bancaire ponctuel classé à
+        // tort en Transport écrase le reste de la catégorie sur le trimestre.
+        every { transactionRepo.getByMonth(4, 2026) } returns flowOf(
+            listOf(expense(900_000L, Category.TRANSPORT))
+        )
+        every { transactionRepo.getByMonth(3, 2026) } returns flowOf(
+            listOf(expense(10_000L, Category.TRANSPORT))
+        )
+        every { transactionRepo.getByMonth(2, 2026) } returns flowOf(
+            listOf(expense(10_000L, Category.TRANSPORT))
+        )
+
+        val result = useCase(5, 2026).first()
+
+        val poche = result.pouchesRecommandees.first { it.category == Category.TRANSPORT }
+        // (900 000 + 10 000) * 100 / 920 000 ≈ 98%
+        assertEquals(98, poche.concentrationPct)
+        assertTrue(poche.aVerifier)
+    }
+
+    @Test
+    fun `poche recommandée ne signale pas de concentration quand les dépenses sont réparties`() = runTest {
+        val depensesEtalees = listOf(
+            expense(1_000L, Category.ALIMENTATION), expense(1_000L, Category.ALIMENTATION),
+            expense(1_000L, Category.ALIMENTATION), expense(1_000L, Category.ALIMENTATION)
+        )
+        every { transactionRepo.getByMonth(4, 2026) } returns flowOf(depensesEtalees)
+        every { transactionRepo.getByMonth(3, 2026) } returns flowOf(depensesEtalees)
+        every { transactionRepo.getByMonth(2, 2026) } returns flowOf(depensesEtalees)
+
+        val result = useCase(5, 2026).first()
+
+        val poche = result.pouchesRecommandees.first { it.category == Category.ALIMENTATION }
+        // 2 000 * 100 / 12 000 ≈ 16%
+        assertEquals(16, poche.concentrationPct)
+        assertFalse(poche.aVerifier)
+    }
+
+    @Test
     fun `estEquilibre est vrai quand le solde prévisionnel est positif`() = runTest {
         every { transactionRepo.getByMonth(any(), any()) } returns flowOf(listOf(income(500_000L)))
 

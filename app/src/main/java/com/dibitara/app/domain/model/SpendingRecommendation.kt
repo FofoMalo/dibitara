@@ -56,13 +56,21 @@ val Category.bucket: BudgetBucket?
  *                        Légèrement au-dessus de la moyenne pour éviter d'être trop contraignant.
  * [bucket]             : famille 50/30/20 de cette catégorie.
  * [enveloppeExistante] : enveloppe déjà configurée (Sprint 40), null si aucune.
+ * [concentrationPct]   : part du total du trimestre portée par les 1-2 plus grosses
+ *                        transactions de la catégorie (0-100). Une catégorie mal
+ *                        catégorisée (ex. un frais récurrent mal classé) produit le même
+ *                        profil temporel qu'une vraie dérive de dépense - la concentration
+ *                        les distingue avant toute classification signal/bruit
+ *                        (CADRAGE_INDEPENDANCE_FINANCIERE.md §1/§6, cas réel constaté :
+ *                        un frais bancaire classé Transport).
  */
 data class PocheRecommandee(
     val category           : Category,
     val moyenneCents       : Long,
     val recommandeCents    : Long,
     val bucket             : BudgetBucket,
-    val enveloppeExistante : CategoryEnvelope? = null
+    val enveloppeExistante : CategoryEnvelope? = null,
+    val concentrationPct   : Int = 0
 ) {
     /**
      * Écart entre la recommandation et l'enveloppe existante.
@@ -71,6 +79,18 @@ data class PocheRecommandee(
      */
     val ecartAvecEnveloppe: Long?
         get() = enveloppeExistante?.let { recommandeCents - it.plafondCents }
+
+    /**
+     * true si [concentrationPct] atteint le seuil - à afficher comme « à vérifier »
+     * plutôt que comme une dépense fiable. Seuil par défaut prudent (cas réel observé :
+     * ~100%) ; à recalibrer sur davantage d'historique réel, pas figé par construction.
+     */
+    val aVerifier: Boolean
+        get() = concentrationPct >= SEUIL_CONCENTRATION_PCT
+
+    companion object {
+        const val SEUIL_CONCENTRATION_PCT = 70
+    }
 }
 
 /**

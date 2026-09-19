@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -261,7 +262,25 @@ private fun PocheCard(
                 modifier              = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(poche.category.displayName, style = MaterialTheme.typography.titleSmall)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(poche.category.displayName, style = MaterialTheme.typography.titleSmall)
+                        // Concentration : 1-2 transactions du trimestre portent l'essentiel du
+                        // total - à vérifier avant de le traiter comme un vrai comportement de
+                        // dépense (cf. cas réel frais de gestion classé Transport,
+                        // CADRAGE_INDEPENDANCE_FINANCIERE.md §1/§6).
+                        if (poche.aVerifier) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Warning, contentDescription = "À vérifier",
+                                    tint = Color(0xFFE68A00), modifier = Modifier.size(14.dp)
+                                )
+                                Text("À vérifier", style = MaterialTheme.typography.labelSmall, color = Color(0xFFE68A00))
+                            }
+                        }
+                    }
                     Text(
                         "Moyenne 3 mois : ${poche.moyenneCents.toCurrencyDisplay(currency)}",
                         style = MaterialTheme.typography.bodySmall,

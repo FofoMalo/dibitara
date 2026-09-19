@@ -1,12 +1,15 @@
 # Cadrage — Indépendance financière (Cap FI + Signal / Bruit / Concentration)
 
-> Statut : **cadrage initial, rien développé dans l'app Kotlin**. Origine : maquette
-> React (`dibitara-mockup/src/app/screens/IndependanceFinanciereScreen.tsx`, 3ᵉ carte
-> du hub Scénarios) + session de vérification avant/après sur device réel (Fairphone 6,
-> 2026-09-19) ayant révélé deux limites de données réelles qui doivent façonner la
-> conception avant tout code.
+> Statut : **F3 (concentration) LIVRÉ** (2026-09-19, non poussé sur origin).
+> `PocheRecommandee.concentrationPct`/`aVerifier` + badge « À vérifier » dans
+> `RecommandationsScreen`. Aucune migration Room (calcul pur, rien persisté).
+> F1/F2/F4/F5/F6 restent à cadrer/développer séparément - rien n'est bloqué par ce lot.
+> Origine : maquette React (`dibitara-mockup/src/app/screens/IndependanceFinanciereScreen.tsx`,
+> 3ᵉ carte du hub Scénarios) + session de vérification avant/après sur device réel
+> (Fairphone 6, 2026-09-19) ayant révélé deux limites de données réelles qui ont
+> façonné la conception avant le code.
 > Branche cible : `florent/prive`.
-> Date : 2026-09-19.
+> Date : 2026-09-19 (cadrage), 2026-09-19 (F3).
 
 ---
 
@@ -66,7 +69,7 @@ vérifié (concentration/couverture) — sans reproduire les biais du §1.
 |---|---|---|---|---|
 | F1 | Cap FI : capital cible = dépense annuelle lissée (hors `INVESTMENT`) × multiple réglable (défaut 25×, règle des 4 %) | `GetSpendingRecommendationsUseCase` (revenu/dépense moyens) | `UserPreferences` (2 champs) | ~1 j |
 | F2 | Progression + échéance estimée, via trajectoire `patrimoine_snapshots` réelle + curseur de rendement hypothétique pour la projection | F1, `patrimoine_snapshots` (déjà en base) | — | ~1 j |
-| F3 | Détection de concentration par catégorie (part du total portée par 1-2 transactions récurrentes) → badge « à vérifier » | Dépenses par catégorie (déjà calculées dans `GetSpendingRecommendationsUseCase`) | — | ~0,5 j |
+| F3 | **LIVRÉ.** Détection de concentration par catégorie (part du total portée par 1-2 transactions récurrentes) → badge « à vérifier » | Dépenses par catégorie (déjà calculées dans `GetSpendingRecommendationsUseCase`) | — | ~0,5 j |
 | F4 | Classification persistance signal/bruit par catégorie (fenêtre glissante) | F3 s'exécute **avant** — ne pas classer un artefact de catégorisation comme signal structurel | — | ~1 j |
 | F5 | Alerte couverture revenu (mois anormalement bas vs moyenne 3 mois) | `GetSpendingRecommendationsUseCase` | garde-fou fréquence (réutiliser le mécanisme `derniereAlerte*EpochDay` existant) | ~0,5 j |
 | F6 | Écran dédié (3ᵉ carte du hub Scénarios, déjà maquettée) — réutilise `HeroCard`/`TrendChip`/enveloppes existants | F1-F5 | — | ~0,5 j |
@@ -80,9 +83,13 @@ vérifié (concentration/couverture) — sans reproduire les biais du §1.
   `GetSpendingRecommendationsUseCase` — à confirmer, rien ne garantit que 3 mois soit
   le bon réglage pour toutes les catégories (une charge annuelle ne « persistera »
   jamais sur 3 mois par nature).
-- **Seuil de concentration** (F3) : à calibrer sur des cas réels plutôt qu'inventer un
-  chiffre — le cas Transport était ~100 % porté par une seule transaction. Proposer un
-  défaut prudent (ex. 70 %) et l'ajuster après un premier passage sur l'historique réel.
+- **Seuil de concentration** (F3) — **TRANCHÉ (livré) :** `concentrationPct` = part du
+  total du trimestre portée par les **2 plus grosses transactions** de la catégorie
+  (`PocheRecommandee.concentrationPct`, `GetSpendingRecommendationsUseCase.kt`), seuil
+  `aVerifier` = **70 %** (`PocheRecommandee.SEUIL_CONCENTRATION_PCT`). Top-2 plutôt que
+  top-1 seul : une dérive récurrente sur 2-3 mois (comme le cas réel Transport) ne se
+  voit pas toujours sur une seule transaction. Seuil non calibré sur un large historique
+  réel — à ajuster si trop de faux positifs/négatifs à l'usage.
 - **Le cap FI (F1/F2) doit-il exclure les catégories « à vérifier » (F3) du calcul de
   dépense annuelle tant qu'elles ne sont pas confirmées ?** Risque de sous-estimer le
   cap si on exclut trop largement — probablement non : le signaler suffit, ne pas

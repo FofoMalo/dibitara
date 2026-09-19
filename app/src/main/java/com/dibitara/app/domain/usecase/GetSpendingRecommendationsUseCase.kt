@@ -101,9 +101,11 @@ class GetSpendingRecommendationsUseCase @Inject constructor(
             val engagements = mensualitesDettes + contributionsEpargne
 
             // ─── Étape 3 : Poches suggérées par catégorie ───────────────────────
-            val depensesParCategorie = txParMois.flatten()
+            val transactionsParCategorie = txParMois.flatten()
                 .filter { it.type == TransactionType.EXPENSE }
                 .groupBy { it.category }
+
+            val depensesParCategorie = transactionsParCategorie
                 .mapValues { (_, txs) -> txs.sumOf { it.amountCents.cvt(it.currency) } }
 
             // Index des enveloppes existantes (Sprint 40) pour les afficher en comparaison
@@ -118,12 +120,22 @@ class GetSpendingRecommendationsUseCase @Inject constructor(
                     val moyenneCents   = totalSur3Mois / 3
                     val recommandeCents = arrondiAu10EurosSuperieur(moyenneCents)
 
+                    // Concentration : part du total portée par les 1-2 plus grosses
+                    // transactions du trimestre - voir PocheRecommandee.concentrationPct.
+                    val montantsCents = transactionsParCategorie.getValue(categorie)
+                        .map { it.amountCents.cvt(it.currency) }
+                        .sortedDescending()
+                    val concentrationPct = if (totalSur3Mois > 0) {
+                        (montantsCents.take(2).sum() * 100 / totalSur3Mois).toInt()
+                    } else 0
+
                     PocheRecommandee(
                         category           = categorie,
                         moyenneCents       = moyenneCents,
                         recommandeCents    = recommandeCents,
                         bucket             = bucket,
-                        enveloppeExistante = enveloppeParCategorie[categorie]
+                        enveloppeExistante = enveloppeParCategorie[categorie],
+                        concentrationPct   = concentrationPct
                     )
                 }
                 // Tri : d'abord par bucket (Besoins → Envies → Épargne), puis par montant décroissant
