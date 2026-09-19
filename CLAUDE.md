@@ -81,8 +81,17 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
   aussi les dépenses déjà classées (ex. `BAR_ET_RESTAURANT`) ; et
   `GetRecategorizationSuggestionsUseCase` (suggestions du Dashboard)
   vérifiait `subCategory == null` mais oubliait `customSubCategoryId`.
+- **Piège `LazyColumn`/`items(key = ...)` avec un enum brut :** un enum
+  (`Category`, etc.) n'est pas un type stockable dans un `Bundle` — l'utiliser
+  tel quel comme `key` d'`items()` fait planter `SaveableStateHolder` au
+  runtime réel (`IllegalArgumentException: Type of the key X is not
+  supported`), invisible en tests JVM (mockk) et même en `assembleDebug` (ça
+  compile, ça crashe seulement à l'exécution). Toujours passer un type
+  Bundle-safe : `.name` (String), `.id` (Long)... Pattern déjà correct dans
+  `TrendsScreen.kt` (`key = { it.category.name }`) — bug rencontré le
+  2026-09-19 dans `IndependanceFinanciereScreen.kt` en ne le suivant pas.
 
-## Schéma Room — Version actuelle : v25 (branche `florent/prive`)
+## Schéma Room — Version actuelle : v30 (branche `florent/prive`)
 
 | Migration | Contenu |
 |-----------|---------|
@@ -111,6 +120,10 @@ Le flux de données va toujours dans un seul sens : `UI → ViewModel → UseCas
 | v23 → v24 | `tauxAnnuelPct REAL` sur `savings_accounts` (intérêts annuels estimés, hero Épargne) |
 | v24 → v25 | Table `savings_goals` pour les objectifs d'épargne (écran Épargne §3) |
 | v25 → v26 | `sourceAccountId`/`fundingMode` sur `savings_goals`, objectifs connectés à un compte source (socle F1+F2) |
+| v26 → v27 | `notificationExternalId`/`reconciliationKey` sur `transactions` (réconciliation TradeRepublic CSV/CaptureLive) |
+| v27 → v28 | Table `transaction_trash` (corbeille persistante des transactions supprimées) |
+| v28 → v29 | `categoryConfirmed` sur `transactions` + table `category_definitions` (catalogue de catégories personnalisables) |
+| v29 → v30 | Tables `etf_plans`/`etf_purchases` (suivi d'un ETF depuis un actif libre) |
 
 ## Modèles métier clés (domain/model/)
 

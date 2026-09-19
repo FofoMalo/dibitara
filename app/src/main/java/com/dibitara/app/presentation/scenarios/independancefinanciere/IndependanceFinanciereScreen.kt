@@ -119,7 +119,9 @@ private fun IndependanceFinanciereContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        items(poches, key = { it.category }) { poche -> PocheNatureCard(poche, cap.currency) }
+        // key doit être un type stockable dans un Bundle (String, primitif...) - un enum brut
+        // fait planter la recomposition différée de LazyColumn (prefetch), d'où .name.
+        items(poches, key = { it.category.name }) { poche -> PocheNatureCard(poche, cap.currency) }
     }
 }
 
