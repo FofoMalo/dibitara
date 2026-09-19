@@ -32,6 +32,10 @@ interface UserPreferencesRepository {
     suspend fun updateDerniereAlerteBudget(epochDay: Long)
     /** Enregistre le jour (epoch day) du dernier envoi des rappels d'échéance dette. */
     suspend fun updateDerniereAlerteDettes(epochDay: Long)
+    /** Multiple de la dépense annuelle lissée pour le capital cible FI (défaut 25×). */
+    suspend fun updateMultipleFICible(multiple: Int)
+    /** Hypothèse de rendement annuel (%) pour la projection d'indépendance financière. */
+    suspend fun updateRendementFIEspere(pct: Int)
     /** Efface toutes les préférences stockées dans DataStore. */
     suspend fun restaurerPreferences(preferences: UserPreferences)
     suspend fun clearAll()

@@ -24,6 +24,12 @@ package com.dibitara.app.domain.model
  *   du Scénario logement est jugé non tenable (voir [com.dibitara.app.domain.usecase.SimulerCapaciteLogementUseCase]).
  *   Distinct de [seuilFondsCents] : celui-ci est un plancher de solde (un stock), celui-là une
  *   marge mensuelle minimale (un flux) - les deux notions ne doivent pas partager la même valeur.
+ * [multipleFICible]          : multiple de la dépense annuelle lissée utilisé pour le capital
+ *   cible d'indépendance financière (défaut 25× - règle des 4 %). Voir
+ *   [com.dibitara.app.domain.usecase.GetCapIndependanceFinanciereUseCase].
+ * [rendementFIEsperePct]     : hypothèse de rendement annuel (%) utilisée pour projeter
+ *   l'échéance d'indépendance financière - un scénario réglable par l'utilisateur, pas une
+ *   donnée mesurée.
  */
 data class UserPreferences(
     val seuilFondsCents: Long = 20_000L,
@@ -43,5 +49,7 @@ data class UserPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEME,
     val derniereAlerteFondsEpochDay: Long? = null,
     val derniereAlerteBudgetEpochDay: Long? = null,
-    val derniereAlerteDettesEpochDay: Long? = null
+    val derniereAlerteDettesEpochDay: Long? = null,
+    val multipleFICible: Int = 25,
+    val rendementFIEsperePct: Int = 5
 )

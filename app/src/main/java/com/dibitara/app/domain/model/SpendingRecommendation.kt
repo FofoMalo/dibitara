@@ -98,6 +98,10 @@ data class PocheRecommandee(
  * Aucune donnée n'est persistée en base - ce modèle est recalculé à partir des 3 derniers mois.
  *
  * [revenuMoyenCents]         : moyenne des revenus sur les 3 mois analysés.
+ * [depensesMoyennesCents]    : moyenne des dépenses (type EXPENSE, virements internes exclus,
+ *                              toutes catégories confondues) sur les 3 mois analysés. Sert de
+ *                              base à [tauxEpargneActuelPct] et au capital cible d'indépendance
+ *                              financière (voir [com.dibitara.app.domain.usecase.GetCapIndependanceFinanciereUseCase]).
  * [engagementsMensuels]      : somme incompressible = mensualités dettes + contributions épargne.
  * [tauxEpargneActuelPct]     : taux d'épargne moyen réel observé (null si aucun revenu).
  * [tauxEpargneCiblePct]      : objectif configuré dans les préférences.
@@ -110,6 +114,7 @@ data class PocheRecommandee(
 data class SpendingRecommendation(
     val currency               : Currency,
     val revenuMoyenCents       : Long,
+    val depensesMoyennesCents  : Long,
     val engagementsMensuels    : Long,
     val tauxEpargneActuelPct   : Int?,
     val tauxEpargneCiblePct    : Int,

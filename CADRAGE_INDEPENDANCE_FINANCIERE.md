@@ -1,15 +1,18 @@
 # Cadrage — Indépendance financière (Cap FI + Signal / Bruit / Concentration)
 
-> Statut : **F3 (concentration) LIVRÉ** (2026-09-19, non poussé sur origin).
-> `PocheRecommandee.concentrationPct`/`aVerifier` + badge « À vérifier » dans
-> `RecommandationsScreen`. Aucune migration Room (calcul pur, rien persisté).
-> F1/F2/F4/F5/F6 restent à cadrer/développer séparément - rien n'est bloqué par ce lot.
+> Statut : **F3 (concentration) + F1/F2 (cap FI) — couche domaine LIVRÉE**
+> (2026-09-19, non poussé sur origin). **Pas d'écran** pour F1/F2 dans l'app réelle
+> pour l'instant - `GetCapIndependanceFinanciereUseCase` existe et est testé, mais
+> rien ne l'appelle encore côté présentation/navigation (voir §7 pour ce qui reste).
+> Aucune migration Room sur l'ensemble du lot (calculs purs + 2 nouvelles clés
+> `UserPreferences`/DataStore). F4/F5/F6 restent à cadrer/développer séparément -
+> rien n'est bloqué par ce qui précède.
 > Origine : maquette React (`dibitara-mockup/src/app/screens/IndependanceFinanciereScreen.tsx`,
 > 3ᵉ carte du hub Scénarios) + session de vérification avant/après sur device réel
 > (Fairphone 6, 2026-09-19) ayant révélé deux limites de données réelles qui ont
 > façonné la conception avant le code.
 > Branche cible : `florent/prive`.
-> Date : 2026-09-19 (cadrage), 2026-09-19 (F3).
+> Date : 2026-09-19 (cadrage, F3, F1/F2).
 
 ---
 
@@ -67,8 +70,8 @@ vérifié (concentration/couverture) — sans reproduire les biais du §1.
 
 | # | Feature | Dépend de | Room | Maille |
 |---|---|---|---|---|
-| F1 | Cap FI : capital cible = dépense annuelle lissée (hors `INVESTMENT`) × multiple réglable (défaut 25×, règle des 4 %) | `GetSpendingRecommendationsUseCase` (revenu/dépense moyens) | `UserPreferences` (2 champs) | ~1 j |
-| F2 | Progression + échéance estimée, via trajectoire `patrimoine_snapshots` réelle + curseur de rendement hypothétique pour la projection | F1, `patrimoine_snapshots` (déjà en base) | — | ~1 j |
+| F1 | **LIVRÉ (couche domaine).** Cap FI : capital cible = dépense annuelle lissée (hors `INVESTMENT`) × multiple réglable (défaut 25×, règle des 4 %) | `GetSpendingRecommendationsUseCase` (revenu/dépense moyens) | `UserPreferences` (2 champs, sans migration - DataStore) | ~1 j |
+| F2 | **LIVRÉ (couche domaine).** Progression + échéance estimée. Révisé en cours de route : utilise le *dernier snapshot connu* + les *versements déjà programmés* (`AnalyserPatrimoineUseCase.versementsProgrammesCents`, réutilisés tels quels) plutôt qu'une extrapolation de tendance sur `patrimoine_snapshots` — l'historique réel est encore trop court (quelques mois) pour une tendance fiable ; les versements programmés existent déjà, testés, dès aujourd'hui | F1, `AnalyserPatrimoineUseCase`, `GetPatrimoineHistoryUseCase` (déjà en base) | — | ~1 j |
 | F3 | **LIVRÉ.** Détection de concentration par catégorie (part du total portée par 1-2 transactions récurrentes) → badge « à vérifier » | Dépenses par catégorie (déjà calculées dans `GetSpendingRecommendationsUseCase`) | — | ~0,5 j |
 | F4 | Classification persistance signal/bruit par catégorie (fenêtre glissante) | F3 s'exécute **avant** — ne pas classer un artefact de catégorisation comme signal structurel | — | ~1 j |
 | F5 | Alerte couverture revenu (mois anormalement bas vs moyenne 3 mois) | `GetSpendingRecommendationsUseCase` | garde-fou fréquence (réutiliser le mécanisme `derniereAlerte*EpochDay` existant) | ~0,5 j |
@@ -91,9 +94,27 @@ vérifié (concentration/couverture) — sans reproduire les biais du §1.
   voit pas toujours sur une seule transaction. Seuil non calibré sur un large historique
   réel — à ajuster si trop de faux positifs/négatifs à l'usage.
 - **Le cap FI (F1/F2) doit-il exclure les catégories « à vérifier » (F3) du calcul de
-  dépense annuelle tant qu'elles ne sont pas confirmées ?** Risque de sous-estimer le
-  cap si on exclut trop largement — probablement non : le signaler suffit, ne pas
-  fausser le cap sur une hypothèse non confirmée par l'utilisateur.
+  dépense annuelle tant qu'elles ne sont pas confirmées ?** — **TRANCHÉ :** non.
+  `GetCapIndependanceFinanciereUseCase` réutilise `depensesMoyennesCents` tel quel
+  (toutes catégories, hors `INVESTMENT` par construction du filtre `EXPENSE`) : signaler
+  suffit, on ne fausse pas le cap sur une hypothèse non confirmée par l'utilisateur.
+- **Source du patrimoine net actuel** — **TRANCHÉ :** dernier `PatrimoineSnapshot` connu
+  (`GetPatrimoineHistoryUseCase().lastOrNull()`), pas un recalcul en direct via
+  `GetPatrimonyOverviewUseCase`. Cohérent avec la courbe déjà affichée sur l'écran
+  Patrimoine, suffisant pour une mesure au long cours, et évite de dupliquer
+  l'agrégation à 9 repositories de `GetPatrimonyOverviewUseCase` pour ce cas d'usage.
+  Aucun snapshot connu (écran Patrimoine jamais ouvert) → le use case retourne `null`
+  plutôt qu'un calcul sur une valeur à zéro.
+- **Projection F2** — **TRANCHÉ, révisé pendant l'implémentation :** le cadrage
+  original visait une extrapolation de la tendance observée sur `patrimoine_snapshots`.
+  Abandonné : l'historique réel ne remonte qu'à quelques mois (refonte 2026-08), pas
+  assez pour une tendance fiable, et un delta mensuel observé mélange versements et
+  variations de marché sans façon fiable de les séparer avec les données actuelles.
+  À la place : simulation versement mensuel (réutilise
+  `AnalyserPatrimoineUseCase.versementsProgrammesCents`, déjà calculé et testé,
+  épargne + SCPI + abondement employeur) + rendement composé hypothétique
+  (`UserPreferences.rendementFIEsperePct`, réglable). Bornée à 60 ans : au-delà,
+  `moisRestantsEstimes = null` plutôt qu'une durée déraisonnable.
 - **F5** doit réutiliser le garde-fou de fréquence existant (`derniereAlerte*EpochDay`,
   cf. `bug_notification_seuil_fonds_repetee_2026_08_21`) pour ne pas reproduire le bug
   d'alertes répétées déjà corrigé une fois sur fonds/budget/dettes.

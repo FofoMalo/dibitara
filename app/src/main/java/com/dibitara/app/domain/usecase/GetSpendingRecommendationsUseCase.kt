@@ -85,13 +85,14 @@ class GetSpendingRecommendationsUseCase @Inject constructor(
             }
             val revenuMoyen = if (revenuParMois.isNotEmpty()) revenuParMois.average().toLong() else 0L
 
+            val depensesMoyennesCents = txParMois.map { transactions ->
+                transactions.filter { it.type == TransactionType.EXPENSE }
+                    .sumOf { it.amountCents.cvt(it.currency) }
+            }.average().toLong()
+
             // Taux d'épargne moyen réel observé sur les 3 mois (pour affichage comparatif)
             val tauxEpargneActuelPct = if (revenuMoyen > 0) {
-                val depensesMoyennes = txParMois.map { transactions ->
-                    transactions.filter { it.type == TransactionType.EXPENSE }
-                        .sumOf { it.amountCents.cvt(it.currency) }
-                }.average().toLong()
-                ((revenuMoyen - depensesMoyennes) * 100 / revenuMoyen).toInt().coerceIn(0, 100)
+                ((revenuMoyen - depensesMoyennesCents) * 100 / revenuMoyen).toInt().coerceIn(0, 100)
             } else null
 
             // ─── Étape 2 : Engagements incompressibles ──────────────────────────
@@ -153,6 +154,7 @@ class GetSpendingRecommendationsUseCase @Inject constructor(
             SpendingRecommendation(
                 currency              = devise,
                 revenuMoyenCents      = revenuMoyen,
+                depensesMoyennesCents = depensesMoyennesCents,
                 engagementsMensuels   = engagements,
                 tauxEpargneActuelPct  = tauxEpargneActuelPct,
                 tauxEpargneCiblePct   = tauxCible,

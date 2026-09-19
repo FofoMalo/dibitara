@@ -44,6 +44,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val KEY_DERNIERE_ALERTE_FONDS        = longPreferencesKey("derniere_alerte_fonds_epoch_day")
         val KEY_DERNIERE_ALERTE_BUDGET       = longPreferencesKey("derniere_alerte_budget_epoch_day")
         val KEY_DERNIERE_ALERTE_DETTES       = longPreferencesKey("derniere_alerte_dettes_epoch_day")
+        val KEY_MULTIPLE_FI_CIBLE            = intPreferencesKey("multiple_fi_cible")
+        val KEY_RENDEMENT_FI_ESPERE          = intPreferencesKey("rendement_fi_espere_pct")
     }
 
     override fun get(): Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -71,7 +73,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
                 ?: UserPreferences().themeMode,
             derniereAlerteFondsEpochDay = prefs[KEY_DERNIERE_ALERTE_FONDS],
             derniereAlerteBudgetEpochDay = prefs[KEY_DERNIERE_ALERTE_BUDGET],
-            derniereAlerteDettesEpochDay = prefs[KEY_DERNIERE_ALERTE_DETTES]
+            derniereAlerteDettesEpochDay = prefs[KEY_DERNIERE_ALERTE_DETTES],
+            multipleFICible             = prefs[KEY_MULTIPLE_FI_CIBLE] ?: UserPreferences().multipleFICible,
+            rendementFIEsperePct        = prefs[KEY_RENDEMENT_FI_ESPERE] ?: UserPreferences().rendementFIEsperePct
         )
     }
 
@@ -145,6 +149,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun updateDerniereAlerteDettes(epochDay: Long) {
         dataStore.edit { it[KEY_DERNIERE_ALERTE_DETTES] = epochDay }
+    }
+
+    override suspend fun updateMultipleFICible(multiple: Int) {
+        dataStore.edit { it[KEY_MULTIPLE_FI_CIBLE] = multiple }
+    }
+
+    override suspend fun updateRendementFIEspere(pct: Int) {
+        dataStore.edit { it[KEY_RENDEMENT_FI_ESPERE] = pct }
     }
 
     override suspend fun restaurerPreferences(preferences: UserPreferences) {
