@@ -1,18 +1,22 @@
 # Cadrage — Indépendance financière (Cap FI + Signal / Bruit / Concentration)
 
-> Statut : **F3 (concentration) + F1/F2 (cap FI) — couche domaine LIVRÉE**
-> (2026-09-19, non poussé sur origin). **Pas d'écran** pour F1/F2 dans l'app réelle
-> pour l'instant - `GetCapIndependanceFinanciereUseCase` existe et est testé, mais
-> rien ne l'appelle encore côté présentation/navigation (voir §7 pour ce qui reste).
-> Aucune migration Room sur l'ensemble du lot (calculs purs + 2 nouvelles clés
-> `UserPreferences`/DataStore). F4/F5/F6 restent à cadrer/développer séparément -
-> rien n'est bloqué par ce qui précède.
+> Statut : **F1/F2/F3 LIVRÉS avec écran réel câblé. F4 livrée en version simplifiée**
+> (2026-09-19, non poussé sur origin). Écran `IndependanceFinanciereScreen` (3ᵉ carte
+> du hub Scénarios réel, `presentation/scenarios/independancefinanciere/`) : cap FI +
+> réglages (multiple, rendement) + échéance estimée + liste Signal/Bruit/À vérifier
+> par catégorie. F4 tel que livré : persistance mesurée sur les 3 mois déjà analysés
+> par `GetSpendingRecommendationsUseCase` (3/3 mois = signal, 1/3 = bruit, 2/3 =
+> indéterminé) plutôt qu'une fenêtre glissante indépendante plus longue - voir §4 pour
+> la nuance. Aucune migration Room sur l'ensemble du lot (calculs purs + 2 nouvelles
+> clés `UserPreferences`/DataStore). Build `assembleDebug` généré en local et vérifié -
+> APK jamais installé, aucun contact avec un appareil réel. F5/F6 restent à
+> cadrer/développer séparément.
 > Origine : maquette React (`dibitara-mockup/src/app/screens/IndependanceFinanciereScreen.tsx`,
 > 3ᵉ carte du hub Scénarios) + session de vérification avant/après sur device réel
 > (Fairphone 6, 2026-09-19) ayant révélé deux limites de données réelles qui ont
 > façonné la conception avant le code.
 > Branche cible : `florent/prive`.
-> Date : 2026-09-19 (cadrage, F3, F1/F2).
+> Date : 2026-09-19 (cadrage, F3, F1/F2, F4 + écran).
 
 ---
 
@@ -73,7 +77,7 @@ vérifié (concentration/couverture) — sans reproduire les biais du §1.
 | F1 | **LIVRÉ (couche domaine).** Cap FI : capital cible = dépense annuelle lissée (hors `INVESTMENT`) × multiple réglable (défaut 25×, règle des 4 %) | `GetSpendingRecommendationsUseCase` (revenu/dépense moyens) | `UserPreferences` (2 champs, sans migration - DataStore) | ~1 j |
 | F2 | **LIVRÉ (couche domaine).** Progression + échéance estimée. Révisé en cours de route : utilise le *dernier snapshot connu* + les *versements déjà programmés* (`AnalyserPatrimoineUseCase.versementsProgrammesCents`, réutilisés tels quels) plutôt qu'une extrapolation de tendance sur `patrimoine_snapshots` — l'historique réel est encore trop court (quelques mois) pour une tendance fiable ; les versements programmés existent déjà, testés, dès aujourd'hui | F1, `AnalyserPatrimoineUseCase`, `GetPatrimoineHistoryUseCase` (déjà en base) | — | ~1 j |
 | F3 | **LIVRÉ.** Détection de concentration par catégorie (part du total portée par 1-2 transactions récurrentes) → badge « à vérifier » | Dépenses par catégorie (déjà calculées dans `GetSpendingRecommendationsUseCase`) | — | ~0,5 j |
-| F4 | Classification persistance signal/bruit par catégorie (fenêtre glissante) | F3 s'exécute **avant** — ne pas classer un artefact de catégorisation comme signal structurel | — | ~1 j |
+| F4 | **LIVRÉ (version simplifiée).** Classification persistance signal/bruit par catégorie | F3 s'exécute **avant** — ne pas classer un artefact de catégorisation comme signal structurel | — | ~1 j |
 | F5 | Alerte couverture revenu (mois anormalement bas vs moyenne 3 mois) | `GetSpendingRecommendationsUseCase` | garde-fou fréquence (réutiliser le mécanisme `derniereAlerte*EpochDay` existant) | ~0,5 j |
 | F6 | Écran dédié (3ᵉ carte du hub Scénarios, déjà maquettée) — réutilise `HeroCard`/`TrendChip`/enveloppes existants | F1-F5 | — | ~0,5 j |
 
@@ -82,9 +86,18 @@ vérifié (concentration/couverture) — sans reproduire les biais du §1.
 - **Stockage des paramètres FI** (multiple, rendement espéré) : `UserPreferences`
   (aucune migration), cohérent avec `tauxEpargneCiblePct` déjà présent pour le 50/30/20
   — pas de nouvelle table pour 2 nombres.
-- **Fenêtre de persistance « signal »** (F4) : 3 mois par défaut, comme le reste de
-  `GetSpendingRecommendationsUseCase` — à confirmer, rien ne garantit que 3 mois soit
-  le bon réglage pour toutes les catégories (une charge annuelle ne « persistera »
+- **Fenêtre de persistance « signal »** (F4) — **TRANCHÉ (livré), simplifié :** pas de
+  fenêtre glissante indépendante comme envisagé initialement — réutilise directement les
+  3 mois déjà chargés par `GetSpendingRecommendationsUseCase` (`PocheRecommandee.moisAvecDepense`,
+  0 à 3). 3/3 mois = `SIGNAL`, 1/3 = `BRUIT`, 2/3 = `INDETERMINE` (pas assez tranché pour se
+  prononcer, affiché neutre plutôt que forcé dans une case). Volontairement minimal : pas de
+  détection de tendance (hausse/baisse), pas de comparaison à un historique plus long - zéro
+  nouvelle requête, zéro paramètre à calibrer. Limite assumée : une charge annuelle (assurance
+  habitation, par ex.) apparaîtra en `BRUIT` alors qu'elle est parfaitement normale - correct
+  au sens strict (elle ne persiste pas sur 3 mois), mais peut surprendre à l'usage ; à
+  observer avant d'investir dans une classification plus fine. Rien n'empêche d'élargir la
+  fenêtre plus tard, ceci n'est pas une décision figée. La suite ci-dessous documente encore
+  le raisonnement initial pour mémoire :
   jamais sur 3 mois par nature).
 - **Seuil de concentration** (F3) — **TRANCHÉ (livré) :** `concentrationPct` = part du
   total du trimestre portée par les **2 plus grosses transactions** de la catégorie

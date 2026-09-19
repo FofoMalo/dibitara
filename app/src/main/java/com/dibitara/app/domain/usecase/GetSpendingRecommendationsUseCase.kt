@@ -109,6 +109,15 @@ class GetSpendingRecommendationsUseCase @Inject constructor(
             val depensesParCategorie = transactionsParCategorie
                 .mapValues { (_, txs) -> txs.sumOf { it.amountCents.cvt(it.currency) } }
 
+            // Dépense par catégorie, mois par mois (sans aplatir) - sert à détecter si une
+            // catégorie est présente chaque mois (signal potentiel) ou concentrée sur un seul
+            // mois (bruit potentiel). Voir PocheRecommandee.natureTemporelle.
+            val depensesParCategoriePourMois: List<Map<Category, Long>> = txParMois.map { transactions ->
+                transactions.filter { it.type == TransactionType.EXPENSE }
+                    .groupBy { it.category }
+                    .mapValues { (_, txs) -> txs.sumOf { it.amountCents.cvt(it.currency) } }
+            }
+
             // Index des enveloppes existantes (Sprint 40) pour les afficher en comparaison
             val enveloppeParCategorie: Map<Category, CategoryEnvelope> =
                 enveloppes.associateBy { it.category }
@@ -130,13 +139,18 @@ class GetSpendingRecommendationsUseCase @Inject constructor(
                         (montantsCents.take(2).sum() * 100 / totalSur3Mois).toInt()
                     } else 0
 
+                    // Persistance : combien des 3 mois analysés ont une dépense dans cette
+                    // catégorie - voir PocheRecommandee.natureTemporelle.
+                    val moisAvecDepense = depensesParCategoriePourMois.count { (it[categorie] ?: 0L) > 0L }
+
                     PocheRecommandee(
                         category           = categorie,
                         moyenneCents       = moyenneCents,
                         recommandeCents    = recommandeCents,
                         bucket             = bucket,
                         enveloppeExistante = enveloppeParCategorie[categorie],
-                        concentrationPct   = concentrationPct
+                        concentrationPct   = concentrationPct,
+                        moisAvecDepense    = moisAvecDepense
                     )
                 }
                 // Tri : d'abord par bucket (Besoins → Envies → Épargne), puis par montant décroissant

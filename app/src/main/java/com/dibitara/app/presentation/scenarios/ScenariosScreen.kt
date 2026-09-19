@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.House
+import androidx.compose.material.icons.filled.Rocket
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,16 +15,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * Hub des simulateurs de scénarios de vie - un seul type disponible pour l'instant (Logement).
- * Conçu pour en accueillir d'autres plus tard (ex : retraite, achat d'un bien) : chaque nouveau
- * type s'ajoute comme une carte supplémentaire ici, sans rien changer à cette structure.
+ * Hub des simulateurs de scénarios de vie et d'analyses patrimoniales - Logement, Conseiller
+ * patrimoine, Indépendance financière. Conçu pour en accueillir d'autres plus tard : chaque
+ * nouveau type s'ajoute comme une carte supplémentaire ici, sans rien changer à cette structure.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScenariosScreen(
     onNavigateBack: () -> Unit,
     onNavigateToLogement: () -> Unit,
-    onNavigateToConseillerPatrimoine: () -> Unit
+    onNavigateToConseillerPatrimoine: () -> Unit,
+    onNavigateToIndependanceFinanciere: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -81,6 +83,26 @@ fun ScenariosScreen(
                             Text("Conseiller patrimoine", style = MaterialTheme.typography.titleMedium)
                             Text(
                                 "Quelles poches méritent d'être renforcées ?",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                    }
+                }
+            }
+            item {
+                Card(onClick = onNavigateToIndependanceFinanciere, modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(Icons.Filled.Rocket, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Indépendance financière", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Ton cap, ton échéance estimée, et les mouvements de budget qui sont un vrai signal.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

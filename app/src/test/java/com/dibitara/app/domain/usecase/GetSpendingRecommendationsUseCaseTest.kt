@@ -208,6 +208,45 @@ class GetSpendingRecommendationsUseCaseTest {
     }
 
     @Test
+    fun `poche recommandée est un signal quand la catégorie a une dépense chaque mois`() = runTest {
+        every { transactionRepo.getByMonth(4, 2026) } returns flowOf(listOf(expense(10_000L, Category.ABONNEMENTS)))
+        every { transactionRepo.getByMonth(3, 2026) } returns flowOf(listOf(expense(10_000L, Category.ABONNEMENTS)))
+        every { transactionRepo.getByMonth(2, 2026) } returns flowOf(listOf(expense(10_000L, Category.ABONNEMENTS)))
+
+        val result = useCase(5, 2026).first()
+
+        val poche = result.pouchesRecommandees.first { it.category == Category.ABONNEMENTS }
+        assertEquals(3, poche.moisAvecDepense)
+        assertEquals(NatureTemporelle.SIGNAL, poche.natureTemporelle)
+    }
+
+    @Test
+    fun `poche recommandée est un bruit quand la catégorie n'apparaît que sur un seul mois`() = runTest {
+        every { transactionRepo.getByMonth(4, 2026) } returns flowOf(listOf(expense(90_000L, Category.LOISIRS)))
+        every { transactionRepo.getByMonth(3, 2026) } returns flowOf(emptyList())
+        every { transactionRepo.getByMonth(2, 2026) } returns flowOf(emptyList())
+
+        val result = useCase(5, 2026).first()
+
+        val poche = result.pouchesRecommandees.first { it.category == Category.LOISIRS }
+        assertEquals(1, poche.moisAvecDepense)
+        assertEquals(NatureTemporelle.BRUIT, poche.natureTemporelle)
+    }
+
+    @Test
+    fun `poche recommandée est indéterminée quand la catégorie apparaît sur 2 mois sur 3`() = runTest {
+        every { transactionRepo.getByMonth(4, 2026) } returns flowOf(listOf(expense(5_000L, Category.SANTE)))
+        every { transactionRepo.getByMonth(3, 2026) } returns flowOf(listOf(expense(5_000L, Category.SANTE)))
+        every { transactionRepo.getByMonth(2, 2026) } returns flowOf(emptyList())
+
+        val result = useCase(5, 2026).first()
+
+        val poche = result.pouchesRecommandees.first { it.category == Category.SANTE }
+        assertEquals(2, poche.moisAvecDepense)
+        assertEquals(NatureTemporelle.INDETERMINE, poche.natureTemporelle)
+    }
+
+    @Test
     fun `estEquilibre est vrai quand le solde prévisionnel est positif`() = runTest {
         every { transactionRepo.getByMonth(any(), any()) } returns flowOf(listOf(income(500_000L)))
 

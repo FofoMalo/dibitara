@@ -63,6 +63,8 @@ val Category.bucket: BudgetBucket?
  *                        les distingue avant toute classification signal/bruit
  *                        (CADRAGE_INDEPENDANCE_FINANCIERE.md §1/§6, cas réel constaté :
  *                        un frais bancaire classé Transport).
+ * [moisAvecDepense]    : combien des 3 mois analysés ont au moins une dépense dans cette
+ *                        catégorie (1 à 3). Base de [natureTemporelle] - F4 du cadrage.
  */
 data class PocheRecommandee(
     val category           : Category,
@@ -70,7 +72,8 @@ data class PocheRecommandee(
     val recommandeCents    : Long,
     val bucket             : BudgetBucket,
     val enveloppeExistante : CategoryEnvelope? = null,
-    val concentrationPct   : Int = 0
+    val concentrationPct   : Int = 0,
+    val moisAvecDepense    : Int = 3
 ) {
     /**
      * Écart entre la recommandation et l'enveloppe existante.
@@ -88,10 +91,29 @@ data class PocheRecommandee(
     val aVerifier: Boolean
         get() = concentrationPct >= SEUIL_CONCENTRATION_PCT
 
+    /**
+     * Signal/bruit (F4) : SIGNAL si la catégorie a une dépense chaque mois analysé (dérive
+     * durable), BRUIT si elle n'apparaît que sur un seul mois (accident ponctuel),
+     * INDETERMINE sinon (2 mois sur 3 - pas assez tranché pour se prononcer).
+     *
+     * Se lit seulement si [aVerifier] est faux : une catégorie dominée par 1-2 grosses
+     * transactions (ex. le cas réel Transport/frais de gestion) peut produire un faux
+     * SIGNAL ou un faux BRUIT selon la répartition des mois - la concentration doit être
+     * résolue en premier (CADRAGE_INDEPENDANCE_FINANCIERE.md §6).
+     */
+    val natureTemporelle: NatureTemporelle
+        get() = when (moisAvecDepense) {
+            3    -> NatureTemporelle.SIGNAL
+            1    -> NatureTemporelle.BRUIT
+            else -> NatureTemporelle.INDETERMINE
+        }
+
     companion object {
         const val SEUIL_CONCENTRATION_PCT = 70
     }
 }
+
+enum class NatureTemporelle { SIGNAL, BRUIT, INDETERMINE }
 
 /**
  * Recommandation financière mensuelle complète, calculée à chaque affichage.

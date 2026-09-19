@@ -35,6 +35,7 @@ import com.dibitara.app.presentation.settings.SettingsViewModel
 import com.dibitara.app.presentation.recommandations.RecommandationsScreen
 import com.dibitara.app.presentation.scenarios.ScenariosScreen
 import com.dibitara.app.presentation.scenarios.conseillerpatrimoine.ConseillerPatrimoineScreen
+import com.dibitara.app.presentation.scenarios.independancefinanciere.IndependanceFinanciereScreen
 import com.dibitara.app.presentation.scenarios.logement.ScenarioLogementScreen
 import com.dibitara.app.presentation.trends.TrendsScreen
 
@@ -84,6 +85,7 @@ sealed class Screen(val route: String) {
     data object Scenarios          : Screen("scenarios")
     data object ScenarioLogement   : Screen("scenario_logement")
     data object ConseillerPatrimoine : Screen("conseiller_patrimoine")
+    data object IndependanceFinanciere : Screen("independance_financiere")
 }
 
 // Écrans qui affichent la barre de navigation inférieure
@@ -199,7 +201,8 @@ fun DibitaraNavGraph(
                 ScenariosScreen(
                     onNavigateBack       = { navController.popBackStack() },
                     onNavigateToLogement = { navController.navigate(Screen.ScenarioLogement.route) },
-                    onNavigateToConseillerPatrimoine = { navController.navigate(Screen.ConseillerPatrimoine.route) }
+                    onNavigateToConseillerPatrimoine = { navController.navigate(Screen.ConseillerPatrimoine.route) },
+                    onNavigateToIndependanceFinanciere = { navController.navigate(Screen.IndependanceFinanciere.route) }
                 )
             }
             composable(Screen.ScenarioLogement.route) {
@@ -207,6 +210,9 @@ fun DibitaraNavGraph(
             }
             composable(Screen.ConseillerPatrimoine.route) {
                 ConseillerPatrimoineScreen(onNavigateBack = { navController.popBackStack() })
+            }
+            composable(Screen.IndependanceFinanciere.route) {
+                IndependanceFinanciereScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable(Screen.Trends.route) {
                 TrendsScreen(onNavigateBack = { navController.popBackStack() })
