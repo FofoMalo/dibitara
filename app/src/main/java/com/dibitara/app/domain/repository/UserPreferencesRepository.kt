@@ -36,6 +36,8 @@ interface UserPreferencesRepository {
     suspend fun updateMultipleFICible(multiple: Int)
     /** Hypothèse de rendement annuel (%) pour la projection d'indépendance financière. */
     suspend fun updateRendementFIEspere(pct: Int)
+    /** Enregistre le jour (epoch day) de la dernière alerte "revenu potentiellement incomplet" envoyée. */
+    suspend fun updateDerniereAlerteRevenu(epochDay: Long)
     /** Efface toutes les préférences stockées dans DataStore. */
     suspend fun restaurerPreferences(preferences: UserPreferences)
     suspend fun clearAll()

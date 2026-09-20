@@ -11,6 +11,7 @@ import com.dibitara.app.domain.usecase.CheckBudgetNotificationUseCase
 import com.dibitara.app.domain.usecase.CheckDebtRemindersUseCase
 import com.dibitara.app.domain.usecase.CheckEnveloppeDepassementUseCase
 import com.dibitara.app.domain.usecase.CheckPendingContributionsUseCase
+import com.dibitara.app.domain.usecase.CheckRevenuIncompletUseCase
 import com.dibitara.app.domain.usecase.GenerateRecurringUseCase
 import com.dibitara.app.domain.usecase.GetUserPreferencesUseCase
 import com.dibitara.app.domain.model.ThemeMode
@@ -35,7 +36,7 @@ import android.content.Context
  * Déclenche au démarrage :
  *  1. La migration ponctuelle de la sous-catégorie "Tabac" vers Category.TABAC (idempotente).
  *  2. La génération des transactions récurrentes du mois.
- *  3. Les vérifications de notification (budget, dettes, liquidités).
+ *  3. Les vérifications de notification (budget, dettes, liquidités, revenu incomplet).
  *  4. La planification du snapshot mensuel du patrimoine (inconditionnelle, pas liée à une préférence).
  * Le seuil d'alerte est lu depuis les préférences utilisateur - pas de valeur codée en dur.
  */
@@ -47,6 +48,7 @@ class AppViewModel @Inject constructor(
     private val checkAvailableFunds        : CheckAvailableFundsUseCase,
     private val checkPendingContributions  : CheckPendingContributionsUseCase,
     private val checkEnveloppes            : CheckEnveloppeDepassementUseCase,
+    private val checkRevenuIncomplet       : CheckRevenuIncompletUseCase,
     private val migrerTabac                : MigrerTabacVersCategorieUseCase,
     private val getPreferences             : GetUserPreferencesUseCase,
     private val userPreferencesRepository  : UserPreferencesRepository,
@@ -161,6 +163,17 @@ class AppViewModel @Inject constructor(
                 depenseCents = statut.depenseCents,
                 plafondCents = statut.envelope.plafondCents
             )
+        }
+
+        // 6. Revenu du mois le plus récent anormalement bas vs moyenne 3 mois ? (F5)
+        val revenuIncomplet = checkRevenuIncomplet(today)
+        if (revenuIncomplet != null && prefs.derniereAlerteRevenuEpochDay != aujourdhui) {
+            notificationHelper.envoyerAlerteRevenuIncomplet(
+                mois             = revenuIncomplet.mois,
+                revenuCents      = revenuIncomplet.revenuMoisCents,
+                revenuMoyenCents = revenuIncomplet.revenuMoyenCents
+            )
+            userPreferencesRepository.updateDerniereAlerteRevenu(aujourdhui)
         }
     }
 }

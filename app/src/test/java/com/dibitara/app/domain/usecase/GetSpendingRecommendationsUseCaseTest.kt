@@ -79,6 +79,17 @@ class GetSpendingRecommendationsUseCaseTest {
     }
 
     @Test
+    fun `revenuParMoisCents contient le revenu de chaque mois du plus récent au plus ancien`() = runTest {
+        every { transactionRepo.getByMonth(4, 2026) } returns flowOf(listOf(income(300_000L)))
+        every { transactionRepo.getByMonth(3, 2026) } returns flowOf(listOf(income(200_000L)))
+        every { transactionRepo.getByMonth(2, 2026) } returns flowOf(listOf(income(100_000L)))
+
+        val result = useCase(5, 2026).first()
+
+        assertEquals(listOf(300_000L, 200_000L, 100_000L), result.revenuParMoisCents)
+    }
+
+    @Test
     fun `un virement interne BRED vers TradeRepublic n'inflate pas le revenu moyen`() = runTest {
         val sortantBred = Transaction(
             amountCents = 50_000L, currency = Currency.EUR, category = Category.TRANSFERTS,

@@ -35,12 +35,14 @@ class NotificationHelper @Inject constructor(
         const val CANAL_MENSUEL        = "canal_mensuel"
         const val CANAL_CONTRIBUTIONS  = "canal_contributions"
         const val CANAL_CAPTURE_LIVE   = "canal_capture_live"
+        const val CANAL_REVENU         = "canal_revenu"
 
         private const val NOTIF_ID_BUDGET         = 1001
         private const val NOTIF_ID_FONDS          = 3001
         private const val NOTIF_ID_MENSUEL        = 4001
         const val          NOTIF_ID_CONTRIBUTIONS = 5001
         private const val NOTIF_ID_CAPTURE_LIVE   = 6001
+        private const val NOTIF_ID_REVENU         = 8001
     }
 
     init {
@@ -75,6 +77,10 @@ class NotificationHelper @Inject constructor(
         manager.createNotificationChannel(
             NotificationChannel(CANAL_CAPTURE_LIVE, "Capture live BRED", NotificationManager.IMPORTANCE_LOW)
                 .apply { description = "Confirmation des paiements carte BRED capturés automatiquement" }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CANAL_REVENU, "Revenu incomplet", NotificationManager.IMPORTANCE_DEFAULT)
+                .apply { description = "Alerte quand le revenu d'un mois semble anormalement bas (import manquant probable)" }
         )
     }
 
@@ -227,6 +233,27 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .build()
         envoyerSiAutorise(NOTIF_ID_CAPTURE_LIVE, notification)
+    }
+
+    /**
+     * Alerte quand le revenu du mois analysé le plus récent est anormalement bas par rapport
+     * à la moyenne 3 mois (F5, CADRAGE_INDEPENDANCE_FINANCIERE.md §1/§5) - signale un import
+     * probablement manquant plutôt que d'afficher silencieusement un taux d'épargne dégradé.
+     */
+    fun envoyerAlerteRevenuIncomplet(mois: Int, revenuCents: Long, revenuMoyenCents: Long) {
+        val notification = NotificationCompat.Builder(context, CANAL_REVENU)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Revenu potentiellement incomplet")
+            .setContentText(
+                "${moisComplet(mois)} : ${revenuCents / 100}€ contre ${revenuMoyenCents / 100}€ " +
+                "en moyenne - vérifiez vos imports."
+            )
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(deepLinkPendingIntent("dibitara://settings", NOTIF_ID_REVENU))
+            .setAutoCancel(true)
+            .build()
+
+        envoyerSiAutorise(NOTIF_ID_REVENU, notification)
     }
 
     // ─── Helpers privés ───────────────────────────────────────────────────────

@@ -107,6 +107,7 @@ class GetCapIndependanceFinanciereUseCaseTest {
     private fun buildRecommendation(depensesMoyennesCents: Long) = SpendingRecommendation(
         currency              = Currency.EUR,
         revenuMoyenCents      = 0L,
+        revenuParMoisCents    = emptyList(),
         depensesMoyennesCents = depensesMoyennesCents,
         engagementsMensuels   = 0L,
         tauxEpargneActuelPct  = null,

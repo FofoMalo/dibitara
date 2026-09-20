@@ -168,6 +168,7 @@ class GetSpendingRecommendationsUseCase @Inject constructor(
             SpendingRecommendation(
                 currency              = devise,
                 revenuMoyenCents      = revenuMoyen,
+                revenuParMoisCents    = revenuParMois,
                 depensesMoyennesCents = depensesMoyennesCents,
                 engagementsMensuels   = engagements,
                 tauxEpargneActuelPct  = tauxEpargneActuelPct,

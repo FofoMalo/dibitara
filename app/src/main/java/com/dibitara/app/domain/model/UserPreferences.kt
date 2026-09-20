@@ -30,6 +30,10 @@ package com.dibitara.app.domain.model
  * [rendementFIEsperePct]     : hypothèse de rendement annuel (%) utilisée pour projeter
  *   l'échéance d'indépendance financière - un scénario réglable par l'utilisateur, pas une
  *   donnée mesurée.
+ * [derniereAlerteRevenuEpochDay] : jour (epoch day) de la dernière notification "revenu
+ *   potentiellement incomplet" envoyée - même logique que [derniereAlerteFondsEpochDay]
+ *   (voir [com.dibitara.app.domain.usecase.CheckRevenuIncompletUseCase], F5 du cadrage
+ *   indépendance financière).
  */
 data class UserPreferences(
     val seuilFondsCents: Long = 20_000L,
@@ -51,5 +55,6 @@ data class UserPreferences(
     val derniereAlerteBudgetEpochDay: Long? = null,
     val derniereAlerteDettesEpochDay: Long? = null,
     val multipleFICible: Int = 25,
-    val rendementFIEsperePct: Int = 5
+    val rendementFIEsperePct: Int = 5,
+    val derniereAlerteRevenuEpochDay: Long? = null
 )
