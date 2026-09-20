@@ -9,6 +9,14 @@ décroché après Sprint 2). Voir la convention « bump de version » dans
 
 ---
 
+## 4.15.0 — 2026-09-20
+
+- Indépendance financière : cap (capital cible × multiple réglable) et échéance estimée à partir du patrimoine réel et des versements déjà programmés.
+- Détection de concentration par catégorie et classement signal / bruit des dérives de dépense, avec écran dédié depuis le hub Scénarios.
+- Alerte quand le revenu du mois semble anormalement bas par rapport à la moyenne, en cas d'import probablement manquant.
+- Hiérarchie typographique dédiée (titres, montants, texte explicatif) sur l'écran Indépendance financière.
+- Capture live TradeRepublic étendue aux virements reçus d'un tiers (ex. transferts familiaux), en complément des paiements carte, Roundup et plans d'épargne.
+
 ## 4.14.0 — 2026-09-16
 
 - Suivi d’un ETF depuis un actif libre : valeur, capital investi, gain et calendrier hebdomadaire Trade Republic.
