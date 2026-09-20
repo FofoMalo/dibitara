@@ -19,6 +19,8 @@ import com.dibitara.app.domain.model.CapIndependanceFinanciere
 import com.dibitara.app.domain.model.Currency
 import com.dibitara.app.domain.model.NatureTemporelle
 import com.dibitara.app.domain.model.PocheRecommandee
+import com.dibitara.app.presentation.common.theme.DibitaraType
+import com.dibitara.app.presentation.common.theme.OutfitFamily
 import com.dibitara.app.presentation.common.toCurrencyDisplay
 
 private val Or       = Color(0xFFE6C675)
@@ -36,7 +38,9 @@ fun IndependanceFinanciereScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Indépendance financière") },
+                title = {
+                    Text("Indépendance financière", fontFamily = OutfitFamily, fontWeight = FontWeight.Bold)
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -73,6 +77,7 @@ private fun AucunSnapshotContent(modifier: Modifier = Modifier) {
             "Ouvre l'écran Patrimoine au moins une fois pour créer un premier point de " +
                 "mesure - le cap se base sur cet historique.",
             style = MaterialTheme.typography.bodyMedium,
+            fontFamily = OutfitFamily,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -96,6 +101,7 @@ private fun IndependanceFinanciereContent(
                 "Le cap est calculé sur ta dépense annuelle lissée sur 3 mois - pas sur le " +
                     "dernier mois, qui peut être un accident.",
                 style = MaterialTheme.typography.bodySmall,
+                fontFamily = OutfitFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -106,6 +112,7 @@ private fun IndependanceFinanciereContent(
             Text(
                 "Signal vs bruit — mouvements du budget",
                 style = MaterialTheme.typography.titleSmall,
+                fontFamily = OutfitFamily,
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
@@ -116,6 +123,7 @@ private fun IndependanceFinanciereContent(
                     "« À vérifier » prime sur les deux : une catégorie concentrée sur 1-2 grosses " +
                     "transactions peut imiter l'un ou l'autre sans être fiable.",
                 style = MaterialTheme.typography.bodySmall,
+                fontFamily = OutfitFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -138,20 +146,17 @@ private fun CapCard(cap: CapIndependanceFinanciere) {
             ) {
                 Column {
                     Text(
-                        "Capital cible (${cap.multipleCible}×)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "CAPITAL CIBLE (${cap.multipleCible}×)",
+                        style = DibitaraType.h2
                     )
                     Text(
                         cap.capitalCibleCents.toCurrencyDisplay(cap.currency),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                        style = DibitaraType.montantHero
                     )
                 }
                 Text(
                     "${cap.progressionPct} %",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+                    style = DibitaraType.montantSecondaire,
                     color = Or
                 )
             }
@@ -166,6 +171,7 @@ private fun CapCard(cap: CapIndependanceFinanciere) {
                     "${cap.capitalCibleCents.toCurrencyDisplay(cap.currency)} · dépense lissée " +
                     "${cap.depenseAnnuelleLisseeCents.toCurrencyDisplay(cap.currency)}/an",
                 style = MaterialTheme.typography.bodySmall,
+                fontFamily = OutfitFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -188,8 +194,12 @@ private fun ReglagesCard(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text("Multiple de dépenses (règle des 4 % = 25×)", style = MaterialTheme.typography.bodyMedium)
-                Text("${multiple.toInt()}×", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Multiple de dépenses (règle des 4 % = 25×)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = OutfitFamily
+                )
+                Text("${multiple.toInt()}×", style = DibitaraType.montantInline)
             }
             Slider(
                 value = multiple,
@@ -200,8 +210,12 @@ private fun ReglagesCard(
             )
 
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text("Rendement annuel espéré", style = MaterialTheme.typography.bodyMedium)
-                Text("${rendement.toInt()} %", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Rendement annuel espéré",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = OutfitFamily
+                )
+                Text("${rendement.toInt()} %", style = DibitaraType.montantInline)
             }
             Slider(
                 value = rendement,
@@ -223,11 +237,7 @@ private fun EcheanceCard(cap: CapIndependanceFinanciere) {
         colors = CardDefaults.cardColors(containerColor = Or.copy(alpha = 0.12f))
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                "À ce rythme",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("À CE RYTHME", style = DibitaraType.h2)
             val mois = cap.moisRestantsEstimes
             Text(
                 when {
@@ -236,12 +246,14 @@ private fun EcheanceCard(cap: CapIndependanceFinanciere) {
                     else         -> "Indépendance dans ~${"%.1f".format(mois / 12f)} ans"
                 },
                 style = MaterialTheme.typography.titleLarge,
+                fontFamily = OutfitFamily,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 "${cap.versementMensuelCents.toCurrencyDisplay(cap.currency)}/mois déjà programmés, " +
                     "rendement ${cap.rendementEspereAnnuelPct} % composé — simulation indicative.",
                 style = MaterialTheme.typography.bodySmall,
+                fontFamily = OutfitFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -259,12 +271,13 @@ private fun PocheNatureCard(poche: PocheRecommandee, currency: Currency) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(poche.category.displayName, style = MaterialTheme.typography.titleSmall)
+                Text(poche.category.displayName, style = MaterialTheme.typography.titleSmall, fontFamily = OutfitFamily)
                 NatureBadge(poche)
             }
             Text(
                 "Moyenne 3 mois : ${poche.moyenneCents.toCurrencyDisplay(currency)}",
                 style = MaterialTheme.typography.bodySmall,
+                fontFamily = OutfitFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -278,7 +291,10 @@ private fun NatureBadge(poche: PocheRecommandee) {
     if (poche.aVerifier) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             Icon(Icons.Default.Warning, contentDescription = null, tint = Orange, modifier = Modifier.size(14.dp))
-            Text("À vérifier", style = MaterialTheme.typography.labelSmall, color = Orange, fontWeight = FontWeight.SemiBold)
+            Text(
+                "À vérifier", style = MaterialTheme.typography.labelSmall,
+                fontFamily = OutfitFamily, color = Orange, fontWeight = FontWeight.SemiBold
+            )
         }
         return
     }
@@ -290,6 +306,9 @@ private fun NatureBadge(poche: PocheRecommandee) {
     if (poche.natureTemporelle == NatureTemporelle.INDETERMINE) {
         Icon(Icons.Default.HelpOutline, contentDescription = label, tint = couleur, modifier = Modifier.size(14.dp))
     } else {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = couleur, fontWeight = FontWeight.SemiBold)
+        Text(
+            label, style = MaterialTheme.typography.labelSmall,
+            fontFamily = OutfitFamily, color = couleur, fontWeight = FontWeight.SemiBold
+        )
     }
 }

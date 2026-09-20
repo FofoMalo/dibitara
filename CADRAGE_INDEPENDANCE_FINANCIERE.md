@@ -1,22 +1,36 @@
 # Cadrage — Indépendance financière (Cap FI + Signal / Bruit / Concentration)
 
-> Statut : **F1/F2/F3 LIVRÉS avec écran réel câblé. F4 livrée en version simplifiée**
-> (2026-09-19, non poussé sur origin). Écran `IndependanceFinanciereScreen` (3ᵉ carte
-> du hub Scénarios réel, `presentation/scenarios/independancefinanciere/`) : cap FI +
-> réglages (multiple, rendement) + échéance estimée + liste Signal/Bruit/À vérifier
-> par catégorie. F4 tel que livré : persistance mesurée sur les 3 mois déjà analysés
-> par `GetSpendingRecommendationsUseCase` (3/3 mois = signal, 1/3 = bruit, 2/3 =
+> Statut : **F1 à F5 LIVRÉS** (F1/F2/F3 câblés à l'écran et vérifiés sur device réel par
+> Florent le 2026-09-19 ; F4 en version simplifiée ; F5 ajouté le 2026-09-20). **F6
+> (hiérarchie typographique §6) implémentée sur `IndependanceFinanciereScreen` uniquement**
+> - polices Outfit/JetBrains Mono intégrées en fichiers variables bundlés (`res/font/`,
+> téléchargés depuis `google/fonts` sur GitHub, licence OFL - pas via l'API Google Fonts
+> "Downloadable Fonts", qui nécessite les certificats du provider Play Services non
+> reproduits ici), avec `FontVariation.Settings` explicite par graisse (piège retenu :
+> un fichier de police variable sans `variationSettings` s'affiche dans son instance par
+> défaut - Regular - quelle que soit la graisse déclarée dans le `FontFamily`, silencieux
+> tant qu'on ne compare pas à l'écran). Voir `presentation/common/theme/Fonts.kt`
+> (`OutfitFamily`, `JetBrainsMonoFamily`, `DibitaraType`). Non porté sur le reste de
+> l'app - décision explicite pour rester dans le périmètre de ce cadrage, cf. §6.
+> F5 : `CheckRevenuIncompletUseCase` compare le revenu du mois le plus récent analysé par
+> `GetSpendingRecommendationsUseCase` à sa moyenne 3 mois - alerte si sous 30 % (seuil
+> choisi par Florent), gardée par `derniereAlerteRevenuEpochDay` (même mécanisme que
+> fonds/budget/dettes). Écran `IndependanceFinanciereScreen` (3ᵉ carte du hub Scénarios
+> réel, `presentation/scenarios/independancefinanciere/`) : cap FI + réglages (multiple,
+> rendement) + échéance estimée + liste Signal/Bruit/À vérifier par catégorie. F4 tel que
+> livré : persistance mesurée sur les 3 mois déjà analysés par
+> `GetSpendingRecommendationsUseCase` (3/3 mois = signal, 1/3 = bruit, 2/3 =
 > indéterminé) plutôt qu'une fenêtre glissante indépendante plus longue - voir §4 pour
-> la nuance. Aucune migration Room sur l'ensemble du lot (calculs purs + 2 nouvelles
-> clés `UserPreferences`/DataStore). Build `assembleDebug` généré en local et vérifié -
-> APK jamais installé, aucun contact avec un appareil réel. F5/F6 restent à
-> cadrer/développer séparément.
+> la nuance. Aucune migration Room sur l'ensemble du lot (calculs purs + 3 nouvelles
+> clés `UserPreferences`/DataStore). Build `assembleDebug` généré en local, tests unitaires
+> et lint passants. F1-F4 installés et testés sur device réel par Florent (2026-09-20) ;
+> F5/F6 pas encore testés sur device réel au moment de l'écriture de ce paragraphe.
 > Origine : maquette React (`dibitara-mockup/src/app/screens/IndependanceFinanciereScreen.tsx`,
 > 3ᵉ carte du hub Scénarios) + session de vérification avant/après sur device réel
 > (Fairphone 6, 2026-09-19) ayant révélé deux limites de données réelles qui ont
 > façonné la conception avant le code.
 > Branche cible : `florent/prive`.
-> Date : 2026-09-19 (cadrage, F3, F1/F2, F4 + écran).
+> Date : 2026-09-19 (cadrage, F3, F1/F2, F4 + écran) ; 2026-09-20 (F5 + F6 typographie).
 
 ---
 
@@ -78,8 +92,8 @@ vérifié (concentration/couverture) — sans reproduire les biais du §1.
 | F2 | **LIVRÉ (couche domaine).** Progression + échéance estimée. Révisé en cours de route : utilise le *dernier snapshot connu* + les *versements déjà programmés* (`AnalyserPatrimoineUseCase.versementsProgrammesCents`, réutilisés tels quels) plutôt qu'une extrapolation de tendance sur `patrimoine_snapshots` — l'historique réel est encore trop court (quelques mois) pour une tendance fiable ; les versements programmés existent déjà, testés, dès aujourd'hui | F1, `AnalyserPatrimoineUseCase`, `GetPatrimoineHistoryUseCase` (déjà en base) | — | ~1 j |
 | F3 | **LIVRÉ.** Détection de concentration par catégorie (part du total portée par 1-2 transactions récurrentes) → badge « à vérifier » | Dépenses par catégorie (déjà calculées dans `GetSpendingRecommendationsUseCase`) | — | ~0,5 j |
 | F4 | **LIVRÉ (version simplifiée).** Classification persistance signal/bruit par catégorie | F3 s'exécute **avant** — ne pas classer un artefact de catégorisation comme signal structurel | — | ~1 j |
-| F5 | Alerte couverture revenu (mois anormalement bas vs moyenne 3 mois) | `GetSpendingRecommendationsUseCase` | garde-fou fréquence (réutiliser le mécanisme `derniereAlerte*EpochDay` existant) | ~0,5 j |
-| F6 | Écran dédié (3ᵉ carte du hub Scénarios, déjà maquettée) — réutilise `HeroCard`/`TrendChip`/enveloppes existants | F1-F5 | — | ~0,5 j |
+| F5 | **LIVRÉ.** Alerte couverture revenu : `CheckRevenuIncompletUseCase` compare le revenu du mois le plus récent à la moyenne 3 mois, alerte si < 30 % de la moyenne | `GetSpendingRecommendationsUseCase` | `UserPreferences.derniereAlerteRevenuEpochDay` (garde-fou fréquence, même mécanisme que fonds/budget/dettes) | ~0,5 j |
+| F6 | **Écran déjà livré avec F1-F4** (câblage initial). **Typographie (§6) livrée sur cet écran uniquement**, pas propagée au reste de l'app | F1-F5 | — | ~0,5 j |
 
 ## 4. Décisions d'architecture à trancher
 
@@ -179,6 +193,25 @@ sur l'identité déjà établie par la maquette, soit (b) obtenir le même contr
 seulement par poids/taille/couleur avec la police système, sans levier "police mono
 vs sans-serif". Recommandation : (a), parce que (b) a déjà été tenté à l'usage (le
 constat du tableau ci-dessus) et n'a pas suffi à empêcher la dérive taille par écran.
+
+**TRANCHÉ (2026-09-20), option (a) confirmée par Florent :** fichiers bundlés dans
+`res/font/` (`outfit.ttf`, `jetbrains_mono.ttf`), pas l'API "Downloadable Fonts" du
+provider Google Fonts (aurait nécessité les certificats du provider Play Services,
+non reproduits de mémoire pour éviter un échec silencieux). Fichiers récupérés depuis
+le dépôt officiel `google/fonts` (licence OFL). Ce sont des polices variables (un seul
+fichier, axe `wght`) : `Fonts.kt` définit `OutfitFamily`/`JetBrainsMonoFamily` avec
+`Font(..., variationSettings = FontVariation.Settings(FontVariation.weight(...)))` par
+graisse - sans ce réglage explicite, Android affiche l'instance par défaut du fichier
+(Regular) quelle que soit la graisse déclarée dans le `FontFamily`, un écart invisible
+en relecture de code et détectable seulement à l'écran. `DibitaraType` (même fichier)
+porte l'échelle à 4 niveaux : `h2` (mono, petit, tracking, 50 % d'opacité),
+`montantHero`/`montantSecondaire`/`montantInline` (mono, 3 tailles). H1 et Explicatif
+restent sur les tokens Material3 existants (`titleLarge`, `bodySmall`...) avec juste
+`fontFamily = OutfitFamily` explicite - pas de nouveau token, seule la police change.
+Appliqué à `IndependanceFinanciereScreen` uniquement (périmètre de ce cadrage) ; les
+phrases composites mêlant texte et montant (ex. "X atteints sur Y · dépense lissée Z/an")
+restent en Explicatif complet plutôt que découpées en `AnnotatedString` avec des empans
+montant - simplification assumée, à revoir si Florent la trouve gênante à l'usage.
 
 ## 7. Estimation grosse maille
 
