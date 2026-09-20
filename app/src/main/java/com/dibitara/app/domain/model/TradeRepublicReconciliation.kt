@@ -12,6 +12,7 @@ object TradeRepublicReconciliation {
 
     fun carte(marchand: String): String? = normaliser(marchand).takeIf { it.isNotEmpty() }?.let { "card:$it" }
     fun plan(support: String): String? = normaliser(support).takeIf { it.isNotEmpty() }?.let { "plan:$it" }
+    fun virement(expediteur: String): String? = normaliser(expediteur).takeIf { it.isNotEmpty() }?.let { "virement:$it" }
 
     fun cleHistorique(tx: Transaction): String? = tx.reconciliationKey ?: when {
         tx.importSource != "trade_republic_notification" -> null

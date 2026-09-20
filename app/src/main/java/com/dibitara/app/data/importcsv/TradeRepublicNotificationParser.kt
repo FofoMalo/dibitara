@@ -19,7 +19,13 @@ import kotlin.math.roundToLong
  * du jour ([LocalDate.now]), la notification étant reçue en temps quasi réel à chaque paiement.
  *
  * Roundup et plans exécutés : formats confirmés par la capture du 09/09/2026.
- * Les virements attendent un exemple réel avant d’être reconnus.
+ *
+ * Virement reçu, format confirmé par le log de capture du 16-18/09/2026 :
+ * - "Tu as reçu 200,00 € de EI-MALO NOUMEHAN\nVirement reçu"
+ * Seul le format "reçu d'un tiers" (équivalent notification de CUSTOMER_INBOUND côté CSV,
+ * voir [TradeRepublicCsvParser]) est confirmé - un virement interne BRED→TradeRepublic
+ * produirait probablement le même texte avec le nom de Florent comme expéditeur, non
+ * distingué ici faute d'exemple réel ; à revoir si un faux INCOME apparaît en pratique.
  */
 internal object TradeRepublicNotificationParser {
 
@@ -46,6 +52,14 @@ internal object TradeRepublicNotificationParser {
     )
     private val REGEX_ROUNDUP = Regex(
         """^Vous avez économisé et investi $MONTANT\s*€ dans le Round up\s*!$""",
+        RegexOption.IGNORE_CASE
+    )
+
+    // Pas d'ancrage de fin (^...$) : le champ Android peut ne contenir que cette ligne, ou
+    // cette ligne suivie de "\nVirement reçu" - (.+) s'arrête de toute façon à la fin de ligne
+    // (le "." ne matche pas "\n" par défaut), donc les deux cas sont couverts sans distinction.
+    private val REGEX_VIREMENT_RECU = Regex(
+        """Tu as reçu\s+$MONTANT\s*€\s*de\s+(.+)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -83,6 +97,28 @@ internal object TradeRepublicNotificationParser {
                 ),
                 rawType = nature, importSource = "trade_republic_notification",
                 reconciliationKey = if (plan != null) TradeRepublicReconciliation.plan(plan.groupValues[1]) else "roundup"
+            )
+        }
+
+        val virementRecu = REGEX_VIREMENT_RECU.find(texte)
+        if (virementRecu != null) {
+            val (montantStr, expediteurBrut) = virementRecu.destructured
+            val cents = parseMontantCents(montantStr) ?: return null
+            val expediteur = expediteurBrut.trim()
+
+            return ImportedTransaction(
+                date         = date,
+                amountCents  = cents,
+                currency     = Currency.EUR,
+                category     = Category.AUTRE, // même catégorisation que CUSTOMER_INBOUND côté CSV
+                type         = TransactionType.INCOME,
+                note         = expediteur,
+                externalId   = BredCategoriseur.genererExternalId(
+                    "trade_republic_notification", date, expediteur, cents
+                ),
+                rawType      = "CUSTOMER_INBOUND_NOTIF",
+                importSource = "trade_republic_notification",
+                reconciliationKey = TradeRepublicReconciliation.virement(expediteur)
             )
         }
 

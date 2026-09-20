@@ -32,8 +32,7 @@ private const val NOM_FICHIER_DEBUG = "trade_republic_notif_debug.log"
 
 /**
  * Capture en direct les paiements carte TradeRepublic via les notifications push de l'app
- * officielle, ainsi que les Roundup et plans d’épargne exécutés.
- * Les virements attendent un format réel confirmé.
+ * officielle, ainsi que les Roundup, plans d’épargne exécutés et virements reçus d'un tiers.
  *
  * Même principe que [BredNotificationListenerService] : accès aux notifications à activer
  * manuellement dans les réglages Android (Paramètres → ACTION_NOTIFICATION_LISTENER_SETTINGS),
